@@ -1,0 +1,98 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import vm from 'node:vm';
+import { DatabaseSync } from 'node:sqlite';
+import { webcrypto } from 'node:crypto';
+import { inflateRawSync } from 'node:zlib';
+import ts from 'typescript';
+
+// Exercise the actual route handlers against an isolated SQLite database and
+// test-only secrets. No HTTP server or production data is involved.
+const root = path.resolve(import.meta.dirname, '..');
+const sqlite = new DatabaseSync(':memory:');
+sqlite.exec(await fs.readFile(path.join(root, 'drizzle/0000_slim_the_leader.sql'), 'utf8'));
+function prepared(sql, bindings = []) {
+  return {
+    bind(...args) { return prepared(sql, args); },
+    async first() { return sqlite.prepare(sql).get(...bindings) || null; },
+    async all() { return { results: sqlite.prepare(sql).all(...bindings), success: true }; },
+  };
+}
+const environment = { DB: { prepare: sql => prepared(sql), async batch(statements) { sqlite.exec('BEGIN'); try { const result = []; for (const statement of statements) result.push(await statement.all()); sqlite.exec('COMMIT'); return result; } catch (error) { sqlite.exec('ROLLBACK'); throw error; } } }, SESSION_SECRET: 'test-only-session-secret-with-more-than-32-characters', ADMIN_PASSWORD: 'test-only-not-a-production-password' };
+const context = vm.createContext({ Request, Response, URL, TextEncoder, TextDecoder, Uint8Array, DataView, crypto: webcrypto, btoa, atob, console });
+const cache = new Map();
+const synthetic = (identifier, exports) => new vm.SyntheticModule(Object.keys(exports), function() { for (const [key, value] of Object.entries(exports)) this.setExport(key, value); }, { context, identifier });
+async function load(identifier) {
+  if (cache.has(identifier)) return cache.get(identifier);
+  let module;
+  if (identifier === 'cloudflare:workers') module = synthetic(identifier, { env: environment });
+  else if (identifier === 'node:zlib') module = synthetic(identifier, { inflateRawSync });
+  else if (identifier.endsWith('.json')) module = synthetic(identifier, { default: JSON.parse(await fs.readFile(identifier, 'utf8')) });
+  else {
+    const source = await fs.readFile(identifier, 'utf8');
+    const code = identifier.endsWith('.ts') ? ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 } }).outputText : source;
+    module = new vm.SourceTextModule(code, { context, identifier });
+  }
+  cache.set(identifier, module); return module;
+}
+const module = await load(path.join(root, 'app/api/[...path]/route.ts'));
+await module.link(async (specifier, reference) => {
+  let identifier = specifier.startsWith('.') ? path.resolve(path.dirname(reference.identifier), specifier) : specifier;
+  if (specifier.startsWith('.') && !path.extname(identifier)) identifier += '.ts';
+  return load(identifier);
+});
+await module.evaluate();
+const endpoint = module.namespace;
+async function request(url, { method = 'GET', cookie = '', body, origin = 'https://budget.test', ip = 'test' } = {}) {
+  const headers = { cookie, 'cf-connecting-ip': ip };
+  if (method === 'POST') { headers.origin = origin; headers['content-type'] = 'application/json'; }
+  const req = new Request('https://budget.test' + url, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+  return endpoint[method](req);
+}
+const cookieFrom = response => response.headers.get('set-cookie').split(';')[0];
+const item = (quantity, comment = '') => ({ id: 's1-r10', quantity, comment });
+assert.equal((await request('/api/admin/responses')).status, 401);
+assert.equal((await request('/api/admin/export')).status, 401);
+assert.equal((await request('/api/submit', { method: 'POST', body: { agency: 'Agence A', items: [item(1)] } })).status, 401);
+
+const sessionA = await request('/api/session'), cookieA = cookieFrom(sessionA);
+assert.match(sessionA.headers.get('set-cookie'), /HttpOnly/);
+assert.match(sessionA.headers.get('set-cookie'), /SameSite=Strict/);
+assert.match(sessionA.headers.get('set-cookie'), /Secure/);
+assert.equal((await request('/api/submit', { method: 'POST', cookie: cookieA, origin: 'https://other.test', body: { agency: 'Agence Settat', items: [item(3)] } })).status, 403);
+assert.equal((await request('/api/submit', { method: 'POST', cookie: cookieA, body: { agency: 'Agence Settat', items: [item(-1)] } })).status, 400);
+assert.equal((await request('/api/submit', { method: 'POST', cookie: cookieA, body: { agency: 'Agence Settat', items: [item(3, 'Remplacement <HS>')] } })).status, 200);
+assert.equal((await request('/api/submit', { method: 'POST', cookie: cookieA, body: { agency: 'Agence Settat', items: [item(4, 'Demande mise à jour')] } })).status, 200);
+assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM submissions').get().n, 1, 'An update must not duplicate an agency');
+const own = await (await request('/api/session', { cookie: cookieA })).json();
+assert.equal(own.submission.items[0].quantity, 4);
+const cookieB = cookieFrom(await request('/api/session'));
+assert.equal((await request('/api/submit', { method: 'POST', cookie: cookieB, body: { agency: 'AGENCE SÉTTAT', items: [item(99)] } })).status, 409);
+assert.equal((await request('/api/submit', { method: 'POST', cookie: cookieB, body: { agency: 'Agence Casablanca', items: [item(2, 'Nouveau besoin')] } })).status, 200);
+const other = await (await request('/api/session', { cookie: cookieB })).json();
+assert.equal(other.submission.agency, 'Agence Casablanca');
+assert.equal((await request('/api/submit', { method: 'POST', cookie: cookieA.slice(0, -1) + 'X', body: { agency: 'Agence Intruse', items: [item(1)] } })).status, 401);
+assert.equal((await request('/api/admin/login', { method: 'POST', body: { password: 'wrong' } })).status, 401);
+const login = await request('/api/admin/login', { method: 'POST', body: { password: environment.ADMIN_PASSWORD } });
+assert.equal(login.status, 200);
+const adminCookie = cookieFrom(login);
+const list = await (await request('/api/admin/responses', { cookie: adminCookie })).json();
+assert.equal(list.responses.length, 2);
+const file = await request('/api/admin/export', { cookie: adminCookie });
+assert.equal(file.status, 200);
+assert.equal(file.headers.get('content-type'), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+const bytes = new Uint8Array(await file.arrayBuffer());
+assert.equal(new DataView(bytes.buffer).getUint32(0, true), 0x04034b50);
+const text = new TextDecoder().decode(bytes);
+assert.match(text, /r="H10"[^>]*><v>6<\/v>/);
+assert.match(text, /Agence Settat : 4 — Demande mise à jour/);
+assert.match(text, /Agence Casablanca : 2 — Nouveau besoin/);
+const single = await request('/api/admin/export?agency=' + encodeURIComponent(list.responses.find(row => row.agency === 'Agence Settat').id), { cookie: adminCookie });
+assert.match(new TextDecoder().decode(await single.arrayBuffer()), /r="H10"[^>]*><v>4<\/v>/);
+assert.equal((await request('/api/admin/export?agency=missing', { cookie: adminCookie })).status, 404);
+assert.equal((await request('/api/admin/responses', { cookie: adminCookie.slice(0, -1) + 'X' })).status, 401);
+for (let attempt = 0; attempt < 10; attempt++) assert.equal((await request('/api/admin/login', { method: 'POST', ip: 'bruteforce', body: { password: 'wrong' } })).status, 401);
+assert.equal((await request('/api/admin/login', { method: 'POST', ip: 'bruteforce', body: { password: environment.ADMIN_PASSWORD } })).status, 429);
+sqlite.close();
+console.log('PASS: routes, cookies signés, sessions séparées, anti-doublon, remplacement atomique, accès privé, export consolidé/par agence, protection contre les essais répétés.');
