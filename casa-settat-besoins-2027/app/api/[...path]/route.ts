@@ -65,6 +65,15 @@ async function handle(request: Request) {
   }
   if (path.startsWith("/api/admin/")) {
     if (!(await isAdmin(request))) return json({ error: "Accès réservé au coordinateur." }, 401);
+    if (request.method === "POST" && path === "/api/admin/delete") {
+      const text = await request.text();
+      if (text.length > 1000) return json({ error: "La demande de suppression est invalide." }, 400);
+      const body = JSON.parse(text);
+      if (!body || typeof body.id !== "string" || body.id.length > 80 || typeof body.updatedAt !== "string" || body.updatedAt.length > 40) return json({ error: "La demande de suppression est invalide." }, 400);
+      const removed = await db().prepare("DELETE FROM submissions WHERE id = ? AND updated_at = ? RETURNING id, agency").bind(body.id, body.updatedAt).first<{ id: string; agency: string }>();
+      if (!removed) return json({ error: "Cette demande a été modifiée ou supprimée. Actualisez la liste avant de recommencer." }, 409);
+      return json({ ok: true, id: removed.id, agency: removed.agency });
+    }
     const rows = await db().prepare("SELECT id, agency, payload, created_at, updated_at FROM submissions ORDER BY agency COLLATE NOCASE").all<Row>();
     const responses = rows.results.map(responseRow);
     if (request.method === "GET" && path === "/api/admin/responses") return json({ responses });
