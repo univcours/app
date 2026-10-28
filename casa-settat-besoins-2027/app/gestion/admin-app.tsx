@@ -5,6 +5,7 @@ import { ArrowLeft, ArrowRight, Building2, Check, ChevronDown, ClipboardList, Do
 import catalog from "../../lib/catalog.json";
 import { Footer, Header, formatDate } from "../components";
 import DeleteDialog from "./delete-dialog";
+import { apiFetch, formPath } from "../../lib/api-client";
 
 type Submission = { id: string; agency: string; items: { id: string; quantity: number; comment: string }[]; createdAt: string; updatedAt: string };
 
@@ -25,7 +26,7 @@ export default function AdminApp() {
   async function load() {
     setLoading(true); setError("");
     try {
-      const response = await fetch("/api/admin/responses", { cache: "no-store" });
+      const response = await apiFetch("/api/admin/responses", { cache: "no-store" });
       if (response.status === 401) { setAuthenticated(false); return; }
       const data = await response.json() as { error?: string; responses: Submission[] };
       if (!response.ok) throw new Error(data.error);
@@ -37,7 +38,7 @@ export default function AdminApp() {
   async function login(event: React.FormEvent) {
     event.preventDefault(); setBusy(true); setError("");
     try {
-      const response = await fetch("/api/admin/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password }) });
+      const response = await apiFetch("/api/admin/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password }) });
       const data = await response.json() as { error?: string };
       if (!response.ok) throw new Error(data.error);
       setPassword(""); await load();
@@ -47,7 +48,7 @@ export default function AdminApp() {
   async function download() {
     setBusy(true); setError("");
     try {
-      const response = await fetch(`/api/admin/export${exportAgency ? '?agency=' + encodeURIComponent(exportAgency) : ''}`, { cache: "no-store" });
+      const response = await apiFetch(`/api/admin/export${exportAgency ? '?agency=' + encodeURIComponent(exportAgency) : ''}`, { cache: "no-store" });
       if (!response.ok) { const data = await response.json() as { error?: string }; if (response.status === 401) setAuthenticated(false); throw new Error(data.error); }
       const blob = await response.blob(), url = URL.createObjectURL(blob), link = document.createElement("a");
       link.href = url; link.download = /filename="([^"]+)"/.exec(response.headers.get("content-disposition") || "")?.[1] || "Besoins_2027.xlsx";
@@ -55,12 +56,12 @@ export default function AdminApp() {
     } catch (problem) { setError(problem instanceof Error ? problem.message : "Téléchargement impossible."); }
     finally { setBusy(false); }
   }
-  async function copyLink() { try { await navigator.clipboard.writeText(window.location.origin + "/"); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch { setError("Le lien du formulaire est l’adresse du site sans /gestion."); } }
+  async function copyLink() { try { await navigator.clipboard.writeText(window.location.origin + formPath); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch { setError("Le lien du formulaire est l’adresse du site sans les paramètres de gestion."); } }
   async function removeAgency() {
     if (!deleteTarget || busy) return;
     setBusy(true); setError(""); setFeedback("");
     try {
-      const response = await fetch("/api/admin/delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: deleteTarget.id, updatedAt: deleteTarget.updatedAt }) });
+      const response = await apiFetch("/api/admin/delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: deleteTarget.id, updatedAt: deleteTarget.updatedAt }) });
       const data = await response.json() as { error?: string; id: string; agency: string };
       if (!response.ok) { if (response.status === 401) setAuthenticated(false); throw new Error(data.error || "La suppression a échoué."); }
       setResponses(previous => previous.filter(row => row.id !== data.id));
@@ -73,8 +74,8 @@ export default function AdminApp() {
 
   const visible = responses.filter(response => response.agency.toLowerCase().includes(filter.toLowerCase()));
   const latest = responses.reduce((date, response) => response.updatedAt > date ? response.updatedAt : date, "");
-  return <><Header admin/><main className="admin-main">{!authenticated ? <section className="admin-login"><a className="back-link" href="/"><ArrowLeft size={15}/>Retour au formulaire</a><span className="soft-icon"><LockKeyhole size={26}/></span><span className="eyebrow muted">ACCÈS RÉSERVÉ</span><h1>Espace coordinateur</h1><p>Consultez les demandes des agences et téléchargez le fichier Excel consolidé.</p><form onSubmit={login}><label htmlFor="admin-password">Mot de passe</label><input id="admin-password" type="password" autoComplete="current-password" required maxLength={200} placeholder="Votre mot de passe coordinateur" value={password} onChange={event => setPassword(event.target.value)}/>{error && <div className="error-message" role="alert">{error}</div>}<button type="submit" className="button primary full" disabled={busy || loading}>{busy || loading ? <LoaderCircle className="spin" size={18}/> : <>Ouvrir l’espace coordinateur<ArrowRight size={17}/></>}</button></form><span className="login-footnote"><ShieldCheck size={15}/>Les demandes et l’export sont protégés.</span></section> : <>
-    <div className="workspace-title"><div><span className="eyebrow muted">DR CASABLANCA-SETTAT · BUDGET 2027</span><h1>Les besoins, réunis.</h1><p>Toutes les demandes des agences dans votre modèle Excel d’origine.</p></div><div className="admin-header-actions"><button className="button secondary" onClick={() => void copyLink()}>{copied ? <Check size={16}/> : <Link2 size={16}/>} {copied ? "Lien copié" : "Lien du formulaire"}</button><button aria-label="Se déconnecter" title="Se déconnecter" className="icon-button" onClick={async () => { await fetch("/api/admin/logout", { method: "POST" }); setAuthenticated(false); setResponses([]); }}><LogOut size={19}/></button></div></div>
+  return <><Header admin/><main className="admin-main">{!authenticated ? <section className="admin-login"><a className="back-link" href={formPath}><ArrowLeft size={15}/>Retour au formulaire</a><span className="soft-icon"><LockKeyhole size={26}/></span><span className="eyebrow muted">ACCÈS RÉSERVÉ</span><h1>Espace coordinateur</h1><p>Consultez les demandes des agences et téléchargez le fichier Excel consolidé.</p><form onSubmit={login}><label htmlFor="admin-password">Mot de passe</label><input id="admin-password" type="password" autoComplete="current-password" required maxLength={200} placeholder="Votre mot de passe coordinateur" value={password} onChange={event => setPassword(event.target.value)}/>{error && <div className="error-message" role="alert">{error}</div>}<button type="submit" className="button primary full" disabled={busy || loading}>{busy || loading ? <LoaderCircle className="spin" size={18}/> : <>Ouvrir l’espace coordinateur<ArrowRight size={17}/></>}</button></form><span className="login-footnote"><ShieldCheck size={15}/>Les demandes et l’export sont protégés.</span></section> : <>
+    <div className="workspace-title"><div><span className="eyebrow muted">DR CASABLANCA-SETTAT · BUDGET 2027</span><h1>Les besoins, réunis.</h1><p>Toutes les demandes des agences dans votre modèle Excel d’origine.</p></div><div className="admin-header-actions"><button className="button secondary" onClick={() => void copyLink()}>{copied ? <Check size={16}/> : <Link2 size={16}/>} {copied ? "Lien copié" : "Lien du formulaire"}</button><button aria-label="Se déconnecter" title="Se déconnecter" className="icon-button" onClick={async () => { await apiFetch("/api/admin/logout", { method: "POST" }); setAuthenticated(false); setResponses([]); }}><LogOut size={19}/></button></div></div>
     <div className="admin-stats"><div><span className="soft-icon small"><Building2 size={20}/></span><span><strong>{responses.length}</strong><small>Agences participantes</small></span></div><div><span className="soft-icon small"><ClipboardList size={20}/></span><span><strong>{responses.reduce((sum, response) => sum + response.items.length, 0)}</strong><small>Lignes de besoins reçues</small></span></div><div><span className="soft-icon small"><FileSpreadsheet size={20}/></span><span><strong>2 feuilles</strong><small>Modèle Excel conservé</small></span></div></div>
     <section className="export-card"><div><span className="eyebrow">EXPORT EXCEL</span><h2>Votre fichier, prêt à télécharger.</h2><p>Les quantités sont additionnées par équipement. Chaque commentaire détaille l’agence, la quantité et les précisions transmises.</p></div><div className="export-controls"><label htmlFor="export-agency">Périmètre de l’export</label><select id="export-agency" value={exportAgency} onChange={event => setExportAgency(event.target.value)}><option value="">Toutes les agences · consolidé</option>{responses.map(response => <option key={response.id} value={response.id}>{response.agency}</option>)}</select><button className="button export-button" disabled={busy || !responses.length} onClick={() => void download()}>{busy ? <LoaderCircle className="spin" size={18}/> : <Download size={18}/>}Télécharger le fichier Excel</button></div></section>
     {error && <div className="error-message" role="alert">{error}</div>}

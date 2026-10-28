@@ -19,7 +19,7 @@ function prepared(sql, bindings = []) {
     async all() { return { results: sqlite.prepare(sql).all(...bindings), success: true }; },
   };
 }
-const environment = { DB: { prepare: sql => prepared(sql), async batch(statements) { sqlite.exec('BEGIN'); try { const result = []; for (const statement of statements) result.push(await statement.all()); sqlite.exec('COMMIT'); return result; } catch (error) { sqlite.exec('ROLLBACK'); throw error; } } }, SESSION_SECRET: 'test-only-session-secret-with-more-than-32-characters', ADMIN_PASSWORD: 'test-only-not-a-production-password' };
+const environment = { DB: { prepare: sql => prepared(sql), async batch(statements) { sqlite.exec('BEGIN'); try { const result = []; for (const statement of statements) result.push(await statement.all()); sqlite.exec('COMMIT'); return result; } catch (error) { sqlite.exec('ROLLBACK'); throw error; } } }, SESSION_SECRET: 'test-only-session-secret-with-more-than-32-characters', ADMIN_PASSWORD: 'test-only-not-a-production-password', PUBLIC_WEB_ORIGIN: 'https://univcours.github.io' };
 const context = vm.createContext({ Request, Response, URL, TextEncoder, TextDecoder, Uint8Array, DataView, crypto: webcrypto, btoa, atob, console });
 const cache = new Map();
 const synthetic = (identifier, exports) => new vm.SyntheticModule(Object.keys(exports), function() { for (const [key, value] of Object.entries(exports)) this.setExport(key, value); }, { context, identifier });
@@ -44,9 +44,11 @@ await module.link(async (specifier, reference) => {
 });
 await module.evaluate();
 const endpoint = module.namespace;
-async function request(url, { method = 'GET', cookie = '', body, origin = 'https://budget.test', ip = 'test' } = {}) {
+async function request(url, { method = 'GET', cookie = '', body, origin = 'https://budget.test', ip = 'test', authorization = '' } = {}) {
   const headers = { cookie, 'cf-connecting-ip': ip };
-  if (method === 'POST') { headers.origin = origin; headers['content-type'] = 'application/json'; }
+  if (origin) headers.origin = origin;
+  if (authorization) headers.authorization = authorization;
+  if (method === 'POST') headers['content-type'] = 'application/json';
   const req = new Request('https://budget.test' + url, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
   return endpoint[method](req);
 }
@@ -110,6 +112,39 @@ const remaining = afterDelete.responses[0];
 assert.equal((await request('/api/admin/delete', { method: 'POST', cookie: adminCookie, body: { id: remaining.id, updatedAt: remaining.updatedAt } })).status, 200);
 assert.equal((await request('/api/admin/export', { cookie: adminCookie })).status, 404, 'An empty collection must not export deleted data');
 assert.equal((await request('/api/submit', { method: 'POST', cookie: cookieB, body: { agency: 'Agence Settat', items: [item(1, 'Nouvelle demande après suppression')] } })).status, 200, 'A removed agency can submit again');
+const webOrigin = environment.PUBLIC_WEB_ORIGIN;
+const preflight = await request('/api/submit', { method: 'OPTIONS', origin: webOrigin });
+assert.equal(preflight.status, 204);
+assert.equal(preflight.headers.get('access-control-allow-origin'), webOrigin);
+assert.equal((await request('/api/session', { method: 'OPTIONS', origin: 'https://evil.test' })).status, 403);
+const evil = await request('/api/session', { origin: 'https://univcours.github.io.evil.test' });
+assert.equal(evil.status, 403);
+assert.equal(evil.headers.get('access-control-allow-origin'), null);
+const webSessionResponse = await request('/api/session', { origin: webOrigin });
+assert.equal(webSessionResponse.headers.get('access-control-allow-origin'), webOrigin);
+const webSession = await webSessionResponse.json();
+assert.ok(webSession.participantToken);
+const webAuth = 'Bearer ' + webSession.participantToken;
+assert.equal((await request('/api/submit', { method: 'POST', origin: webOrigin, authorization: webAuth, body: { agency: 'Agence GitHub', items: [item(7, 'Saisie depuis GitHub Pages')] } })).status, 200);
+const restoredWeb = await (await request('/api/session', { origin: webOrigin, authorization: webAuth })).json();
+assert.equal(restoredWeb.submission.agency, 'Agence GitHub');
+assert.equal((await request('/api/admin/responses', { origin: webOrigin, authorization: webAuth })).status, 401, 'A participant bearer token cannot authorize an admin operation');
+assert.equal((await request('/api/admin/responses', { origin: webOrigin, cookie: adminCookie })).status, 401, 'Cross-origin calls do not inherit cookie-based admin access');
+const webLogin = await request('/api/admin/login', { method: 'POST', origin: webOrigin, ip: 'web-admin', body: { password: environment.ADMIN_PASSWORD } });
+const webAdmin = await webLogin.json();
+assert.ok(webAdmin.adminToken);
+const webAdminAuth = 'Bearer ' + webAdmin.adminToken;
+const webList = await (await request('/api/admin/responses', { origin: webOrigin, authorization: webAdminAuth })).json();
+assert.ok(webList.responses.some(row => row.agency === 'Agence GitHub'));
+const webExport = await request('/api/admin/export', { origin: webOrigin, authorization: webAdminAuth });
+assert.equal(webExport.status, 200);
+assert.equal(webExport.headers.get('access-control-expose-headers'), 'Content-Disposition');
+assert.match(new TextDecoder().decode(await webExport.arrayBuffer()), /Agence GitHub : 7 — Saisie depuis GitHub Pages/);
+assert.equal((await request('/api/admin/responses', { origin: 'https://evil.test', authorization: webAdminAuth })).status, 403, 'A valid token still cannot be used from an unapproved browser origin');
+const githubRow = webList.responses.find(row => row.agency === 'Agence GitHub');
+assert.equal((await request('/api/admin/delete', { method: 'POST', origin: webOrigin, authorization: webAdminAuth, body: { id: githubRow.id, updatedAt: githubRow.updatedAt } })).status, 200);
+const nativeSession = await (await request('/api/session', { cookie: cookieA })).json();
+assert.equal(nativeSession.participantToken, undefined, 'The native site must not expose cookie sessions to its client JavaScript');
 for (let attempt = 0; attempt < 10; attempt++) assert.equal((await request('/api/admin/login', { method: 'POST', ip: 'bruteforce', body: { password: 'wrong' } })).status, 401);
 assert.equal((await request('/api/admin/login', { method: 'POST', ip: 'bruteforce', body: { password: environment.ADMIN_PASSWORD } })).status, 429);
 sqlite.close();

@@ -7,6 +7,7 @@ import { Footer, Header, formatDate } from "./components";
 import { draftSnapshot, submittedSnapshot, UNSENT_AR, UNSENT_FR } from "../lib/form-state.mjs";
 import { useUnsentWarning } from "./use-unsent-warning";
 import ExitWarning from "./exit-warning";
+import { apiFetch } from "../lib/api-client";
 
 type Value = { quantity: string; comment: string };
 type Values = Record<string, Value>;
@@ -46,7 +47,7 @@ export default function NeedsApp() {
   async function initialize(restore = true) {
     setSessionError("");
     try {
-      const response = await fetch("/api/session", { cache: "no-store" });
+      const response = await apiFetch("/api/session", { cache: "no-store" });
       const data = await response.json() as SessionResponse;
       if (!response.ok) throw new Error(data.error);
       setReady(true);
@@ -131,7 +132,7 @@ export default function NeedsApp() {
     if (!validate()) { setReview(false); return; }
     setBusy(true); setError("");
     try {
-      const response = await fetch("/api/submit", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ agency, items: selected.map(item => ({ id: item.id, quantity: quantity(values[item.id].quantity), comment: values[item.id].comment })) }) });
+      const response = await apiFetch("/api/submit", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ agency, items: selected.map(item => ({ id: item.id, quantity: quantity(values[item.id].quantity), comment: values[item.id].comment })) }) });
       const result = await response.json() as { error?: string; id: string; updatedAt: string };
       if (!response.ok) throw new Error(result.error || "L’envoi a échoué. Réessayez.");
       setSentSnapshot(snapshot); setReceipt({ id: result.id, updatedAt: result.updatedAt }); setReview(false); setSuccess(true); window.scrollTo({ top: 0, behavior: "smooth" });

@@ -3,7 +3,7 @@ import catalog from "../../../lib/catalog.json";
 import template from "../../../lib/excel-template.json";
 import { InputError, validateSubmission } from "../../../lib/validation.mjs";
 import { exportWorkbook } from "../../../lib/excel.mjs";
-import { cookieHeader, digest, equalSecret, readToken, sameOrigin, signToken } from "../../../lib/security";
+import { cookieHeader, digest, equalSecret, readToken, sameOrigin, signToken, trustedWebOrigin } from "../../../lib/security";
 
 export const dynamic = "force-dynamic";
 type Item = { id: string; quantity: number; comment: string };
@@ -16,7 +16,8 @@ async function isAdmin(request: Request) { return !!(await readToken(request, "b
 
 async function handle(request: Request) {
   const path = new URL(request.url).pathname;
-  if (request.method === "POST" && !sameOrigin(request)) return json({ error: "Cette demande doit être envoyée depuis le formulaire." }, 403);
+  if (request.headers.has("origin") && !sameOrigin(request) && !trustedWebOrigin(request)) return json({ error: "Origine non autorisée." }, 403);
+  if (request.method === "POST" && !sameOrigin(request) && !trustedWebOrigin(request)) return json({ error: "Cette demande doit être envoyée depuis le formulaire." }, 403);
   if (request.method === "POST" && Number(request.headers.get("content-length") || 0) > 400000) return json({ error: "La demande est trop volumineuse." }, 413);
   if (request.method === "GET" && path === "/api/session") {
     let session = await readToken(request, "budget_participant", "participant");
@@ -26,7 +27,8 @@ async function handle(request: Request) {
       headers["Set-Cookie"] = cookieHeader(request, "budget_participant", await signToken("participant", session, 31536000), 31536000);
     }
     const owned = await db().prepare("SELECT id, agency, payload, created_at, updated_at FROM submissions WHERE session_hash = ? ORDER BY updated_at DESC LIMIT 1").bind(await digest(session)).first<Row>();
-    return json({ ready: true, admin: await isAdmin(request), submission: owned ? responseRow(owned) : null }, 200, headers);
+    const participantToken = trustedWebOrigin(request) ? await signToken("participant", session, 31536000) : undefined;
+    return json({ ready: true, admin: await isAdmin(request), submission: owned ? responseRow(owned) : null, participantToken }, 200, headers);
   }
   if (request.method === "POST" && path === "/api/submit") {
     const session = await readToken(request, "budget_participant", "participant");
@@ -58,7 +60,8 @@ async function handle(request: Request) {
       db().prepare("DELETE FROM login_attempts WHERE key = ?").bind(attemptKey),
       db().prepare("DELETE FROM login_attempts WHERE expires_at < ?").bind(Date.now()),
     ]);
-    return json({ ok: true }, 200, { "Set-Cookie": cookieHeader(request, "budget_admin", await signToken("admin", crypto.randomUUID(), 28800), 28800) });
+    const token = await signToken("admin", crypto.randomUUID(), 28800);
+    return json({ ok: true, adminToken: trustedWebOrigin(request) ? token : undefined }, 200, { "Set-Cookie": cookieHeader(request, "budget_admin", token, 28800) });
   }
   if (request.method === "POST" && path === "/api/admin/logout") {
     return json({ ok: true }, 200, { "Set-Cookie": cookieHeader(request, "budget_admin", "", 0) });
@@ -90,12 +93,25 @@ async function handle(request: Request) {
 }
 
 async function endpoint(request: Request) {
-  try { return await handle(request); }
+  const cors = trustedWebOrigin(request);
+  function withCors(response: Response) {
+    if (cors) {
+      response.headers.set("Access-Control-Allow-Origin", request.headers.get("origin")!);
+      response.headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+      response.headers.set("Access-Control-Allow-Headers", "Authorization, Content-Type");
+      response.headers.set("Access-Control-Expose-Headers", "Content-Disposition");
+      response.headers.set("Vary", "Origin");
+    }
+    return response;
+  }
+  if (request.method === "OPTIONS") return cors ? withCors(new Response(null, { status: 204 })) : json({ error: "Origine non autorisée." }, 403);
+  try { return withCors(await handle(request)); }
   catch (error) {
-    if (error instanceof InputError || error instanceof SyntaxError) return json({ error: error instanceof SyntaxError ? "La demande est invalide." : error.message }, 400);
+    if (error instanceof InputError || error instanceof SyntaxError) return withCors(json({ error: error instanceof SyntaxError ? "La demande est invalide." : error.message }, 400));
     console.error("Budget request failed", error instanceof Error ? error.message : "Unknown error");
-    return json({ error: error instanceof Error && error.message.includes("limite Excel") ? error.message : "Le service est momentanément indisponible. Vos saisies sont conservées dans ce navigateur. Réessayez dans un instant." }, 503);
+    return withCors(json({ error: error instanceof Error && error.message.includes("limite Excel") ? error.message : "Le service est momentanément indisponible. Vos saisies sont conservées dans ce navigateur. Réessayez dans un instant." }, 503));
   }
 }
 export const GET = endpoint;
 export const POST = endpoint;
+export const OPTIONS = endpoint;

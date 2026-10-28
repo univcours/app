@@ -29,7 +29,11 @@ export async function signToken(kind: string, value: string, maxAge: number) {
   return `${data}.${await signature(data)}`;
 }
 export async function readToken(request: Request, name: string, kind: string) {
-  const token = cookieValue(request, name);
+  // The GitHub Pages client uses the same signed sessions over an explicitly
+  // allowed origin, without depending on third-party cookies.
+  const token = trustedWebOrigin(request)
+    ? /^Bearer ([A-Za-z0-9_.-]+)$/.exec(request.headers.get("authorization") || "")?.[1]
+    : cookieValue(request, name);
   if (!token || token.length > 1500) return null;
   const [data, signed, extra] = token.split(".");
   if (!data || !signed || extra || !(await equalSecret(signed, await signature(data)))) return null;
@@ -48,4 +52,8 @@ export function sameOrigin(request: Request) {
   const target = new URL(request.url);
   // Preview and hosted dispatch both preserve the browser's host.
   return origin === target.origin;
+}
+export function trustedWebOrigin(request: Request) {
+  const origin = request.headers.get("origin");
+  return !!env.PUBLIC_WEB_ORIGIN && origin === env.PUBLIC_WEB_ORIGIN;
 }
