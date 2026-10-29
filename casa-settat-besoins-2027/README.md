@@ -64,6 +64,14 @@ Dans l'espace coordinateur du comptage mensuel, « Agences à compléter » comp
 
 Les classeurs utilisés pour les quatre opérations contiennent systématiquement les deux en-têtes **CAB** (code-barres) et **NomAgence** (agence de destination). Le lecteur identifie automatiquement ces colonnes et leur ligne d'en-tête, quelle que soit leur position dans la feuille. Il reconnaît notamment `CAB`/`cab` et `NomAgence`/`Nom agence`/`NOM_AGENCE`/`NomAgence,n`. Si plusieurs feuilles existent, il sélectionne celle contenant les deux en-têtes. Les sélecteurs techniques de colonnes sont masqués lorsqu'elles sont reconnues, mais restent accessibles si l'en-tête du fichier est inhabituel. Les règles de rattachement des agences restent inchangées.
 
+### Contrôle nominatif, Bouclés et bilan Excel
+
+Dans les quatre opérations, l'agent saisit **Nom et prénom de l'agent** avant d'ouvrir les CAB de son agence. Chaque chargement réussi crée une ligne dans `controle_access_log` : agence, opération, nom déclaré, heure et nombre de CAB visibles. Le coordinateur voit **qui a ouvert la liste** (dernier agent + horodatage) et peut cliquer **Voir les CAB** pour retrouver les consultations nominatives récentes. Cette identification reste **déclarative** : aucun mot de passe individuel ne vérifie réellement l'identité.
+
+Le suivi présente par agence les **Bouclés**, **Restants**, **Anomalies** (et leurs observations), les noms des agents ayant validé chaque CAB et leurs dates. Le bouton **Télécharger le bilan complet (Excel)** produit un classeur de six feuilles : `Synthèse`, chacune des quatre opérations, et `Consultations`, couvrant toutes les agences. Une réimportation d'un CAB déjà `OK` dans la même agence et opération conserve l'ancien contrôle et lui affiche **Déjà notifié**.
+
+Migrations **additives** `0005_agences_et_reimport.sql` (agences dynamiques, détection de réimport) et `0006_controle_identification.sql` (journal nominatif, agent de validation) nécessaires en complément de `0002` à `0004`. Les nouvelles données ne remontent que lorsque ces migrations et le serveur sont **déployés sur l'API réellement utilisée**. Les anciennes statistiques d'ouverture restent disponibles, mais elles ne peuvent pas reconstituer rétroactivement des noms d'agents jamais collectés.
+
 ## Contrôle opérationnel des codes-barres
 
 La même page `/app/besoin2027/controle.html` propose **quatre opérations** en français : **Bouclage AM**, **Notification des envois enregistrés**, **Notification des envois recommandés** et **HDG**. Le coordinateur sélectionne l'opération et, dans un sélecteur `Type d’importation`, choisit entre :
