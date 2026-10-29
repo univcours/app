@@ -60,6 +60,10 @@ Vérification du module : `node scripts/test-comptage.mjs` et `node --experiment
 Dans l'espace coordinateur du comptage mensuel, « Agences à compléter » compare les envois du **mois sélectionné** aux **49 agences autorisées** et aux dates du canevas (`templateDates`). Une agence sans aucun envoi est toujours affichée ; une agence ayant plusieurs tournées transmises apparaît si au moins une de ces tournées a des dates non saisies. Cliquer sur l'agence affiche les dates manquantes, regroupées par « Tournée N°: ». Un zéro saisi est une journée renseignée ; une ligne sans valeur ne l'est pas. Les dates futures sont « non encore saisies », pas des retards. Les tournées jamais transmises ne peuvent pas être déduites. Aucune migration ou suppression des saisies existantes n'est nécessaire.
 
 
+### Reconnaissance automatique des colonnes Excel
+
+Les classeurs utilisés pour les quatre opérations contiennent systématiquement les deux en-têtes **CAB** (code-barres) et **NomAgence** (agence de destination). Le lecteur identifie automatiquement ces colonnes et leur ligne d'en-tête, quelle que soit leur position dans la feuille. Il reconnaît notamment `CAB`/`cab` et `NomAgence`/`Nom agence`/`NOM_AGENCE`/`NomAgence,n`. Si plusieurs feuilles existent, il sélectionne celle contenant les deux en-têtes. Les sélecteurs techniques de colonnes sont masqués lorsqu'elles sont reconnues, mais restent accessibles si l'en-tête du fichier est inhabituel. Les règles de rattachement des agences restent inchangées.
+
 ## Contrôle opérationnel des codes-barres
 
 La même page `/app/besoin2027/controle.html` propose **quatre opérations** en français : **Bouclage AM**, **Notification des envois enregistrés**, **Notification des envois recommandés** et **HDG**. Le coordinateur sélectionne l'opération et, dans un sélecteur `Type d’importation`, choisit entre :
