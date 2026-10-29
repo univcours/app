@@ -1,6 +1,6 @@
 'use strict';
 const AGENCES=["AFOURER","BNI AYAT","AÎT ATTAB","TAOUNZA AP","ARBAA AOUNAT","AZEMMOUR","AZILAL","BEJÂAD","BEN AHMED","BNI KHLOUG","GUISSER","BIR JDID","BOUJNIBA","BOULANOUAR","BZOU","DAR OULED ZIDOUH","DEMNATE","EL BOROUJ","RAS EL AIN","OULED ABBOU","EL GARA","EL KSIBA","AGHBALA","FOUM EL ANSER","TAGHZIRT","FOUM JEMÂA","HAD BRADIA","HAD SOUALEM","SIDI RAHAL PLAGE","SOUALEM TRIFIA","HATTANE","KHMISS OULED AYAD","KHMISS ZMAMRA","MLY ABDELLAH","SIDI BOUZID","OUALIDIA","OUAOUIZAGHT","OULED FREJ","OULED M'BAREK","FOUM OUDI","LÂAYAYTA AP","OULED YAÎCH","SIDI BENNOUR","SIDI HAJJAJ","SIDI JABER","SIDI ISMAIL","SOUK TLAT LOULAD","TNIN GHARBIA","ZAOUIA ECHCHEIKH"];
-const MODULES={bouclage_am:'Bouclage AM',notification_enregistree:'Notification des envois enregistrés',notification_recommandee:'Notification des envois recommandés'};
+const MODULES={bouclage_am:'Bouclage AM',notification_enregistree:'Notification des envois enregistrés',notification_recommandee:'Notification des envois recommandés',hdg:'HDG'};
 const BASE='https://besoin2027.hamidtawfiq2.chatgpt.site';
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -271,6 +271,7 @@ async function readBook(file){
 // Detect the operation from the official filename, never silently import into the wrong category.
 function moduleFromFilename(filename){
  const normalized=normal(filename.replace(/\.(xlsx|csv)$/i,''));
+ if(/\bHDG\b/.test(normalized))return 'hdg';
  if(/\bBOUCLAGE\s*AM\b/.test(normalized))return 'bouclage_am';
  if(/\bNOTIFICATION\b/.test(normalized)&&/\bENREGISTRE(?:S)?\b/.test(normalized))return 'notification_enregistree';
  if(/\bNOTIFICATION\b/.test(normalized)&&/\bRECOMMANDE(?:S)?\b/.test(normalized))return 'notification_recommandee';
@@ -281,7 +282,7 @@ $('excel-file').addEventListener('change',async e=>{
  const identified=moduleFromFilename(file.name);
  if(!identified){
   e.target.value='';books=[];selectedRows=[];$('mapping').classList.add('hidden');
-  message('Nom de fichier non reconnu. Nommez le fichier « Bouclage AM », « Notification des envois enregistrés » ou « Notification des envois recommandés » (format .xlsx ou .csv).');
+  message('Nom de fichier non reconnu. Nommez le fichier « Bouclage AM », « Notification des envois enregistrés », « Notification des envois recommandés » ou « HDG » (format .xlsx ou .csv).');
   return;
  }
  chooseModule(identified);
