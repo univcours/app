@@ -195,7 +195,7 @@ function clearMessage(){$('alert').classList.add('hidden');}
 function participantToken(){return localStorage.getItem('besoin2027-participant-session')||''}
 function adminToken(){return sessionStorage.getItem('besoin2027-coordinateur-session')||''}
 async function callAPI(path,{method='GET',body,administrator=false}={}){
- const token=administrator?adminToken():participantToken();
+ const token=administrator?adminToken():(path.startsWith('/api/controle/')?window.__controleAuth?.token?.()||'':participantToken());
  const headers={'Accept':'application/json'};
  if(body!==undefined)headers['Content-Type']='application/json';
  if(token)headers.Authorization='Bearer '+token;
@@ -223,7 +223,8 @@ function renderAgencyCatalogue(){
  const field=$('agency-list'),info=$('agency-list-info');
  if(info)info.textContent=AGENCES.length+' agences dans la liste principale.';
  if(field)field.innerHTML='<div class="agency-tags">'+AGENCES.map(a=>'<span>'+esc(a)+'</span>').join('')+'</div>';
- for(const id of ['agency','import-agency'])agencySelect($(id));
+ for(const id of ['agency','import-agency','account-agency'])agencySelect($(id));
+ window.__controleAuth?.restrict?.();
  const options=$('association-options');if(options)options.replaceChildren();
  renderAssociationList();
  if(books.length)evaluateMapping();
@@ -286,7 +287,7 @@ $('close-admin').addEventListener('click',()=>toggleAdmin(false));
 function toggleAdmin(flag){
  admin=flag;$('admin-panel').classList.toggle('hidden',!flag);$('agent-panel').classList.toggle('hidden',flag);
  $('admin-toggle').textContent=flag?'Contrôle par agence':'Espace coordinateur';
- if(flag&&adminToken()){setAdminConnected(true);void loadSummary();void syncAgencyAliases();void loadAgencyCatalogue();}
+ if(flag&&adminToken()){setAdminConnected(true);void loadSummary();void syncAgencyAliases();void loadAgencyCatalogue();void window.__controleAuth?.refreshAdmin?.();}
 }
 function setAdminConnected(yes){$('admin-login').classList.toggle('hidden',yes);$('admin-connected').classList.toggle('hidden',!yes);}
 $('login-form').addEventListener('submit',async e=>{
@@ -297,7 +298,7 @@ $('login-form').addEventListener('submit',async e=>{
   const data=await r.json();
   if(!data.adminToken)throw Error('Le serveur n’a pas fourni de session coordinateur.');
   sessionStorage.setItem('besoin2027-coordinateur-session',data.adminToken);
-  $('password').value='';setAdminConnected(true);await loadAgencyCatalogue();await loadSummary();void syncAgencyAliases();message('Connexion coordinateur établie.',true);
+  $('password').value='';setAdminConnected(true);await loadAgencyCatalogue();await loadSummary();void syncAgencyAliases();void window.__controleAuth?.refreshAdmin?.();message('Connexion coordinateur établie.',true);
  }catch(error){message(error.message);}
 });
 $('admin-logout').addEventListener('click',()=>{sessionStorage.removeItem('besoin2027-coordinateur-session');setAdminConnected(false);message('Session coordinateur fermée.',true)});
@@ -315,6 +316,7 @@ function progressMarkup(processed,total){
 }
 async function loadAgent(){
  const selectedAgency=$('agency').value,selectedModule=moduleId;
+ if(!window.__controleAuth?.allows?.(selectedAgency)){message('Connectez-vous et choisissez une agence autorisée pour votre compte.');return;}
  agency=selectedAgency;
  if(!agency){$('agent-content').classList.add('hidden');$('agent-empty').classList.remove('hidden');return;}
  const agent=$('agent-name').value.trim().replace(/\s+/g,' ');
@@ -327,7 +329,6 @@ async function loadAgent(){
 
  clearMessage();$('load-codes').disabled=true;
  try{
-  await ensureParticipant();
   const r=await callAPI('/api/controle/items?module='+encodeURIComponent(selectedModule)+'&agency='+encodeURIComponent(selectedAgency)+'&agent='+encodeURIComponent(agent));
   const d=await r.json();if(moduleId!==selectedModule||$('agency').value!==selectedAgency)return;
   agentItems=(d.items||[]).filter(x=>x.agency===selectedAgency);
@@ -845,5 +846,5 @@ $('import-button').addEventListener('click',async()=>{
 });
 try{$('agent-name').value=sessionStorage.getItem('controle-agent-name')||'';}catch{}
 toggleAdmin(false);
-void loadAgencyCatalogue();
+void loadAgencyCatalogue().then(()=>window.__controleAuth?.init?.());
 void verifyControleService();
