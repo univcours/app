@@ -14,10 +14,10 @@ const cell=(v,r,c,header=false)=>{
 };
 const titles=[
  ['Synthèse', ['Opération','Agence','Total CAB','Bouclés','Déjà notifiés','Restants','Anomalies','Dernière consultation','Dernier agent']],
- ['Bouclage AM', ['Agence','CAB','Statut','Observation','Agent du contrôle','Date du contrôle','Fichier source','Réimports']],
- ['Notif. enregistrés', ['Agence','CAB','Statut','Observation','Agent du contrôle','Date du contrôle','Fichier source','Réimports']],
- ['Notif. recommandés', ['Agence','CAB','Statut','Observation','Agent du contrôle','Date du contrôle','Fichier source','Réimports']],
- ['HDG', ['Agence','CAB','Statut','Observation','Agent du contrôle','Date du contrôle','Fichier source','Réimports']],
+ ['Bouclage AM', ['Agence','CAB','Statut','Observation','Agent du contrôle','Date du contrôle','Fichier source','Réimports','Présence dernier fichier']],
+ ['Notif. enregistrés', ['Agence','CAB','Statut','Observation','Agent du contrôle','Date du contrôle','Fichier source','Réimports','Présence dernier fichier']],
+ ['Notif. recommandés', ['Agence','CAB','Statut','Observation','Agent du contrôle','Date du contrôle','Fichier source','Réimports','Présence dernier fichier']],
+ ['HDG', ['Agence','CAB','Statut','Observation','Agent du contrôle','Date du contrôle','Fichier source','Réimports','Présence dernier fichier']],
  ['Consultations', ['Opération','Agence','Nom déclaré de l’agent','Date / heure','CAB visibles']]
 ];
 function sheetXml(headers,rows){
