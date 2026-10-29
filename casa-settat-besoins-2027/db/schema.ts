@@ -77,4 +77,30 @@ export const controleAccessLog = sqliteTable("controle_access_log", {
   sessionHash: text("session_hash").notNull(),
   viewedAt: text("viewed_at").notNull(),
   codeCount: integer("code_count").notNull().default(0),
+  loginUsername: text("login_username"),
+});
+
+export const controleSiteState = sqliteTable("controle_site_state", {
+  id: integer("id").primaryKey(),
+  isOpen: integer("is_open").notNull().default(1),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const controleAuthUsers = sqliteTable("controle_auth_users", {
+  usernameKey: text("username_key").primaryKey(),
+  username: text("username").notNull(),
+  passwordHash: text("password_hash").notNull(),
+  salt: text("salt").notNull(),
+  passwordIterations: integer("password_iterations").notNull(),
+  active: integer("active").notNull().default(1),
+  credentialVersion: integer("credential_version").notNull().default(1),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const controleAuthAgencies = sqliteTable("controle_auth_agencies", {
+  agencyKey: text("agency_key").primaryKey(),
+  agency: text("agency").notNull(),
+  usernameKey: text("username_key").notNull(),
+  active: integer("active").notNull().default(1),
+  updatedAt: text("updated_at").notNull(),
 });
