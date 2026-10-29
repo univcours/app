@@ -13,6 +13,17 @@ function csvCell(v:unknown){return '"'+String(v??'').replace(/"/g,'""').replace(
 export async function handleControle(request:Request,path:string):Promise<Response|null> {
  if(!path.startsWith('/api/controle/')&&!path.startsWith('/api/admin/controle/'))return null;
  const u=new URL(request.url),isAdminPath=path.startsWith('/api/admin/controle/');
+ if(path==='/api/controle/health'&&request.method==='GET'){
+  try{
+   const database=db();
+   await database.prepare('SELECT 1 FROM controle_codes LIMIT 1').first();
+   await database.prepare('SELECT 1 FROM controle_acces LIMIT 1').first();
+   await database.prepare('SELECT 1 FROM controle_agency_aliases LIMIT 1').first();
+   return json({ready:true});
+  }catch{
+   return json({ready:false,error:'Le service des codes-barres attend la mise à jour de la base de données.'},503);
+  }
+ }
  const admin=isAdminPath?await readToken(request,'budget_admin','admin'):null;
  if(isAdminPath&&!admin)return json({error:'Accès réservé au coordinateur.'},401);
  if(path==='/api/controle/session'&&request.method==='GET'){
