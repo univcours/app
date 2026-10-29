@@ -86,7 +86,7 @@ export default function CountApp() {
   useEffect(()=>{
     try {
       const last=JSON.parse(localStorage.getItem(STORAGE + ':last') || 'null');
-      if(last && typeof last.agency === 'string' && validMonth(last.month)) void openMonth(last.agency,last.month,last.tournee || '');
+      if(last && typeof last.agency === 'string' && /^(10|[1-9])$/.test(last.tournee || '') && validMonth(last.month)) void openMonth(last.agency,last.month,last.tournee);
     } catch {}
     setBooted(true);
   },[]);
