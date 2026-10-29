@@ -326,6 +326,6 @@ $('import-button').addEventListener('click',async()=>{
   message(data.imported+' codes-barres importés dans « '+MODULES[moduleId]+' » pour '+data.agencies.length+' agences. Le fichier a été retiré de la zone d’import et libéré de la mémoire temporaire.',true);
   await loadSummary();
  }catch(error){message(error.message)}
- finally{btn.disabled=false}
+ finally{btn.disabled=!selectedRows.length}
 });
 toggleAdmin(false);
