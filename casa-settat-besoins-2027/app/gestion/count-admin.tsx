@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Building2, CalendarDays, Check, ChevronDown, ClipboardList, Download, Link2, LoaderCircle, RefreshCw, Search, Trash2 } from 'lucide-react';
 import { apiFetch, countingPath } from '../../lib/api-client';
+import { conciseCountWorkbook } from '../../lib/count-excel-client.mjs';
 import { DEFAULT_COUNT_MONTH, countTotals, dateLabel, monthLabel, validMonth } from '../../lib/comptage.mjs';
 import { missingCountAgencies } from '../../lib/count-followup.mjs';
 import { formatDate } from '../components';
@@ -35,7 +36,8 @@ export default function CountAdmin({onUnauthorized}:{onUnauthorized:()=>void}) {
     try{
       const response=await apiFetch(`/api/admin/comptage/export?month=${encodeURIComponent(month)}${id?'&agency='+encodeURIComponent(id):''}`,{cache:'no-store'});
       if(!response.ok){const data=await response.json() as {error?:string};if(response.status===401)onUnauthorized();throw new Error(data.error);}
-      const url=URL.createObjectURL(await response.blob()),link=document.createElement('a');
+      const selected=id?responses.filter(row=>row.id===id):responses;
+      const url=URL.createObjectURL(await conciseCountWorkbook(await response.blob(),selected)),link=document.createElement('a');
       link.href=url;link.download=/filename="([^"]+)"/.exec(response.headers.get('content-disposition')||'')?.[1]||`Comptage_${month}.xlsx`;
       document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
     }catch(problem){setError(problem instanceof Error?problem.message:'Téléchargement impossible.');}
