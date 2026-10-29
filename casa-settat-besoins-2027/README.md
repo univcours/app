@@ -42,3 +42,14 @@ La base et les secrets sont nécessaires au fonctionnement partagé. GitHub Page
 Le formulaire, les liens, la connexion du coordinateur et les téléchargements restent sur le domaine GitHub Pages. Le service de données conserve la même base. `PUBLIC_WEB_ORIGIN=https://univcours.github.io` autorise seulement l’origine de ce compte. Le client statique utilise des sessions signées, sans cookies tiers. La session du coordinateur est conservée dans la session de l’onglet. Le mot de passe et la clé de signature restent exclusivement sur le serveur.
 
 Ne jamais committer `.dev.vars`, les mots de passe, les sessions ou les réponses des agences.
+## Comptage mensuel des envois
+
+Le formulaire « Comptage des envois » reprend les 16 colonnes de la photo : date, fréquence (1/5 à 5/5) et 14 rubriques. Le mois de novembre 2026 reprend les 19 dates de la photo. Pour les autres mois, les dates proposées vont du lundi au vendredi ; une date supplémentaire du mois peut être ajoutée.
+
+L’agence saisit son nom et choisit un mois, puis remplit le canevas par journée ou dans le tableau complet. Une case vide reste non renseignée ; zéro reste un zéro explicite. Les nombres d’envois sont des entiers. Chaque journée renseignée demande une fréquence. Les brouillons sont conservés séparément par agence et par mois sur l’appareil. L’envoi demande une confirmation, puis un accusé du serveur. Le même navigateur peut remplacer son comptage mensuel ; un autre navigateur ne peut pas écraser la même agence et le même mois.
+
+Le coordinateur retrouve le module dans le même espace protégé, avec filtre mensuel, recherche par agence et détails quotidiens. L’export Excel conserve les en-têtes groupés, la grille et les formules de totaux du canevas. Un export de toutes les agences contient une feuille par agence. La fréquence n’est jamais additionnée. Supprimer un comptage retire uniquement ce mois pour cette agence et conserve les autres mois et les besoins 2027.
+
+Sur GitHub Pages : formulaire `?page=comptage`, gestion `?page=gestion-comptage`. Sur le Site : `/comptage`, gestion `/gestion?section=comptage`.
+
+Vérification du module : `node scripts/test-comptage.mjs` et `node --experimental-vm-modules scripts/test-api.mjs`. Migration ajoutée : `drizzle/0001_funny_doctor_strange.sql`.

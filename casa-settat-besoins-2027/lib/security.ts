@@ -55,9 +55,7 @@ export function sameOrigin(request: Request) {
 }
 export function trustedWebOrigin(request: Request) {
   const origin = request.headers.get("origin");
-  // The published GitHub Pages form is a known first-party origin. Use it
-  // when PUBLIC_WEB_ORIGIN was not configured on the API host; a configured
-  // value still takes precedence.
+  // Preserve the deployed Pages origin if the optional override is absent.
   const allowedOrigin = env.PUBLIC_WEB_ORIGIN?.replace(/\/$/, "") || "https://univcours.github.io";
   return origin === allowedOrigin;
 }

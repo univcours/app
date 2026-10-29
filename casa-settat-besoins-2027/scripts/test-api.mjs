@@ -11,7 +11,7 @@ import ts from 'typescript';
 // test-only secrets. No HTTP server or production data is involved.
 const root = path.resolve(import.meta.dirname, '..');
 const sqlite = new DatabaseSync(':memory:');
-sqlite.exec(await fs.readFile(path.join(root, 'drizzle/0000_slim_the_leader.sql'), 'utf8'));
+for (const file of (await fs.readdir(path.join(root,'drizzle'))).filter(file=>file.endsWith('.sql')).sort()) sqlite.exec(await fs.readFile(path.join(root,'drizzle',file),'utf8'));
 function prepared(sql, bindings = []) {
   return {
     bind(...args) { return prepared(sql, args); },
@@ -25,6 +25,9 @@ const cache = new Map();
 const synthetic = (identifier, exports) => new vm.SyntheticModule(Object.keys(exports), function() { for (const [key, value] of Object.entries(exports)) this.setExport(key, value); }, { context, identifier });
 async function load(identifier) {
   if (cache.has(identifier)) return cache.get(identifier);
+  // Shared imports can be linked concurrently. Cache the in-flight load so
+  // validation errors keep the same class identity in every route module.
+  const loading = (async () => {
   let module;
   if (identifier === 'cloudflare:workers') module = synthetic(identifier, { env: environment });
   else if (identifier === 'node:zlib') module = synthetic(identifier, { inflateRawSync });
@@ -34,7 +37,9 @@ async function load(identifier) {
     const code = identifier.endsWith('.ts') ? ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 } }).outputText : source;
     module = new vm.SourceTextModule(code, { context, identifier });
   }
-  cache.set(identifier, module); return module;
+  return module;
+  })();
+  cache.set(identifier, loading); return loading;
 }
 const module = await load(path.join(root, 'app/api/[...path]/route.ts'));
 await module.link(async (specifier, reference) => {
@@ -147,5 +152,45 @@ const nativeSession = await (await request('/api/session', { cookie: cookieA }))
 assert.equal(nativeSession.participantToken, undefined, 'The native site must not expose cookie sessions to its client JavaScript');
 for (let attempt = 0; attempt < 10; attempt++) assert.equal((await request('/api/admin/login', { method: 'POST', ip: 'bruteforce', body: { password: 'wrong' } })).status, 401);
 assert.equal((await request('/api/admin/login', { method: 'POST', ip: 'bruteforce', body: { password: environment.ADMIN_PASSWORD } })).status, 429);
+// The monthly counting module shares authorization, but owns separate records.
+const needsBeforeCounts = sqlite.prepare('SELECT COUNT(*) AS n FROM submissions').get().n;
+const countValues = (a=1,b=0) => [a,b,...Array(12).fill(null)];
+const countBody = {agency:'Agence Comptage',month:'2026-11',rows:[{date:'2026-11-02',frequency:5,values:countValues(12,0)}]};
+assert.equal((await request('/api/admin/comptage/responses?month=2026-11')).status,401);
+assert.equal((await request('/api/admin/comptage/export?month=2026-11')).status,401);
+assert.equal((await request('/api/comptage/submit',{method:'POST',body:countBody})).status,401);
+assert.equal((await request('/api/comptage/session?month=2026-13')).status,400);
+const countSession=await request('/api/comptage/session?month=2026-11&agency=Agence%20Comptage',{origin:webOrigin});
+const countToken=(await countSession.json()).participantToken;
+assert.ok(countToken);const countAuth='Bearer '+countToken;
+const postCount=body=>request('/api/comptage/submit',{method:'POST',origin:webOrigin,authorization:countAuth,body});
+assert.equal((await postCount({...countBody,rows:[{...countBody.rows[0],frequency:null}]})).status,400);
+assert.equal((await postCount({...countBody,rows:[{...countBody.rows[0],values:countValues(-1)}]})).status,400);
+assert.equal((await postCount({...countBody,rows:[{...countBody.rows[0],values:countValues(1.5)}]})).status,400);
+assert.equal((await postCount(countBody)).status,200);
+const updatedCount=await postCount({...countBody,rows:[{date:'2026-11-02',frequency:5,values:countValues(14,0)},{date:'2026-11-30',frequency:2,values:countValues(2,1)}]});
+assert.equal(updatedCount.status,200);const countReceipt=await updatedCount.json();
+assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM count_submissions').get().n,1,'Replacing an agency month must not duplicate it');
+const ownedCount=await (await request('/api/comptage/session?month=2026-11&agency=Agence%20Comptage',{origin:webOrigin,authorization:countAuth})).json();
+assert.equal(ownedCount.submission.rows[0].values[0],14);assert.equal(ownedCount.submission.rows[0].values[1],0);assert.equal(ownedCount.submission.rows[0].values[2],null);
+assert.equal((await request('/api/comptage/submit',{method:'POST',cookie:cookieA,body:countBody})).status,409,'Another browser must not overwrite an agency month');
+assert.equal((await postCount({...countBody,month:'2026-12',rows:[{date:'2026-12-01',frequency:3,values:countValues(7)}]})).status,200);
+assert.equal((await postCount({...countBody,agency:'Deuxième agence'})).status,200);
+const countList=await (await request('/api/admin/comptage/responses?month=2026-11',{origin:webOrigin,authorization:webAdminAuth})).json();
+assert.equal(countList.responses.length,2);assert.deepEqual(countList.months,['2026-12','2026-11']);
+const december=await (await request('/api/admin/comptage/responses?month=2026-12',{origin:webOrigin,authorization:webAdminAuth})).json();
+assert.equal(december.responses.length,1);assert.equal(december.responses[0].rows[0].values[0],7,'Month isolation must preserve another month');
+assert.equal((await request('/api/admin/comptage/responses?month=2026-11',{origin:webOrigin,authorization:countAuth})).status,401);
+const countExport=await request('/api/admin/comptage/export?month=2026-11',{origin:webOrigin,authorization:webAdminAuth});
+assert.equal(countExport.status,200);const countXml=new TextDecoder().decode(await countExport.arrayBuffer());
+assert.match(countXml,/xl\/worksheets\/sheet2.xml/);assert.match(countXml,/<x:v>16<\/x:v>/);
+assert.equal((await request('/api/admin/comptage/export?month=2026-10',{origin:webOrigin,authorization:webAdminAuth})).status,404);
+assert.equal((await request('/api/admin/comptage/export?month=2026-12&agency='+countReceipt.id,{origin:webOrigin,authorization:webAdminAuth})).status,404,'Export scope must enforce both agency and month');
+assert.equal((await request('/api/admin/comptage/delete',{method:'POST',origin:webOrigin,authorization:countAuth,body:countReceipt})).status,401);
+assert.equal((await request('/api/admin/comptage/delete',{method:'POST',origin:webOrigin,authorization:webAdminAuth,body:{...countReceipt,updatedAt:'2000-01-01T00:00:00.000Z'}})).status,409);
+assert.equal((await request('/api/admin/comptage/delete',{method:'POST',origin:webOrigin,authorization:webAdminAuth,body:countReceipt})).status,200);
+assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM count_submissions WHERE month=?').get('2026-12').n,1,'Deleting November must preserve December');
+assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM submissions').get().n,needsBeforeCounts,'Counting operations must preserve the existing needs records');
 sqlite.close();
+console.log('PASS: comptage mensuel, agence, brouillons restaurés, export, rôles, séparation des mois et conservation des besoins 2027.');
 console.log('PASS: accès privé, sessions, consolidation, suppression ciblée et protégée, prévention des suppressions périmées, retrait des exports et nouvel envoi après suppression.');

@@ -1,0 +1,11 @@
+"use client";
+
+import { COUNT_FIELDS, COUNT_GROUPS, countTotals, dateLabel, templateDates } from '../../lib/comptage.mjs';
+import type { CountDraft, CountRow } from './types';
+
+export default function CountTable({month, draft = {}, rows = [], onChange}: {month:string; draft?:CountDraft; rows?:CountRow[]; onChange?:(date:string,index:number,value:string)=>void}) {
+  const dates = [...new Set([...templateDates(month), ...Object.keys(draft), ...rows.map(row=>row.date)])].sort();
+  const saved = new Map(rows.map(row=>[row.date,row]));
+  const totals = onChange ? COUNT_FIELDS.map((_,index)=>dates.reduce((sum,date)=>sum + (/^\d+$/.test(draft[date]?.values[index] || '') ? Number(draft[date].values[index]) : 0),0)) : countTotals(rows);
+  return <div className="count-table-scroll" tabIndex={0} aria-label="Canevas du comptage, tableau à défilement horizontal"><table className="count-table"><caption>Comptage des envois · {month.slice(5)}/{month.slice(0,4)}</caption><thead><tr><th rowSpan={2} className="count-date">Dates</th><th rowSpan={2}>Fréquence de distribution<br/>(1/5 - 5/5)</th>{COUNT_GROUPS.map(group=><th key={group.label} colSpan={group.count}>{group.label}</th>)}</tr><tr>{COUNT_FIELDS.map(field=><th key={field}>{field}</th>)}</tr></thead><tbody>{dates.map(date=><tr key={date}><th scope="row" className="count-date">{dateLabel(date)}</th><td>{onChange ? <select aria-label={`Fréquence du ${dateLabel(date)}`} value={draft[date]?.frequency || ''} onChange={event=>onChange(date,-1,event.target.value)}><option value="">—</option>{[1,2,3,4,5].map(value=><option key={value} value={value}>{value}/5</option>)}</select> : saved.get(date)?.frequency ? `${saved.get(date)!.frequency}/5` : '—'}</td>{COUNT_FIELDS.map((field,index)=><td key={field}>{onChange ? <input aria-label={`${dateLabel(date)} — ${field}`} inputMode="numeric" type="number" step="1" min="0" max="10000000" value={draft[date]?.values[index] || ''} onChange={event=>onChange(date,index,event.target.value)}/> : saved.get(date)?.values[index] === null || saved.get(date)?.values[index] === undefined ? '—' : new Intl.NumberFormat('fr-FR').format(saved.get(date)!.values[index]!)}</td>)}</tr>)}</tbody><tfoot><tr><th className="count-date">TOTAL</th><td>—</td>{totals.map((total,index)=><td key={index}>{new Intl.NumberFormat('fr-FR').format(total)}</td>)}</tr></tfoot></table></div>;
+}
