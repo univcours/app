@@ -49,8 +49,11 @@ assert.deepEqual(countAgencyAndRoute(tourneeOne.agency),{agency:'Agence Settat &
 assert.deepEqual(countAgencyAndRoute(tourneeTen.agency),{agency:'Agence Settat & Centre',tournee:10});
 assert.equal(countAgencyAndRoute(first.agency).tournee,null);
 const tourneeSheet=fillCountWorksheet(source,tourneeOne);
-assert.match(tourneeSheet,/Agence ABB : Agence Settat &amp; Centre/);
+assert.match(tourneeSheet,/Agence Settat &amp; Centre T1/);
 assert.match(tourneeSheet,/Tournée N°: 1/);
+const label=fillCountWorksheet(source,{...tourneeOne,agency:'AZEMMOUR — tournée de distribution 1'});
+assert.match(label,/AZEMMOUR T1/);
+assert.doesNotMatch(label,/AZEMMOUR — tournée de distribution 1/);
 const second={...first,agency:'Agence Settat / Centre',rows:[{date:'2026-11-02',frequency:1,values:values(2,1)}]};
 const bytes=exportCountWorkbook(template,[first,second,tourneeOne,tourneeTen]);
 assert.ok(bytes.length>10000);
