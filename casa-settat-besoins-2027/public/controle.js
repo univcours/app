@@ -444,6 +444,8 @@ $('excel-file').addEventListener('change',async e=>{
   books=await readBook(file);
   const list=$('excel-sheet');list.disabled=false;
   list.innerHTML=books.map((sheet,i)=>'<option value="'+i+'">'+esc(sheet.name)+'</option>').join('');
+  const match=books.findIndex(sheet=>!!detectSpreadsheetColumns(sheet,true));
+  if(match>=0)list.value=String(match);
   confirmedMatches={};showMapping();clearMessage();
  }catch(error){books=[];selectedRows=[];$('mapping').classList.add('hidden');message(error.message);}
 });
@@ -479,19 +481,36 @@ function agencyMatches(input) {
  return {exact:null,suggestions:best>=0.58?ranked.filter(p=>p.score>=Math.max(0.58,best-0.20)).slice(0,5).map(p=>p.agency):[]};
 }
 
+function headerColumnKind(value){
+ const key=String(value??'').normalize('NFKD').replace(/[\\u0300-\\u036f]/g,'')
+   .toUpperCase().replace(/[^A-Z0-9]/g,'');
+ if(key==='CAB'||key==='CODEBARRES'||key==='CODEBARRE')return 'cab';
+ // Recognizes NomAgence, Nom agence, NOM_AGENCE and the stray comma/N variant.
+ if(/^NOMD?AGENCES?N?$/.test(key))return 'agency';
+ return '';
+}
+function detectSpreadsheetColumns(sheet,requireBoth=false){
+ if(!sheet)return null;
+ const rows=sheet.rows||[];
+ const limit=Math.min(rows.length,50);
+ for(let rowIndex=0;rowIndex<limit;rowIndex++){
+  const types=(rows[rowIndex]||[]).map(headerColumnKind);
+  const cab=types.indexOf('cab'),agency=types.indexOf('agency');
+  if(cab>=0&&(agency>=0||(!requireBoth&&isSingleImport())))
+   return {headerRow:rowIndex,cab,agency};
+ }
+ return null;
+}
 function showMapping(){
  const book=selectedSheet();if(!book)return;
  $('mapping').classList.remove('hidden');
  $('agency-column-wrap').classList.toggle('hidden',isSingleImport());
  const rowSelect=$('header-row');
+ const detected=detectSpreadsheetColumns(book,true)||detectSpreadsheetColumns(book,false);
  rowSelect.innerHTML='<option value="-1">Sans ligne d’en-tête</option>'+
-   book.rows.slice(0,Math.min(book.rows.length,20)).map((row,i)=>
+   book.rows.slice(0,Math.min(book.rows.length,50)).map((row,i)=>
    '<option value="'+i+'">Ligne '+(i+1)+' : '+esc((row||[]).slice(0,4).join(' | ').slice(0,85))+'</option>').join('');
- const headerGuess=book.rows.slice(0,20).findIndex(row=>{
-  const cells=(row||[]).map(value=>normal(value));
-  return isSingleImport()?cells.includes('CAB'):(cells.includes('CAB')&&cells.includes('NOM AGENCE'));
- });
- rowSelect.value=String(headerGuess>=0?headerGuess:-1);
+ rowSelect.value=String(detected?.headerRow??-1);
  updateColumns();
 }
 $('header-row').addEventListener('change',updateColumns);
@@ -506,10 +525,16 @@ function updateColumns(){
   $(id).innerHTML=Array.from({length:width},(_,i)=>'<option value="'+i+'">'+
    excelLetter(i)+' — '+esc(String(header[i]||'Colonne '+(i+1)).slice(0,70))+'</option>').join('');
  }
- const column=name=>header.findIndex(value=>normal(value)===name);
- const agencyColumn=column('NOM AGENCE'),cabColumn=column('CAB');
+ const agencyColumn=header.findIndex(value=>headerColumnKind(value)==='agency');
+ const cabColumn=header.findIndex(value=>headerColumnKind(value)==='cab');
  $('agency-column').value=String(agencyColumn>=0?agencyColumn:1);
  $('barcode-column').value=String(cabColumn>=0?cabColumn:0);
+ const recognized=cabColumn>=0&&(agencyColumn>=0||isSingleImport());
+ $('column-controls').classList.toggle('hidden',recognized);
+ $('columns-detected').classList.toggle('hidden',!recognized);
+ $('columns-detected').textContent=recognized?
+  'Colonnes reconnues automatiquement : CAB'+(agencyColumn>=0?' et NomAgence':'')+
+  ' (ligne '+(rowNo+1)+'). Aucune sélection manuelle nécessaire.':'';
  evaluateMapping();
 }
 function evaluateMapping(){
@@ -518,7 +543,7 @@ function evaluateMapping(){
  const cabColumn=Number($('barcode-column').value),rawRows=sheet.rows.slice(headerNo+1);
  const single=isSingleImport(),destination=$('import-agency').value;
  const explicitHeader=headerNo>=0?sheet.rows[headerNo]||[]:[];
- const sourceAgencyColumn=explicitHeader.findIndex(value=>normal(value)==='NOM AGENCE');
+ const sourceAgencyColumn=explicitHeader.findIndex(value=>headerColumnKind(value)==='agency');
  selectedRows=[];confirmedMatches={};
  const observed=new Set(),rawCounts=new Map();let lastName='',duplicates=0;
  const conflicts=new Set();
