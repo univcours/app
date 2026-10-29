@@ -78,6 +78,14 @@ export async function handleControle(request:Request,path:string):Promise<Respon
    .bind(alias,agency,now)));
   return json({ok:true,saved:pairs.size});
  }
+ if(path==='/api/admin/controle/aliases'&&request.method==='DELETE'){
+  const supplied=u.searchParams.get('alias');
+  if(!supplied||supplied.length>150)return json({error:'Nom de destination invalide.'},400);
+  const key=normalizeAgency(supplied);
+  if(!key||key.length>150)return json({error:'Nom de destination invalide.'},400);
+  const deleted=await db().prepare('DELETE FROM controle_agency_aliases WHERE alias_key=?').bind(key).run();
+  return json({ok:true,deleted:deleted.meta.changes||0});
+ }
  if(path==='/api/admin/controle/import'&&request.method==='POST'){
   const raw=await request.text();
   if(raw.length>2500000)return json({error:'Import trop volumineux (maximum 2,5 Mo).'},413);
