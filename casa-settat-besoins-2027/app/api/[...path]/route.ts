@@ -4,6 +4,8 @@ import template from "../../../lib/excel-template.json";
 import { InputError, validateSubmission } from "../../../lib/validation.mjs";
 import { exportWorkbook } from "../../../lib/excel.mjs";
 import { cookieHeader, digest, equalSecret, readToken, sameOrigin, signToken, trustedWebOrigin } from "../../../lib/security";
+import { validateTrafficSubmission, trafficReportRow } from "../../../lib/traffic.mjs";
+import { exportTrafficWorkbook } from "../../../lib/traffic-excel.mjs";
 
 export const dynamic = "force-dynamic";
 type Item = { id: string; quantity: number; comment: string };
@@ -23,6 +25,8 @@ async function ensureSchema() {
     database.prepare("CREATE TABLE IF NOT EXISTS submissions (id TEXT PRIMARY KEY NOT NULL, agency TEXT NOT NULL, agency_key TEXT NOT NULL, session_hash TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)"),
     database.prepare("CREATE TABLE IF NOT EXISTS login_attempts (key TEXT PRIMARY KEY NOT NULL, attempts INTEGER NOT NULL, expires_at INTEGER NOT NULL)"),
     database.prepare("CREATE UNIQUE INDEX IF NOT EXISTS submissions_agency_unique ON submissions (agency_key)"),
+    database.prepare("CREATE TABLE IF NOT EXISTS traffic_reports (id TEXT PRIMARY KEY NOT NULL, agency TEXT NOT NULL, agency_key TEXT NOT NULL, month TEXT NOT NULL, session_hash TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)"),
+    database.prepare("CREATE UNIQUE INDEX IF NOT EXISTS traffic_agency_month_unique ON traffic_reports (agency_key, month)"),
   ]);
   schemaReady = true;
 }
@@ -45,6 +49,30 @@ async function handle(request: Request) {
     const owned = await db().prepare("SELECT id, agency, payload, created_at, updated_at FROM submissions WHERE session_hash = ? ORDER BY updated_at DESC LIMIT 1").bind(await digest(session)).first<Row>();
     const participantToken = trustedWebOrigin(request) ? await signToken("participant", session, 31536000) : undefined;
     return json({ ready: true, admin: await isAdmin(request), submission: owned ? responseRow(owned) : null, participantToken }, 200, headers);
+  }
+  // Monthly mail distribution reporting: separated from the investment-budget data.
+  if (request.method === "GET" && path === "/api/traffic/own") {
+    const session = await readToken(request, "budget_participant", "participant");
+    if (!session) return json({ error: "Votre session a expiré. Actualisez la page." }, 401);
+    const results = await db().prepare("SELECT id, agency, month, payload, created_at, updated_at FROM traffic_reports WHERE session_hash = ? ORDER BY month DESC").bind(await digest(session)).all();
+    return json({ reports: results.results.map(trafficReportRow) });
+  }
+  if (request.method === "POST" && path === "/api/traffic/submit") {
+    const session = await readToken(request, "budget_participant", "participant");
+    if (!session) return json({ error: "Votre session a expiré. Actualisez la page." }, 401);
+    const bodyText = await request.text();
+    if (bodyText.length > 100000) return json({ error: "La saisie dépasse la taille autorisée." }, 413);
+    const data = validateTrafficSubmission(JSON.parse(bodyText));
+    const now = new Date().toISOString();
+    // Atomic update by the same submitting browser; another session cannot
+    // silently overwrite an agency's report for the same month.
+    const result = await db().prepare(
+      "INSERT INTO traffic_reports (id, agency, agency_key, month, session_hash, payload, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?) " +
+      "ON CONFLICT(agency_key, month) DO UPDATE SET agency = excluded.agency, payload = excluded.payload, updated_at = excluded.updated_at " +
+      "WHERE traffic_reports.session_hash = excluded.session_hash RETURNING id"
+    ).bind(crypto.randomUUID(), data.agency, data.agencyKey, data.month, await digest(session), JSON.stringify({ rows: data.rows }), now, now).first();
+    if (!result) return json({ error: "Un relevé existe déjà pour cette agence et ce mois depuis un autre navigateur. Contactez le coordinateur." }, 409);
+    return json({ ok: true, id: result.id, agency: data.agency, month: data.month, updatedAt: now, completed: data.completed });
   }
   if (request.method === "POST" && path === "/api/submit") {
     const session = await readToken(request, "budget_participant", "participant");
@@ -92,6 +120,24 @@ async function handle(request: Request) {
       const removed = await db().prepare("DELETE FROM submissions WHERE id = ? AND updated_at = ? RETURNING id, agency").bind(body.id, body.updatedAt).first<{ id: string; agency: string }>();
       if (!removed) return json({ error: "Cette demande a été modifiée ou supprimée. Actualisez la liste avant de recommencer." }, 409);
       return json({ ok: true, id: removed.id, agency: removed.agency });
+    }
+    if (request.method === "GET" && (path === "/api/admin/traffic" || path === "/api/admin/traffic/export")) {
+      const url = new URL(request.url);
+      const month = url.searchParams.get("month") || "";
+      const agency = url.searchParams.get("agency") || "";
+      if (month && !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return json({ error: "Mois incorrect." }, 400);
+      if (agency.length > 120) return json({ error: "Agence incorrecte." }, 400);
+      const results = await db().prepare("SELECT id, agency, month, payload, created_at, updated_at FROM traffic_reports ORDER BY month DESC, agency COLLATE NOCASE").all();
+      const reports = results.results.map(trafficReportRow).filter(report =>
+        (!month || report.month === month) && (!agency || report.agency === agency));
+      if (path === "/api/admin/traffic") return json({ reports });
+      if (!reports.length) return json({ error: "Aucun relevé à exporter pour cette sélection." }, 404);
+      const bytes = exportTrafficWorkbook(reports);
+      return new Response(bytes, { headers: {
+        "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "Content-Disposition": 'attachment; filename="Comptage_envois_' + (month || "tous_les_mois") + '.xlsx"',
+        "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff",
+      } });
     }
     const rows = await db().prepare("SELECT id, agency, payload, created_at, updated_at FROM submissions ORDER BY agency COLLATE NOCASE").all<Row>();
     const responses = rows.results.map(responseRow);
