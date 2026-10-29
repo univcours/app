@@ -43,6 +43,13 @@
       "when": 1793380000000,
       "tag": "0005_agences_et_reimport",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1793390000000,
+      "tag": "0006_controle_identification",
+      "breakpoints": true
     }
   ]
 }
