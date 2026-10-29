@@ -3,7 +3,7 @@
 <meta name="description" content="Contrôle des codes-barres, Bouclage AM et notifications des agences">
 <title>Contrôle des codes-barres · DR Casablanca-Settat</title>
 <link rel="stylesheet" href="./controle.css?v=suivi-acces-20261029">
-<script defer src="./controle.js?v=import-global-routage-20261029"></script>
+<script defer src="./controle.js?v=cab-nom-agence-20261029"></script>
 <script>(function(){try{const u=new URL(location.href);if(u.searchParams.has('utm_source')){u.searchParams.delete('utm_source');history.replaceState(history.state,'',u.pathname+u.search+u.hash)}}catch{}})();</script>
 </head><body>
 <header class="site-header"><div class="header-inner"><a class="brand" href="./?page=comptage"><span class="logo">▥</span><span><strong>Comptage<span>Envois</span></strong><small>DR Casablanca-Settat</small></span></a><nav><a href="./?page=comptage">Comptage des envois</a><a href="./?page=gestion-comptage">Suivi mensuel</a></nav></div></header>
@@ -35,7 +35,7 @@
 <div id="admin-login"><form id="login-form" class="filters"><div><label for="password">Mot de passe du coordinateur</label><input id="password" type="password" required autocomplete="current-password"></div><button class="button primary" type="submit">Se connecter</button></form></div>
 <div id="admin-connected" class="hidden">
 <div class="import-section"><h3>Importer un seul fichier Excel pour toutes les agences</h3>
-<p>Sélectionnez l’opération en haut de page, puis chargez votre fichier global. Les codes-barres seront répartis automatiquement par agence. Si un nom est mal orthographié ou différent, vérifiez la proposition et confirmez la destination avant d’importer.</p>
+<p>Sélectionnez l’opération en haut de page, puis chargez un seul fichier Excel contenant les colonnes « CAB » et « Nom agence ». Les codes-barres seront répartis automatiquement par agence. Si un nom est mal orthographié ou différent, vérifiez la proposition et confirmez la destination avant d’importer.</p>
 <div class="filters"><div><label for="excel-file">Fichier (.xlsx ou .csv)</label><input id="excel-file" type="file" accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"></div><div><label for="excel-sheet">Feuille</label><select id="excel-sheet" disabled><option value="">Sélectionner un fichier</option></select></div></div>
 <p class="hint">Important : dans Excel, formatez la colonne des codes-barres en « Texte » pour conserver les zéros initiaux et éviter la notation scientifique. Après une importation réussie, le fichier est automatiquement retiré de cette zone ; seules les données des codes sont enregistrées, et non le fichier Excel original.</p>
 <div id="mapping" class="hidden"><div class="filters"><div><label for="header-row">Ligne des en-têtes (facultative)</label><select id="header-row"></select></div><div><label for="agency-column">Colonne agence / destination</label><select id="agency-column"></select></div><div><label for="barcode-column">Colonne code-barres</label><select id="barcode-column"></select></div></div>
