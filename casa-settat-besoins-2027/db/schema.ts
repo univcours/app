@@ -44,3 +44,12 @@ export const controleCodes = sqliteTable("controle_codes", {
 }, (table) => [
   uniqueIndex("controle_module_agency_barcode").on(table.module, table.agencyKey, table.barcode),
 ]);
+
+export const controleAcces = sqliteTable("controle_acces", {
+  module: text("module").notNull(),
+  agency: text("agency").notNull(),
+  agencyKey: text("agency_key").notNull(),
+  firstAccessAt: text("first_access_at").notNull(),
+  lastAccessAt: text("last_access_at").notNull(),
+  accessCount: integer("access_count").notNull().default(1),
+}, (table) => [uniqueIndex("controle_acces_module_agency_unique").on(table.module, table.agencyKey)]);
