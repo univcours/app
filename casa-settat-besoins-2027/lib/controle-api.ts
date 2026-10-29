@@ -173,13 +173,82 @@ export async function handleControle(request:Request,path:string):Promise<Respon
   return json({ok:true,module,scope,agency:selected,imported:items.length,
     agencies:[...totals].map(([agency,count])=>({agency,count}))});
  }
+ if(path==='/api/admin/controle/details'&&request.method==='GET'){
+  const module=moduleFrom(u),agency=chooseAgency(u.searchParams.get('agency'),await officialAgencies());
+  if(!agency)return json({error:'Agence non reconnue.'},400);
+  const results=await Promise.all([
+   db().prepare('SELECT * FROM controle_codes WHERE module=? AND agency_key=? AND active=1 ORDER BY status,barcode COLLATE NOCASE LIMIT 10001')
+    .bind(module,agencyKey(agency)).all<RecordRow>(),
+   db().prepare('SELECT agent_name,viewed_at,code_count FROM controle_access_log WHERE module=? AND agency_key=? ORDER BY viewed_at DESC LIMIT 200')
+    .bind(module,agencyKey(agency)).all<{agent_name:string;viewed_at:string;code_count:number}>()
+  ]);
+  return json({module,agency,codes:results[0].results.slice(0,10000).map(serialize),
+   truncated:results[0].results.length>10000,
+   consultations:results[1].results.map(v=>({agent:v.agent_name,date:v.viewed_at,quantity:v.code_count}))});
+ }
  if(path==='/api/admin/controle/summary'&&request.method==='GET'){
   const module=moduleFrom(u);
   const rows=await db().prepare('SELECT agency, status, COUNT(*) AS quantity FROM controle_codes WHERE module=? AND active=1 GROUP BY agency,status ORDER BY agency').bind(module).all<{agency:string;status:string;quantity:number}>();
-  const visits=await db().prepare('SELECT agency,first_access_at,last_access_at,access_count FROM controle_acces WHERE module=? ORDER BY agency').bind(module).all<{agency:string;first_access_at:string;last_access_at:string;access_count:number}>();
+  const visits=await db().prepare('SELECT a.agency,a.first_access_at,a.last_access_at,a.access_count,'+
+    '(SELECT l.agent_name FROM controle_access_log l WHERE l.module=a.module AND l.agency_key=a.agency_key ORDER BY l.viewed_at DESC LIMIT 1) AS last_agent,'+
+    '(SELECT COUNT(DISTINCT l.agent_name) FROM controle_access_log l WHERE l.module=a.module AND l.agency_key=a.agency_key) AS distinct_agents '+
+    'FROM controle_acces a WHERE a.module=? ORDER BY a.agency')
+    .bind(module).all<{agency:string;first_access_at:string;last_access_at:string;access_count:number;last_agent:string|null;distinct_agents:number}>();
   return json({module,summary:rows.results,accesses:visits.results.map(row=>({
-   agency:row.agency,firstAccessAt:row.first_access_at,lastAccessAt:row.last_access_at,accessCount:row.access_count
+   agency:row.agency,firstAccessAt:row.first_access_at,lastAccessAt:row.last_access_at,accessCount:row.access_count,lastAgent:row.last_agent||'',distinctAgents:row.distinct_agents||0
   }))});
+ }
+ if(path==='/api/admin/controle/export-xlsx'&&request.method==='GET'){
+  const agencies=await officialAgencies();
+  const codes:RecordRow[]=[];
+  const accessRows:{module:string;agency:string;agent_name:string;viewed_at:string;code_count:number}[]=[];
+  // Small paginated queries keep each D1 response bounded.
+  for(const module of MODULES){
+   for(let offset=0;offset<100000;offset+=1000){
+    const result=await db().prepare('SELECT * FROM controle_codes WHERE module=? AND active=1 ORDER BY agency_key,barcode LIMIT 1000 OFFSET ?')
+      .bind(module,offset).all<RecordRow>();
+    codes.push(...result.results);
+    if(result.results.length<1000)break;
+   }
+   for(let offset=0;offset<50000;offset+=1000){
+    const result=await db().prepare('SELECT module,agency,agent_name,viewed_at,code_count FROM controle_access_log WHERE module=? ORDER BY viewed_at DESC LIMIT 1000 OFFSET ?')
+      .bind(module,offset).all<{module:string;agency:string;agent_name:string;viewed_at:string;code_count:number}>();
+    accessRows.push(...result.results);
+    if(result.results.length<1000)break;
+   }
+  }
+  const lastAccess=new Map<string,{agent:string;date:string}>();
+  for(const entry of accessRows){
+   const key=entry.module+'|'+entry.agency;
+   if(!lastAccess.has(key))lastAccess.set(key,{agent:entry.agent_name,date:entry.viewed_at});
+  }
+  const totals=new Map<string,{total:number;ok:number;notified:number;pending:number;anomaly:number}>();
+  for(const row of codes){
+   const key=row.module+'|'+row.agency;
+   const item=totals.get(key)||{total:0,ok:0,notified:0,pending:0,anomaly:0};
+   item.total++;
+   if(row.status==='OK'){item.ok++;if(row.reimport_count>0)item.notified++;}
+   if(row.status==='EN_ATTENTE')item.pending++;
+   if(row.status==='ANOMALIE')item.anomaly++;
+   totals.set(key,item);
+  }
+  const summary=[];
+  for(const mod of MODULES)for(const agency of agencies){
+   const t=totals.get(mod+'|'+agency)||{total:0,ok:0,notified:0,pending:0,anomaly:0};
+   const access=lastAccess.get(mod+'|'+agency);
+   summary.push([LABELS[mod],agency,t.total,t.ok,t.notified,t.pending,t.anomaly,access?.date||'',access?.agent||'']);
+  }
+  const sheets=[summary,...MODULES.map(mod=>codes.filter(row=>row.module===mod).map(row=>[
+   row.agency,row.barcode,row.status==='OK'?(row.reimport_count>0?'Déjà notifié':'Bouclé'):
+   row.status==='ANOMALIE'?'Anomalie':'À contrôler',
+   row.observation,row.last_reviewer_name||'',row.reviewed_at||'',row.file_name,row.reimport_count
+  ])),accessRows.map(row=>[LABELS[row.module]||row.module,row.agency,row.agent_name,row.viewed_at,row.code_count])];
+  const data=createControleWorkbook(sheets);
+  return new Response(data,{headers:{
+   'Content-Type':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+   'Content-Disposition':'attachment; filename="Suivi_global_CAB.xlsx"',
+   'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'
+  }});
  }
  if(path==='/api/admin/controle/export'&&request.method==='GET'){
   const module=moduleFrom(u);
