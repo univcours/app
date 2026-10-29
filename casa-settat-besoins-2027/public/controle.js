@@ -52,7 +52,7 @@ function toggleImportScope(){
  if(books.length)showMapping();else refreshImportPreview();
 }
 $('import-scope').addEventListener('change',toggleImportScope);
-$('import-agency').addEventListener('change',refreshImportPreview);
+$('import-agency').addEventListener('change',()=>{if(books.length)evaluateMapping();else refreshImportPreview();});
 
 $('admin-toggle').addEventListener('click',()=>toggleAdmin(true));
 $('close-admin').addEventListener('click',()=>toggleAdmin(false));
