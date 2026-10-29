@@ -66,7 +66,15 @@ $('login-form').addEventListener('submit',async e=>{
 $('admin-logout').addEventListener('click',()=>{sessionStorage.removeItem('besoin2027-coordinateur-session');setAdminConnected(false);message('Session coordinateur fermée.',true)});
 function fmtNumber(v){return Number(v).toLocaleString('fr-FR');}
 function counters(items){
- return {total:items.length,pending:items.filter(x=>x.status==='EN_ATTENTE').length,ok:items.filter(x=>x.status==='OK').length,anomaly:items.filter(x=>x.status==='ANOMALIE').length};
+ const pending=items.filter(x=>x.status==='EN_ATTENTE').length,ok=items.filter(x=>x.status==='OK').length,
+   anomaly=items.filter(x=>x.status==='ANOMALIE').length;
+ return {total:items.length,pending,processed:ok+anomaly,ok,anomaly};
+}
+function progressMarkup(processed,total){
+ const percentage=total?Math.round(100*processed/total):0;
+ return '<div class="progress-info"><strong>Avancement : '+percentage+' %</strong><span>'+processed+' / '+total+' codes traités</span></div>'+
+   '<div class="progress-track" role="progressbar" aria-label="Progression des contrôles" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+percentage+'">'+
+     '<div class="progress-fill" style="width:'+percentage+'%"></div></div>';
 }
 async function loadAgent(){
  agency=$('agency').value;if(!agency){message('Veuillez choisir votre agence.');return;}
@@ -84,7 +92,11 @@ $('status-filter').addEventListener('change',()=>{recordIndex=0;updateList()});
 $('code-filter').addEventListener('input',()=>{recordIndex=0;updateList()});
 function updateList(){
  const c=counters(agentItems);
- $('stats').innerHTML=[['Codes reçus',c.total],['À contrôler',c.pending],['Conformes',c.ok],['Anomalies',c.anomaly]].map(([label,count])=>'<div class="stat"><strong>'+fmtNumber(count)+'</strong><span>'+label+'</span></div>').join('');
+ $('stats').innerHTML=[
+  ['Codes reçus',c.total,''],['Codes traités',c.processed,'processed'],
+  ['Codes restants',c.pending,c.pending?'remaining':'completed'],['Anomalies',c.anomaly,'']
+ ].map(([label,count,kind])=>'<div class="stat '+kind+'"><strong>'+fmtNumber(count)+'</strong><span>'+label+'</span></div>').join('');
+ $('agent-progress').innerHTML=progressMarkup(c.processed,c.total);
  const filter=$('status-filter').value,search=$('code-filter').value.trim().toLowerCase();
  filteredItems=agentItems.filter(x=>(filter==='ALL'||x.status===filter)&&x.barcode.toLowerCase().includes(search));
  if(recordIndex>=filteredItems.length)recordIndex=Math.max(0,filteredItems.length-1);
@@ -151,18 +163,33 @@ async function loadSummary(){
   const r=await callAPI('/api/admin/controle/summary?module='+encodeURIComponent(moduleId),{administrator:true});
   const data=await r.json(),groups=new Map();
   for(const name of AGENCES)groups.set(name,{EN_ATTENTE:0,OK:0,ANOMALIE:0});
-  for(const row of data.summary||[]){if(!groups.has(row.agency))groups.set(row.agency,{EN_ATTENTE:0,OK:0,ANOMALIE:0});groups.get(row.agency)[row.status]=row.quantity;}
+  for(const row of data.summary||[]){
+   if(!groups.has(row.agency))groups.set(row.agency,{EN_ATTENTE:0,OK:0,ANOMALIE:0});
+   groups.get(row.agency)[row.status]=row.quantity;
+  }
   const visited=new Map((data.accesses||[]).map(row=>[row.agency,row]));
   const neverOpened=AGENCES.filter(name=>!visited.has(name)).length;
-  let html='<p><strong>'+AGENCES.length+' agences</strong> · '+(AGENCES.length-neverOpened)+' ayant consulté la liste · '+neverOpened+' sans consultation enregistrée</p>';
-  html+='<div class="summary-scroll"><table><thead><tr><th>Agence</th><th>Accès</th><th>Dernier accès</th><th>Ouvertures</th><th>À contrôler</th><th>OK</th><th>Anomalies</th><th>Total codes</th></tr></thead><tbody>';
-  for(const [name,counts] of groups){
-   const access=visited.get(name),consulted=!!access;
+  const total=[...groups.values()].reduce((acc,c)=>{
+    acc.pending+=c.EN_ATTENTE;acc.ok+=c.OK;acc.anomaly+=c.ANOMALIE;return acc;
+  },{pending:0,ok:0,anomaly:0});
+  const processed=total.ok+total.anomaly,all=processed+total.pending;
+  $('admin-totals').innerHTML=[
+   ['CAB à contrôler',all,''],['Codes traités',processed,'processed'],
+   ['Codes restants',total.pending,total.pending?'remaining':'completed'],['Anomalies',total.anomaly,'']
+  ].map(([label,count,kind])=>'<div class="stat '+kind+'"><strong>'+fmtNumber(count)+'</strong><span>'+label+'</span></div>').join('');
+  let html='<div class="controle-progress">'+progressMarkup(processed,all)+'</div>';
+  html+='<p><strong>'+AGENCES.length+' agences</strong> · '+(AGENCES.length-neverOpened)+' ayant consulté la liste · '+neverOpened+' sans consultation enregistrée</p>';
+  html+='<div class="summary-scroll"><table><thead><tr><th>Agence</th><th>Accès</th><th>Dernier accès</th><th>Ouvertures</th><th>Codes traités</th><th class="remaining-column">Codes restants</th><th>OK</th><th>Anomalies</th><th>Total codes</th></tr></thead><tbody>';
+  for(const [name,c] of groups){
+   const access=visited.get(name),consulted=!!access,treated=c.OK+c.ANOMALIE,rest=c.EN_ATTENTE;
    html+='<tr><td>'+esc(name)+'</td><td><span class="access-label '+(consulted?'visited':'never')+'">'+(consulted?'Consultée':'Jamais consultée')+'</span></td>'+
-    '<td>'+accessDate(access?.lastAccessAt)+'</td><td>'+(access?.accessCount||0)+'</td><td>'+counts.EN_ATTENTE+'</td><td>'+counts.OK+'</td><td>'+counts.ANOMALIE+'</td><td>'+(counts.EN_ATTENTE+counts.OK+counts.ANOMALIE)+'</td></tr>';
+     '<td>'+accessDate(access?.lastAccessAt)+'</td><td>'+(access?.accessCount||0)+'</td>'+
+     '<td><strong class="count-processed">'+treated+'</strong></td>'+
+     '<td><strong class="'+(rest?'count-remaining':'count-completed')+'">'+rest+'</strong></td>'+
+     '<td>'+c.OK+'</td><td>'+c.ANOMALIE+'</td><td>'+(treated+rest)+'</td></tr>';
   }
-  $('admin-summary').innerHTML=html+'</tbody></table></div><p class="hint">« Consultée » signifie qu’une liste de cette agence a été ouverte pour cette opération. Cela n’identifie pas la personne qui l’a ouverte.</p>';
- }catch(error){message(error.message)}
+  $('admin-summary').innerHTML=html+'</tbody></table></div><p class="hint">Codes traités = codes OK + codes avec anomalie. « Consultée » signifie seulement qu’une liste a été ouverte, sans identification nominative de l’agent.</p>';
+ }catch(error){message(error.message);}
 }
 $('refresh-summary').addEventListener('click',loadSummary);
 $('export-button').addEventListener('click',async()=>{
@@ -241,8 +268,23 @@ async function readBook(file){
   return {name:path.replace('xl/worksheets/','').replace('.xml',''),rows:rows.map(r=>r||[])};
  });
 }
+// Detect the operation from the official filename, never silently import into the wrong category.
+function moduleFromFilename(filename){
+ const normalized=normal(filename.replace(/\.(xlsx|csv)$/i,''));
+ if(/\bBOUCLAGE\s*AM\b/.test(normalized))return 'bouclage_am';
+ if(/\bNOTIFICATION\b/.test(normalized)&&/\bENREGISTRE(?:S)?\b/.test(normalized))return 'notification_enregistree';
+ if(/\bNOTIFICATION\b/.test(normalized)&&/\bRECOMMANDE(?:S)?\b/.test(normalized))return 'notification_recommandee';
+ return null;
+}
 $('excel-file').addEventListener('change',async e=>{
  const file=e.target.files[0];if(!file)return;
+ const identified=moduleFromFilename(file.name);
+ if(!identified){
+  e.target.value='';books=[];selectedRows=[];$('mapping').classList.add('hidden');
+  message('Nom de fichier non reconnu. Nommez le fichier « Bouclage AM », « Notification des envois enregistrés » ou « Notification des envois recommandés » (format .xlsx ou .csv).');
+  return;
+ }
+ chooseModule(identified);
  try{
   books=await readBook(file);
   const list=$('excel-sheet');list.disabled=false;list.innerHTML=books.map((s,i)=>'<option value="'+i+'">'+esc(s.name)+'</option>').join('');
