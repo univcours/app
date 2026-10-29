@@ -18,7 +18,7 @@ const titles=[
  ['Notif. enregistrés', ['Agence','CAB','Statut','Observation','Agent du contrôle','Date du contrôle','Fichier source','Réimports','Présence dernier fichier']],
  ['Notif. recommandés', ['Agence','CAB','Statut','Observation','Agent du contrôle','Date du contrôle','Fichier source','Réimports','Présence dernier fichier']],
  ['HDG', ['Agence','CAB','Statut','Observation','Agent du contrôle','Date du contrôle','Fichier source','Réimports','Présence dernier fichier']],
- ['Consultations', ['Opération','Agence','Nom déclaré de l’agent','Date / heure','CAB visibles']]
+ ['Consultations', ['Opération','Agence','Identifiant connecté','Nom déclaré de l’agent','Date / heure','CAB visibles']]
 ];
 function sheetXml(headers,rows){
  let sheet='<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"/></sheetViews><sheetFormatPr defaultRowHeight="16"/><cols>';
