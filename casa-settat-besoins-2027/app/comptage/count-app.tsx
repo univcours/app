@@ -84,13 +84,9 @@ export default function CountApp() {
     } catch (problem) {if(ticket === generation.current)setSessionError(message(problem));}
     finally {if(ticket === generation.current)setLoading(false);}
   }
-  useEffect(()=>{
-    try {
-      const last=JSON.parse(localStorage.getItem(STORAGE + ':last') || 'null');
-      if(last && typeof last.agency === 'string' && COUNT_AGENCIES.includes(last.agency) && /^(10|[1-9])$/.test(last.tournee || '') && validMonth(last.month)) void openMonth(last.agency,last.month,last.tournee);
-    } catch {}
-    setBooted(true);
-  },[]);
+  // Always start with the agency, route and month selection screen.
+  // Saved drafts remain available after the participant manually selects a matching record.
+  useEffect(()=>{ setBooted(true); },[]);
   useEffect(()=>{
     if(!booted || !started) return;
     try {
