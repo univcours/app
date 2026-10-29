@@ -3,7 +3,7 @@
 <meta name="description" content="Contrôle des codes-barres, Bouclage AM et notifications des agences">
 <title>Contrôle des codes-barres · DR Casablanca-Settat</title>
 <link rel="stylesheet" href="./controle.css?v=agent-log-kpi-xlsx-20261029">
-<script src="./api-config.js?v=github-backend-20261029"></script><script defer src="./controle.js?v=comptes-multi-agences-20261029"></script>
+<script src="./api-config.js?v=github-backend-20261029"></script><script defer src="./controle.js?v=comptes-multi-agences-20261029a"></script><script defer src="./controle-auth-ui.js?v=partage-agences-20261029"></script>
 <script>(function(){try{const u=new URL(location.href);if(u.searchParams.has('utm_source')){u.searchParams.delete('utm_source');history.replaceState(history.state,'',u.pathname+u.search+u.hash)}}catch{}})();</script>
 </head><body>
 <header class="site-header"><div class="header-inner"><a class="brand" href="./?page=comptage"><span class="logo">▥</span><span><strong>Comptage<span>Envois</span></strong><small>DR Casablanca-Settat</small></span></a><nav><a href="./?page=comptage">Comptage des envois</a><a href="./?page=gestion-comptage">Suivi mensuel</a></nav></div></header>
@@ -18,6 +18,7 @@
 <button class="operation" data-module="hdg" role="tab" aria-selected="false"><span class="op-num">04</span><strong>HDG</strong><small>Contrôle individuel</small></button>
 </div>
 <section id="agent-panel" class="panel">
+<div id="site-closed-message" class="alert hidden" role="status">Le site est temporairement fermé par le coordinateur. Veuillez réessayer ultérieurement.</div>
   <div class="panel-heading"><div><span class="eyebrow">CONTRÔLE PAR AGENCE</span><h2 id="agent-module-label">Bouclage AM</h2></div></div>
   <div id="agency-login"><h3>Connexion aux agences</h3>
 <form id="agency-login-form" class="filters">
