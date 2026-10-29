@@ -137,15 +137,30 @@ async function saveReview(status){
  }catch(error){message(error.message)}
  finally{buttons.forEach(b=>b.disabled=false)}
 }
+function accessDate(value){
+ if(!value)return '—';
+ const date=new Date(value);
+ return Number.isNaN(date.getTime())?'—':new Intl.DateTimeFormat('fr-FR',{
+  timeZone:'Africa/Casablanca',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'
+ }).format(date);
+}
 async function loadSummary(){
  if(!adminToken())return;
  try{
   const r=await callAPI('/api/admin/controle/summary?module='+encodeURIComponent(moduleId),{administrator:true});
   const data=await r.json(),groups=new Map();
-  for(const row of data.summary){if(!groups.has(row.agency))groups.set(row.agency,{EN_ATTENTE:0,OK:0,ANOMALIE:0});groups.get(row.agency)[row.status]=row.quantity;}
-  let html='<table><thead><tr><th>Agence</th><th>À contrôler</th><th>Conformes</th><th>Anomalies</th><th>Total</th></tr></thead><tbody>';
-  for(const [name,counts] of groups){html+='<tr><td>'+esc(name)+'</td><td>'+counts.EN_ATTENTE+'</td><td>'+counts.OK+'</td><td>'+counts.ANOMALIE+'</td><td>'+(counts.EN_ATTENTE+counts.OK+counts.ANOMALIE)+'</td></tr>';}
-  $('admin-summary').innerHTML=groups.size?html+'</tbody></table>':'Aucun fichier importé pour cette opération.';
+  for(const name of AGENCES)groups.set(name,{EN_ATTENTE:0,OK:0,ANOMALIE:0});
+  for(const row of data.summary||[]){if(!groups.has(row.agency))groups.set(row.agency,{EN_ATTENTE:0,OK:0,ANOMALIE:0});groups.get(row.agency)[row.status]=row.quantity;}
+  const visited=new Map((data.accesses||[]).map(row=>[row.agency,row]));
+  const neverOpened=AGENCES.filter(name=>!visited.has(name)).length;
+  let html='<p><strong>'+AGENCES.length+' agences</strong> · '+(AGENCES.length-neverOpened)+' ayant consulté la liste · '+neverOpened+' sans consultation enregistrée</p>';
+  html+='<div class="summary-scroll"><table><thead><tr><th>Agence</th><th>Accès</th><th>Dernier accès</th><th>Ouvertures</th><th>À contrôler</th><th>OK</th><th>Anomalies</th><th>Total codes</th></tr></thead><tbody>';
+  for(const [name,counts] of groups){
+   const access=visited.get(name),consulted=!!access;
+   html+='<tr><td>'+esc(name)+'</td><td><span class="access-label '+(consulted?'visited':'never')+'">'+(consulted?'Consultée':'Jamais consultée')+'</span></td>'+
+    '<td>'+accessDate(access?.lastAccessAt)+'</td><td>'+(access?.accessCount||0)+'</td><td>'+counts.EN_ATTENTE+'</td><td>'+counts.OK+'</td><td>'+counts.ANOMALIE+'</td><td>'+(counts.EN_ATTENTE+counts.OK+counts.ANOMALIE)+'</td></tr>';
+  }
+  $('admin-summary').innerHTML=html+'</tbody></table></div><p class="hint">« Consultée » signifie qu’une liste de cette agence a été ouverte pour cette opération. Cela n’identifie pas la personne qui l’a ouverte.</p>';
  }catch(error){message(error.message)}
 }
 $('refresh-summary').addEventListener('click',loadSummary);
@@ -294,7 +309,21 @@ $('import-button').addEventListener('click',async()=>{
  try{
   const r=await callAPI('/api/admin/controle/import',{method:'POST',administrator:true,body:{module:moduleId,fileName:file.name,items}});
   const data=await r.json();
-  message(data.imported+' codes-barres importés dans « '+MODULES[moduleId]+' » pour '+data.agencies.length+' agences.',true);
+  // Les fichiers XLSX/CSV ne sont jamais envoyés comme pièces jointes au serveur :
+  // seule la liste validée des codes-barres est transmise. Libérer en plus la
+  // copie temporaire en mémoire et réinitialiser le contrôle de fichier.
+  $('excel-file').value='';
+  books=[];selectedRows=[];unmatchedMap={};
+  $('excel-sheet').innerHTML='<option value="">Sélectionner un fichier</option>';
+  $('excel-sheet').disabled=true;
+  $('mapping').classList.add('hidden');
+  $('preview-head').replaceChildren();
+  $('preview-body').replaceChildren();
+  $('import-preview').textContent='';
+  $('unmatched-fields').replaceChildren();
+  $('unmatched').classList.add('hidden');
+  btn.disabled=true;
+  message(data.imported+' codes-barres importés dans « '+MODULES[moduleId]+' » pour '+data.agencies.length+' agences. Le fichier a été retiré de la zone d’import et libéré de la mémoire temporaire.',true);
   await loadSummary();
  }catch(error){message(error.message)}
  finally{btn.disabled=false}
