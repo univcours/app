@@ -3,7 +3,7 @@
 <meta name="description" content="Contrôle des codes-barres, Bouclage AM et notifications des agences">
 <title>Contrôle des codes-barres · DR Casablanca-Settat</title>
 <link rel="stylesheet" href="./controle.css?v=agent-log-kpi-xlsx-20261029">
-<script src="./api-config.js?v=github-backend-20261029"></script><script defer src="./controle.js?v=agent-log-kpi-xlsx-20261029"></script>
+<script src="./api-config.js?v=github-backend-20261029"></script><script defer src="./controle.js?v=comptes-multi-agences-20261029"></script>
 <script>(function(){try{const u=new URL(location.href);if(u.searchParams.has('utm_source')){u.searchParams.delete('utm_source');history.replaceState(history.state,'',u.pathname+u.search+u.hash)}}catch{}})();</script>
 </head><body>
 <header class="site-header"><div class="header-inner"><a class="brand" href="./?page=comptage"><span class="logo">▥</span><span><strong>Comptage<span>Envois</span></strong><small>DR Casablanca-Settat</small></span></a><nav><a href="./?page=comptage">Comptage des envois</a><a href="./?page=gestion-comptage">Suivi mensuel</a></nav></div></header>
@@ -19,8 +19,15 @@
 </div>
 <section id="agent-panel" class="panel">
   <div class="panel-heading"><div><span class="eyebrow">CONTRÔLE PAR AGENCE</span><h2 id="agent-module-label">Bouclage AM</h2></div></div>
-  <div class="filters"><div><label for="agency">Nom de l’agence</label><select id="agency" required><option value="">Choisir une agence</option></select></div><div><label for="agent-name">Nom et prénom de l’agent</label><input id="agent-name" maxlength="90" minlength="3" placeholder="Votre nom et prénom" autocomplete="name" required></div><button id="load-codes" class="button primary">Afficher les codes-barres</button></div><p class="hint">Votre nom déclaré et l’heure de consultation seront enregistrés pour le suivi du coordinateur.</p>
-  <div id="agent-empty" class="empty">Sélectionnez une agence pour afficher ses codes-barres.</div>
+  <div id="agency-login"><h3>Connexion aux agences</h3>
+<form id="agency-login-form" class="filters">
+<div><label for="agency-username">Identifiant</label><input id="agency-username" type="text" autocomplete="username" required maxlength="60" placeholder="Identifiant fourni par le coordinateur"></div>
+<div><label for="agency-password">Mot de passe</label><input id="agency-password" type="password" autocomplete="current-password" required placeholder="Mot de passe de votre compte"></div>
+<button id="agency-login-button" class="button primary" type="submit">Se connecter</button>
+</form><p class="hint">Un même compte peut être autorisé à traiter plusieurs agences.</p></div>
+<div id="agency-login-current" class="hidden"><strong id="agency-login-label"></strong> <button type="button" id="agency-logout" class="button outline">Se déconnecter</button></div>
+<div id="agency-selector" class="filters hidden"><div><label for="agency">Nom de l’agence</label><select id="agency" required><option value="">Choisir une agence</option></select></div><div><label for="agent-name">Nom et prénom de l’agent</label><input id="agent-name" maxlength="90" minlength="3" placeholder="Votre nom et prénom" autocomplete="name" required></div><button id="load-codes" class="button primary">Afficher les codes-barres</button></div><p class="hint">Votre nom déclaré et l’heure de consultation seront enregistrés pour le suivi du coordinateur.</p>
+  <div id="agent-empty" class="empty hidden">Sélectionnez une agence pour afficher ses codes-barres.</div>
   <div id="agent-content" class="hidden">
     <div id="stats" class="stats" aria-live="polite"></div><div id="agent-progress" class="controle-progress" aria-live="polite"></div>
     <div class="filters searchbar"><div><label for="code-filter">Rechercher un code-barres</label><input id="code-filter" placeholder="Saisissez un code-barres…"></div><div><label for="status-filter">Statut</label><select id="status-filter"><option value="ALL">Tous les codes</option><option value="EN_ATTENTE">À contrôler</option><option value="OK">Conformes</option><option value="ANOMALIE">Anomalies</option></select></div></div>
@@ -65,7 +72,21 @@
  <div id="association-list" class="association-list"></div>
  <p class="hint">Une association personnalisée est prioritaire sur le nom d’agence de la liste principale. Les modifications concernent la répartition lors du prochain import Excel ; pour déplacer les CAB déjà enregistrés, réimportez le fichier de l’opération.</p></div>
  </div>
- <div class="import-section"><div class="panel-heading"><div><h3>Suivi des contrôles et des accès</h3><p>Consultez les CAB bouclés, restants, anomalies et les agents ayant ouvert chaque liste.</p></div><button id="export-button" class="button outline">Télécharger le bilan complet (Excel)</button></div><div id="admin-totals" class="stats" aria-live="polite"></div><div id="admin-summary" class="summary"></div><div id="admin-details" class="summary"></div><button id="refresh-summary" class="button outline">Actualiser le suivi</button></div>
+ <div class="import-section"><div class="panel-heading"><div><h3>Comptes des agents</h3><p>Attribuez un identifiant et un mot de passe à une ou plusieurs agences. Le même identifiant ouvre toutes les agences qui lui sont attribuées.</p></div><button type="button" class="button outline" id="refresh-accounts">Actualiser les comptes</button></div>
+<form id="agency-account-form" class="filters">
+<div><label for="account-agency">Agence autorisée</label><select id="account-agency" required><option value="">Choisir une agence</option></select></div>
+<div><label for="account-username">Identifiant de connexion</label><input id="account-username" autocomplete="off" maxlength="60" placeholder="Ex. equipe_distribution_1" required></div>
+<div><label for="account-password">Mot de passe</label><input id="account-password" type="password" autocomplete="new-password" maxlength="128" placeholder="10 caractères minimum"></div>
+<div><label for="account-active">Accès à cette agence</label><select id="account-active"><option value="true">Actif</option><option value="false">Désactivé</option></select></div>
+<div><label for="account-rotate">Mot de passe du compte</label><select id="account-rotate"><option value="false">Conserver le mot de passe existant</option><option value="true">Changer pour toutes ses agences</option></select></div>
+<button type="submit" id="account-save" class="button primary">Enregistrer l’accès</button></form>
+<p class="hint">Pour attribuer plusieurs agences au même agent, enregistrez chaque agence avec le même identifiant. Le mot de passe existant est partagé. Pour le modifier, sélectionnez « Changer pour toutes ses agences ». Les mots de passe ne sont jamais affichés.</p>
+<div id="agency-accounts-list" class="summary"></div></div>
+<div class="import-section"><div class="panel-heading"><div><h3>Ouverture et fermeture du site</h3><p>Fermez l’accès aux utilisateurs (codes-barres et formulaires) sans effacer les données. Votre espace coordinateur reste disponible pour rouvrir le service.</p></div></div>
+<div id="site-state-info" role="status" class="summary"></div>
+<div class="row"><button type="button" id="site-close" class="button outline">Fermer le site</button> <button type="button" id="site-open" class="button primary">Ouvrir le site</button></div>
+<p class="hint">Le lien GitHub Pages reste consultable, mais le serveur bloque les fonctionnalités utilisateur pendant la fermeture.</p></div>
+<div class="import-section"><div class="panel-heading"><div><h3>Suivi des contrôles et des accès</h3><p>Consultez les CAB bouclés, restants, anomalies et les agents ayant ouvert chaque liste.</p></div><button id="export-button" class="button outline">Télécharger le bilan complet (Excel)</button></div><div id="admin-totals" class="stats" aria-live="polite"></div><div id="admin-summary" class="summary"></div><div id="admin-details" class="summary"></div><button id="refresh-summary" class="button outline">Actualiser le suivi</button></div>
 <button id="admin-logout" class="button outline">Se déconnecter</button>
 </div></section>
 </main><footer>Direction régionale Casablanca-Settat · Contrôle opérationnel des envois</footer>
