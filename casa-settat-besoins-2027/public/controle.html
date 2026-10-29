@@ -3,7 +3,7 @@
 <meta name="description" content="Contrôle des codes-barres, Bouclage AM et notifications des agences">
 <title>Contrôle des codes-barres · DR Casablanca-Settat</title>
 <link rel="stylesheet" href="./controle.css?v=modifier-associations-20261029">
-<script src="./api-config.js?v=github-backend-20261029"></script><script defer src="./controle.js?v=agences-et-deja-notifie-20261029"></script>
+<script src="./api-config.js?v=github-backend-20261029"></script><script defer src="./controle.js?v=suivi-cab-agent-xlsx-20261029"></script>
 <script>(function(){try{const u=new URL(location.href);if(u.searchParams.has('utm_source')){u.searchParams.delete('utm_source');history.replaceState(history.state,'',u.pathname+u.search+u.hash)}}catch{}})();</script>
 </head><body>
 <header class="site-header"><div class="header-inner"><a class="brand" href="./?page=comptage"><span class="logo">▥</span><span><strong>Comptage<span>Envois</span></strong><small>DR Casablanca-Settat</small></span></a><nav><a href="./?page=comptage">Comptage des envois</a><a href="./?page=gestion-comptage">Suivi mensuel</a></nav></div></header>
@@ -19,7 +19,7 @@
 </div>
 <section id="agent-panel" class="panel">
   <div class="panel-heading"><div><span class="eyebrow">CONTRÔLE PAR AGENCE</span><h2 id="agent-module-label">Bouclage AM</h2></div></div>
-  <div class="filters"><div><label for="agency">Nom de l’agence</label><select id="agency" required><option value="">Choisir une agence</option></select></div><button id="load-codes" class="button primary">Afficher les codes-barres</button></div>
+  <div class="filters"><div><label for="agency">Nom de l’agence</label><select id="agency" required><option value="">Choisir une agence</option></select></div><div><label for="agent-name">Nom et prénom de l’agent</label><input id="agent-name" maxlength="90" minlength="3" placeholder="Votre nom et prénom" autocomplete="name" required></div><button id="load-codes" class="button primary">Afficher les codes-barres</button></div><p class="hint">Votre nom déclaré et l’heure de consultation seront enregistrés pour le suivi du coordinateur.</p>
   <div id="agent-empty" class="empty">Sélectionnez une agence pour afficher ses codes-barres.</div>
   <div id="agent-content" class="hidden">
     <div id="stats" class="stats" aria-live="polite"></div><div id="agent-progress" class="controle-progress" aria-live="polite"></div>
@@ -54,7 +54,18 @@
 <form id="add-agency-form" class="filters"><div><label for="new-agency-name">Nom de la nouvelle agence</label><input id="new-agency-name" type="text" maxlength="100" placeholder="Nom exact de l’agence" required></div><button id="add-agency-button" class="button primary" type="submit">Ajouter une agence</button></form>
 <p class="hint" id="agency-list-info" role="status"></p>
 <div id="agency-list" class="preview"></div></div>
-<div class="import-section"><div class="panel-heading"><div><h3>Suivi des contrôles et des accès</h3><p>Vérifiez les agences ayant consulté les codes, le dernier accès et les résultats des contrôles.</p></div><button id="export-button" class="button outline">Exporter les résultats (CSV)</button></div><div id="admin-totals" class="stats" aria-live="polite"></div><div id="admin-summary" class="summary"></div><button id="refresh-summary" class="button outline">Actualiser le suivi</button></div>
+<div class="import-section">
+ <div class="panel-heading"><div><h3>Associations des agences</h3><p>Retrouvez et modifiez à tout moment les correspondances entre les noms du fichier Excel et les agences officielles, pour les quatre opérations.</p></div>
+ <button id="edit-associations" class="button outline" aria-expanded="false" aria-controls="association-manager">Modifier les associations</button></div>
+ <div id="association-manager" class="hidden">
+ <div class="filters"><div><label for="association-source">Nom figurant dans le fichier Excel</label><input id="association-source" type="search" placeholder="Ex. AÎT ATTAB" maxlength="150" autocomplete="off"></div>
+ <div><label for="association-agency">Agence officielle de destination</label><input id="association-agency" type="search" list="association-options" placeholder="Écrire le nom de l’agence..." autocomplete="off">
+ <datalist id="association-options"></datalist></div><button id="association-save" class="button primary">Enregistrer l’association</button></div>
+ <label for="association-filter">Rechercher une association enregistrée</label><input id="association-filter" type="search" placeholder="Filtrer les noms d’agences..." autocomplete="off">
+ <div id="association-list" class="association-list"></div>
+ <p class="hint">Une association personnalisée est prioritaire sur le nom d’agence de la liste principale. Les modifications concernent la répartition lors du prochain import Excel ; pour déplacer les CAB déjà enregistrés, réimportez le fichier de l’opération.</p></div>
+ </div>
+ <div class="import-section"><div class="panel-heading"><div><h3>Suivi des contrôles et des accès</h3><p>Consultez les CAB bouclés, restants, anomalies et les agents ayant ouvert chaque liste.</p></div><button id="export-button" class="button outline">Télécharger le bilan complet (Excel)</button></div><div id="admin-totals" class="stats" aria-live="polite"></div><div id="admin-summary" class="summary"></div><div id="admin-details" class="summary"></div><button id="refresh-summary" class="button outline">Actualiser le suivi</button></div>
 <button id="admin-logout" class="button outline">Se déconnecter</button>
 </div></section>
 </main><footer>Direction régionale Casablanca-Settat · Contrôle opérationnel des envois</footer>
