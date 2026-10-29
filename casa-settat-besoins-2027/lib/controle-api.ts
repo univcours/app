@@ -58,25 +58,24 @@ export async function handleControle(request:Request,path:string):Promise<Respon
   const raw=await request.text();
   if(raw.length>2500000)return json({error:'Import trop volumineux (maximum 2,5 Mo).'},413);
   const obj=JSON.parse(raw),module=obj?.module;
-  // Imports are explicitly scoped to one agency. Never deactivate codes of
-  // another agency in this operation, even if the incoming file is incomplete.
-  const agency=chooseAgency(obj?.agency);
-  if(!agency)return json({error:'Sélectionnez l’agence destinataire avant l’import.'},400);
+  // The coordinator confirms the CAB/Nom agence routing before submission.
+  // All agencies of this operation are refreshed together, never the other operations.
   const items=validateControleItems(module,obj?.items);
-  if(items.some(item=>item.agency!==agency))return json({error:'Le fichier contient des codes associés à une autre agence. Importation annulée.'},400);
   const fileName=String(obj.fileName??'Import Excel').replace(/[\\u0000-\\u001f<>]/g,'').slice(0,180);
-  const now=new Date().toISOString(),key=agencyKey(agency);
-  const statements=[db().prepare('UPDATE controle_codes SET active=0 WHERE module=? AND agency_key=?').bind(module,key)];
+  const now=new Date().toISOString();
+  const statements=[db().prepare('UPDATE controle_codes SET active=0 WHERE module=?').bind(module)];
   for(let start=0;start<items.length;start+=30){
-   const slice=items.slice(start,start+30);
+   const batch=items.slice(start,start+30);
    const sql='INSERT INTO controle_codes (id,module,agency,agency_key,barcode,status,observation,active,file_name,created_at,updated_at) VALUES '+
-    slice.map(()=>' (?,?,?,?,?,?,?,?,?,?,?)').join(',')+
+    batch.map(()=>' (?,?,?,?,?,?,?,?,?,?,?)').join(',')+
     ' ON CONFLICT(module,agency_key,barcode) DO UPDATE SET active=1,agency=excluded.agency,file_name=excluded.file_name';
-   const params=slice.flatMap(item=>[crypto.randomUUID(),module,agency,key,item.barcode,'EN_ATTENTE','',1,fileName,now,now]);
-   statements.push(db().prepare(sql).bind(...params));
+   const args=batch.flatMap(item=>[crypto.randomUUID(),module,item.agency,agencyKey(item.agency),item.barcode,'EN_ATTENTE','',1,fileName,now,now]);
+   statements.push(db().prepare(sql).bind(...args));
   }
   await db().batch(statements);
-  return json({ok:true,module,agency,imported:items.length,agencies:[{agency,count:items.length}]});
+  const totals=new Map<string,number>();
+  for(const item of items)totals.set(item.agency,(totals.get(item.agency)||0)+1);
+  return json({ok:true,module,imported:items.length,agencies:[...totals].map(([agency,count])=>({agency,count}))});
  }
  if(path==='/api/admin/controle/summary'&&request.method==='GET'){
   const module=moduleFrom(u);
