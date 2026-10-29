@@ -5,63 +5,13 @@ import { ArrowLeft, ArrowRight, CalendarDays, Check, CheckCircle2, ClipboardList
 import { Header, Footer, formatDate } from '../components';
 import { apiFetch, formPath } from '../../lib/api-client';
 import { agencyKey } from '../../lib/validation.mjs';
+import { COUNT_AGENCIES } from '../../lib/count-agencies.mjs';
 import { COUNT_FIELDS, COUNT_GROUPS, DEFAULT_COUNT_MONTH, cleanCountAgency, countDraftRows, countFingerprint, countRowsToDraft, countTotals, dateLabel, monthDates, monthLabel, templateDates, validMonth, validateCountSubmission } from '../../lib/comptage.mjs';
 import { useUnsentWarning } from '../use-unsent-warning';
 import ExitWarning from '../exit-warning';
 import CountTable from './count-table';
 import type { CountDraft, CountRow, CountSubmission } from './types';
 
-const COUNT_AGENCIES = [
-  "AFOURER",
-  "BNI AYAT",
-  "AÎT ATTAB",
-  "TAOUNZA AP",
-  "ARBAA AOUNAT",
-  "AZEMMOUR",
-  "AZILAL",
-  "BEJÂAD",
-  "BEN AHMED",
-  "BNI KHLOUG",
-  "GUISSER",
-  "BIR JDID",
-  "BOUJNIBA",
-  "BOULANOUAR",
-  "BZOU",
-  "DAR OULED ZIDOUH",
-  "DEMNATE",
-  "EL BOROUJ",
-  "RAS EL AIN",
-  "OULED ABBOU",
-  "EL GARA",
-  "EL KSIBA",
-  "AGHBALA",
-  "FOUM EL ANSER",
-  "TAGHZIRT",
-  "FOUM JEMÂA",
-  "HAD BRADIA",
-  "HAD SOUALEM",
-  "SIDI RAHAL PLAGE",
-  "SOUALEM TRIFIA",
-  "HATTANE",
-  "KHMISS OULED AYAD",
-  "KHMISS ZMAMRA",
-  "MLY ABDELLAH",
-  "SIDI BOUZID",
-  "OUALIDIA",
-  "OUAOUIZAGHT",
-  "OULED FREJ",
-  "OULED M'BAREK",
-  "FOUM OUDI",
-  "LÂAYAYTA AP",
-  "OULED YAÎCH",
-  "SIDI BENNOUR",
-  "SIDI HAJJAJ",
-  "SIDI JABER",
-  "SIDI ISMAIL",
-  "SOUK TLAT LOULAD",
-  "TNIN GHARBIA",
-  "ZAOUIA ECHCHEIKH"
-] as const;
 const STORAGE = 'casa-settat-comptage-v1';
 const routeAgency = (agency:string,tournee:string) => `${agency} — tournée de distribution ${tournee}`;
 const storageKey = (agency:string,month:string,tournee:string) => `${STORAGE}:${agencyKey(routeAgency(agency,tournee))}:${month}`;
@@ -113,7 +63,7 @@ export default function CountApp() {
 
   async function openMonth(name:string,period:string,selectedTournee=tournee) {
     let clean:string;
-    try { clean=cleanCountAgency(name); if (!COUNT_AGENCIES.includes(clean as typeof COUNT_AGENCIES[number])) throw new Error('Choisissez une agence dans la liste.'); if (!validMonth(period)) throw new Error('Choisissez un mois valide.'); if(!/^(10|[1-9])$/.test(selectedTournee)) throw new Error('Choisissez un numéro de tournée entre 1 et 10.'); if(routeAgency(clean,selectedTournee).length>100) throw new Error('Le nom de l’agence est trop long.'); }
+    try { clean=cleanCountAgency(name); if (!COUNT_AGENCIES.includes(clean)) throw new Error('Choisissez une agence dans la liste.'); if (!validMonth(period)) throw new Error('Choisissez un mois valide.'); if(!/^(10|[1-9])$/.test(selectedTournee)) throw new Error('Choisissez un numéro de tournée entre 1 et 10.'); if(routeAgency(clean,selectedTournee).length>100) throw new Error('Le nom de l’agence est trop long.'); }
     catch (problem) { setError(message(problem)); return; }
     const ticket=++generation.current, stored=readDraft(clean,period,selectedTournee);
     const keepDraft = !!stored && countFingerprint(routeAgency(clean,selectedTournee),period,stored.draft) !== stored.sentSnapshot;
@@ -137,7 +87,7 @@ export default function CountApp() {
   useEffect(()=>{
     try {
       const last=JSON.parse(localStorage.getItem(STORAGE + ':last') || 'null');
-      if(last && typeof last.agency === 'string' && COUNT_AGENCIES.includes(last.agency as typeof COUNT_AGENCIES[number]) && /^(10|[1-9])$/.test(last.tournee || '') && validMonth(last.month)) void openMonth(last.agency,last.month,last.tournee);
+      if(last && typeof last.agency === 'string' && COUNT_AGENCIES.includes(last.agency) && /^(10|[1-9])$/.test(last.tournee || '') && validMonth(last.month)) void openMonth(last.agency,last.month,last.tournee);
     } catch {}
     setBooted(true);
   },[]);
