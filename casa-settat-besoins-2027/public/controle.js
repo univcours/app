@@ -315,14 +315,16 @@ function progressMarkup(processed,total){
 }
 async function loadAgent(){
  const selectedAgency=$('agency').value,selectedModule=moduleId;
+ agency=selectedAgency;
+ if(!agency){$('agent-content').classList.add('hidden');$('agent-empty').classList.remove('hidden');return;}
  const agent=$('agent-name').value.trim().replace(/\s+/g,' ');
  if(agent.length<3||agent.length>90){
+  $('agent-content').classList.add('hidden');$('agent-empty').classList.remove('hidden');
   if(selectedAgency)message('Saisissez votre nom et prénom (3 à 90 caractères) avant de consulter les CAB.');
   return;
  }
  try{sessionStorage.setItem('controle-agent-name',agent);}catch{}
 
- agency=selectedAgency;if(!agency){$('agent-content').classList.add('hidden');$('agent-empty').classList.remove('hidden');return;}
  clearMessage();$('load-codes').disabled=true;
  try{
   await ensureParticipant();
@@ -335,6 +337,7 @@ async function loadAgent(){
 }
 $('load-codes').addEventListener('click',loadAgent);
 $('agency').addEventListener('change',()=>{if($('agent-name').value.trim().length>=3)void loadAgent();else {$('agent-content').classList.add('hidden');$('agent-empty').classList.remove('hidden');}});
+$('agent-name').addEventListener('input',()=>{$('agent-content').classList.add('hidden');$('agent-empty').classList.remove('hidden');});
 $('status-filter').addEventListener('change',()=>{recordIndex=0;updateList()});
 $('code-filter').addEventListener('input',()=>{recordIndex=0;updateList()});
 function updateList(){
