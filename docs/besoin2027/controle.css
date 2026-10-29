@@ -40,3 +40,16 @@
 #unmatched-fields .alias-pair .hint{margin:2px 0 8px}
 #unmatched-fields .match-feedback{display:block;color:#9b5d32;margin-top:7px;font-size:11px}
 #unmatched-fields .match-feedback.matched{color:#246d47;font-weight:700}
+
+
+/* Permanent editor for source-to-official-agency associations. */
+#association-manager{border-top:1px solid var(--line);padding-top:17px}
+#association-manager>label{font-size:12px;font-weight:700;display:block;margin-bottom:8px}
+#association-filter{display:block;width:100%;max-width:460px;margin-bottom:14px}
+.association-list{max-height:550px;overflow-y:auto;border:1px solid var(--line);border-radius:10px}
+.association-row{display:grid;grid-template-columns:minmax(140px,1fr) minmax(170px,1.2fr) auto auto;gap:10px;align-items:center;padding:12px 14px}
+.association-row+.association-row{border-top:1px solid var(--line)}
+.association-row strong{font-size:12px;overflow-wrap:anywhere}
+.association-row input{width:100%;min-width:0}
+.association-row .button{min-height:40px}
+@media(max-width:760px){.association-row{grid-template-columns:1fr 1fr}.association-row strong,.association-row input{grid-column:span 2}.association-row button{width:100%}}
