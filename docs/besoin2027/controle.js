@@ -484,11 +484,31 @@ function mappedRows(){
  return selectedRows.map(row=>({...row,agency:single?destination:
    resolvedAgency(row.rawAgency)}));
 }
+// Codes from a source name that was manually associated with an agency are
+// merged with CAB already addressed to that agency. Count each CAB only once
+// for the same agency, including when both spellings appear in the Excel file.
+function preparedImportRows(rows=mappedRows()){
+ const seen=new Set(),assigned=[];
+ for(const row of rows){
+  if(!row.agency)continue;
+  const key=row.agency+'|'+row.barcode.toUpperCase();
+  if(seen.has(key))continue;
+  seen.add(key);assigned.push(row);
+ }
+ return assigned;
+}
 function refreshImportPreview(){
- const single=isSingleImport(),items=mappedRows(),assigned=items.filter(row=>row.agency);
+ const single=isSingleImport(),items=mappedRows(),assigned=preparedImportRows(items);
  const unmapped=new Set(items.filter(row=>!row.agency).map(row=>row.rawAgency));
- const counts=new Map();
- for(const row of assigned)counts.set(row.agency,(counts.get(row.agency)||0)+1);
+ const counts=new Map(),sources=new Map();
+ for(const row of assigned){
+  counts.set(row.agency,(counts.get(row.agency)||0)+1);
+  const previous=sources.get(row.agency)||{direct:0,attached:0};
+  if(agencyMatches(row.rawAgency).exact===row.agency)previous.direct++;
+  else previous.attached++;
+  sources.set(row.agency,previous);
+ }
+ const mergedDuplicates=items.filter(row=>row.agency).length-assigned.length;
  const duplicates=Number($('import-preview').dataset.duplicates||0);
  const currentFile=$('excel-file').files[0];
  const mismatchedFile=currentFile && moduleFromFilename(currentFile.name) &&
@@ -500,18 +520,20 @@ function refreshImportPreview(){
   (duplicates?' · '+duplicates+' doublon(s) ignoré(s)':'')+
   (conflicts.length?' · ATTENTION : agences différentes détectées dans le fichier : '+conflicts.join(', '):'')+'.';
  }else{
-  $('import-preview').textContent=items.length+' CAB distincts détectés · '+assigned.length+
-   ' affectés à une agence · '+unmapped.size+' destination(s) ignorée(s)'+
-   (duplicates?' · '+duplicates+' doublon(s) ignoré(s)':'')+'.';
+  $('import-preview').textContent=assigned.length+' CAB affectés aux agences (codes directs + codes rattachés) · '+
+   unmapped.size+' destination(s) ignorée(s)'+
+   (duplicates+mergedDuplicates?' · '+(duplicates+mergedDuplicates)+' doublon(s) éliminé(s)':'')+'.';
  }
- $('import-groups').innerHTML=counts.size?'<strong>Répartition prévue</strong><div class="preview"><table><thead><tr><th>Agence</th><th>Nombre de CAB</th></tr></thead><tbody>'+
- [...counts].sort((a,b)=>a[0].localeCompare(b[0])).map(([name,n])=>'<tr><td>'+esc(name)+'</td><td>'+n+'</td></tr>').join('')+
+ $('import-groups').innerHTML=counts.size?'<strong>Répartition prévue : CAB initiaux et CAB des destinations associées</strong><div class="preview"><table><thead><tr><th>Agence</th><th>CAB directs</th><th>CAB rattachés</th><th>Total à afficher à l’agence</th></tr></thead><tbody>'+
+ [...counts].sort((a,b)=>a[0].localeCompare(b[0])).map(([name,n])=>'<tr><td>'+esc(name)+'</td><td>'+sources.get(name).direct+'</td><td>'+sources.get(name).attached+'</td><td><strong>'+n+'</strong></td></tr>').join('')+
  '</tbody></table></div>':'';
  $('import-button').disabled=!assigned.length||assigned.length>10000||conflicts.length>0||!!mismatchedFile;
 }
 $('import-button').addEventListener('click',async()=>{
  const file=$('excel-file').files[0],allItems=mappedRows(),single=isSingleImport(),destination=$('import-agency').value;
- const items=allItems.filter(row=>!!row.agency);const ignored=allItems.length-items.length;
+ const items=preparedImportRows(allItems);
+ const ignored=allItems.filter(row=>!row.agency).length;
+ const mergedDuplicates=allItems.filter(row=>row.agency).length-items.length;
  if(file && moduleFromFilename(file.name) && moduleFromFilename(file.name)!==moduleId){
   message('Le nom du fichier indique une autre opération. Revenez à l’opération correspondant au fichier.');return;
  }
@@ -525,7 +547,8 @@ $('import-button').addEventListener('click',async()=>{
   'Vous allez remplacer les CAB actifs de '+destination+' uniquement dans « '+MODULES[moduleId]+
    ' » par '+items.length+' code(s). Les autres agences ne seront pas modifiées. Confirmer ?':
   'Vous allez importer '+items.length+' CAB pour '+groups.size+' agence(s) dans « '+MODULES[moduleId]+
-   ' ». '+ignored+' CAB non affecté(s) seront ignorés. Les listes précédentes de cette opération seront remplacées. Confirmer ?';
+   ' ». '+ignored+' CAB non affecté(s) seront ignorés et '+mergedDuplicates+
+   ' doublon(s) après rattachement seront éliminés. Les listes précédentes de cette opération seront remplacées. Confirmer ?';
  if(!window.confirm(question))return;
  const button=$('import-button');button.disabled=true;
  try{
