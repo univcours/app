@@ -53,6 +53,32 @@ function resolvedAgency(raw){
  const top=ranked[0],rival=ranked.find(item=>item.destination!==top?.destination);
  return aliasKey(raw).replace(/\s/g,'').length>=6&&top&&top.score>=0.86&&(!rival||top.score-rival.score>=0.12)?top.destination:'';
 }
+function singleAgencySuggestion(raw){
+ const match=agencyMatches(raw);
+ return !match.exact&&match.suggestions.length===1?match.suggestions[0]:'';
+}
+// Save a single clear suggestion automatically and reuse that association
+// across Bouclage AM, the two Notifications and HDG. Explicit mappings win.
+function acceptUnambiguousSuggestions(names){
+ const rows=[];
+ for(const name of names){
+  if(resolvedAgency(name))continue;
+  const agency=singleAgencySuggestion(name),key=aliasKey(name);
+  if(!agency||!key||key.length>150)continue;
+  savedAgencyAliases[key]=agency;
+  rows.push({alias:key,agency});
+ }
+ if(rows.length){
+  localSaveAliases();
+  renderAssociationList();
+  if(adminToken())for(let offset=0;offset<rows.length;offset+=100){
+   void callAPI('/api/admin/controle/aliases',{
+    administrator:true,method:'POST',body:{items:rows.slice(offset,offset+100)}
+   }).catch(()=>{ /* Saved locally and synchronized on next login. */ });
+  }
+ }
+ return rows;
+}
 async function syncAgencyAliases(){
  if(!adminToken())return;
  try{
@@ -584,6 +610,7 @@ function evaluateMapping(){
  }
  $('import-preview').dataset.duplicates=String(duplicates);
  $('import-preview').dataset.conflicts=JSON.stringify([...conflicts]);
+ if(!single)acceptUnambiguousSuggestions(rawCounts.keys());
  const pending=single?[]:[...rawCounts.keys()].filter(name=>!resolvedAgency(name));
  $('unmatched').classList.toggle('hidden',pending.length===0);
  const optionList=AGENCES.map(agency=>'<option value="'+esc(agency)+'"></option>').join('');
@@ -653,12 +680,14 @@ function refreshImportPreview(){
    moduleFromFilename(currentFile.name)!==moduleId;
  let conflicts=[];try{conflicts=JSON.parse($('import-preview').dataset.conflicts||'[]');}catch{}
  const dest=$('import-agency').value;
+ const associatedSources=single?0:new Set(items.filter(row=>row.agency&&agencyMatches(row.rawAgency).exact!==row.agency).map(row=>row.rawAgency)).size;
  if(single){
   $('import-preview').textContent=items.length+' CAB distincts détectés · Agence : '+(dest||'non sélectionnée')+
   (duplicates?' · '+duplicates+' doublon(s) ignoré(s)':'')+
   (conflicts.length?' · ATTENTION : agences différentes détectées dans le fichier : '+conflicts.join(', '):'')+'.';
  }else{
   $('import-preview').textContent=assigned.length+' CAB affectés aux agences (codes directs + codes rattachés) · '+
+   associatedSources+' nom(s) rattaché(s) automatiquement ou par vos associations enregistrées · '+
    unmapped.size+' destination(s) ignorée(s)'+
    (duplicates+mergedDuplicates?' · '+(duplicates+mergedDuplicates)+' doublon(s) éliminé(s)':'')+'.';
  }
