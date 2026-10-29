@@ -13,13 +13,15 @@ const root = path.resolve(import.meta.dirname, '..');
 const sqlite = new DatabaseSync(':memory:');
 for (const file of (await fs.readdir(path.join(root,'drizzle'))).filter(file=>file.endsWith('.sql')).sort()) sqlite.exec(await fs.readFile(path.join(root,'drizzle',file),'utf8'));
 function prepared(sql, bindings = []) {
+  assert.ok(bindings.length <= 100, 'D1 limits each SQL statement to 100 bound parameters');
   return {
     bind(...args) { return prepared(sql, args); },
     async first() { return sqlite.prepare(sql).get(...bindings) || null; },
     async all() { return { results: sqlite.prepare(sql).all(...bindings), success: true }; },
+    async run() { const result=sqlite.prepare(sql).run(...bindings); return {success:true,meta:{changes:Number(result.changes)}}; },
   };
 }
-const environment = { DB: { prepare: sql => prepared(sql), async batch(statements) { sqlite.exec('BEGIN'); try { const result = []; for (const statement of statements) result.push(await statement.all()); sqlite.exec('COMMIT'); return result; } catch (error) { sqlite.exec('ROLLBACK'); throw error; } } }, SESSION_SECRET: 'test-only-session-secret-with-more-than-32-characters', ADMIN_PASSWORD: 'test-only-not-a-production-password', PUBLIC_WEB_ORIGIN: 'https://univcours.github.io' };
+const environment = { DB: { prepare: sql => prepared(sql), async batch(statements) { assert.ok(statements.length<=50,'An import must fit even the 50-query invocation budget'); sqlite.exec('BEGIN'); try { const result = []; for (const statement of statements) result.push(await statement.all()); sqlite.exec('COMMIT'); return result; } catch (error) { sqlite.exec('ROLLBACK'); throw error; } } }, SESSION_SECRET: 'test-only-session-secret-with-more-than-32-characters', ADMIN_PASSWORD: 'test-only-not-a-production-password', PUBLIC_WEB_ORIGIN: 'https://univcours.github.io' };
 const context = vm.createContext({ Request, Response, URL, TextEncoder, TextDecoder, Uint8Array, DataView, crypto: webcrypto, btoa, atob, console });
 const cache = new Map();
 const synthetic = (identifier, exports) => new vm.SyntheticModule(Object.keys(exports), function() { for (const [key, value] of Object.entries(exports)) this.setExport(key, value); }, { context, identifier });
@@ -191,6 +193,70 @@ assert.equal((await request('/api/admin/comptage/delete',{method:'POST',origin:w
 assert.equal((await request('/api/admin/comptage/delete',{method:'POST',origin:webOrigin,authorization:webAdminAuth,body:countReceipt})).status,200);
 assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM count_submissions WHERE month=?').get('2026-12').n,1,'Deleting November must preserve December');
 assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM submissions').get().n,needsBeforeCounts,'Counting operations must preserve the existing needs records');
+// Barcode-control routes use only additive migrations and isolated test data.
+const legacyBefore = JSON.stringify({needs:sqlite.prepare('SELECT * FROM submissions ORDER BY id').all(),counts:sqlite.prepare('SELECT * FROM count_submissions ORDER BY id').all()});
+const controlModules=['bouclage_am','notification_enregistree','notification_recommandee','hdg'];
+assert.equal((await request('/api/controle/health',{origin:webOrigin})).status,200);
+assert.equal((await (await request('/api/controle/health',{origin:webOrigin})).json()).ready,true);
+const controlPreflight=await request('/api/admin/controle/aliases',{method:'OPTIONS',origin:webOrigin});
+assert.match(controlPreflight.headers.get('access-control-allow-methods'),/DELETE/);
+for(const op of controlModules)assert.equal((await request('/api/admin/controle/summary?module='+op,{origin:webOrigin})).status,401);
+assert.equal((await request('/api/controle/items?module=hdg&agency=AFOURER',{origin:webOrigin})).status,401);
+const controlSession=await (await request('/api/controle/session',{origin:webOrigin})).json();
+const participantControl='Bearer '+controlSession.participantToken;
+const controlRequest=(path,options={})=>request(path,{origin:webOrigin,authorization:webAdminAuth,...options});
+assert.equal((await controlRequest('/api/admin/controle/summary?module=wrong')).status,400);
+for(const op of controlModules){
+ const body={module:op,fileName:'Import CAB NomAgence 0002.xlsx',scope:'all',items:[{agency:'AFOURER',barcode:'00001234'},{agency:'BNI AYAT',barcode:'OTHER-'+op}]};
+ assert.equal((await controlRequest('/api/admin/controle/import',{method:'POST',body,authorization:participantControl})).status,401);
+ const imported=await controlRequest('/api/admin/controle/import',{method:'POST',body});
+ assert.equal(imported.status,200);assert.equal((await imported.json()).imported,2);
+ const data=await (await controlRequest('/api/controle/items?module='+op+'&agency=AFOURER',{authorization:participantControl})).json();
+ assert.equal(data.items.length,1);assert.equal(data.items[0].barcode,'00001234');
+ assert.equal(data.items[0].source,body.fileName,'Original filenames and leading-zero barcodes must survive import');
+ assert.equal((await controlRequest('/api/controle/review',{method:'POST',authorization:participantControl,body:{module:op,agency:'BNI AYAT',id:data.items[0].id,status:'OK'}})).status,409,'An agency cannot review another agency’s code');
+ assert.equal((await controlRequest('/api/controle/review',{method:'POST',authorization:participantControl,body:{module:op,agency:'AFOURER',id:data.items[0].id,status:'ANOMALIE',observation:''}})).status,400);
+ assert.equal((await controlRequest('/api/controle/review',{method:'POST',authorization:participantControl,body:{module:op,agency:'AFOURER',id:data.items[0].id,status:'ANOMALIE',observation:'À vérifier'}})).status,200);
+ // Refreshing a file must retain the existing review of the same CAB.
+ assert.equal((await controlRequest('/api/admin/controle/import',{method:'POST',body})).status,200);
+ let restored=await (await controlRequest('/api/controle/items?module='+op+'&agency=AFOURER',{authorization:participantControl})).json();
+ assert.equal(restored.items[0].status,'ANOMALIE');assert.equal(restored.items[0].observation,'À vérifier');
+ const summary=await (await controlRequest('/api/admin/controle/summary?module='+op)).json();
+ assert.ok(summary.summary.some(row=>row.agency==='AFOURER'&&row.status==='ANOMALIE'&&row.quantity===1));
+ assert.ok(summary.accesses.some(row=>row.agency==='AFOURER'&&row.accessCount>=2));
+ const csv=await (await controlRequest('/api/admin/controle/export?module='+op)).text();
+ assert.match(csv,/00001234/);assert.match(csv,/À vérifier/);
+ const wrongScope={...body,scope:'single',agency:'AFOURER'};
+ assert.equal((await controlRequest('/api/admin/controle/import',{method:'POST',body:wrongScope})).status,400);
+ const single={...body,scope:'single',agency:'AFOURER',items:[{agency:'AFOURER',barcode:'NEW-'+op}]};
+ assert.equal((await controlRequest('/api/admin/controle/import',{method:'POST',body:single})).status,200);
+ const otherAgency=await (await controlRequest('/api/controle/items?module='+op+'&agency=BNI%20AYAT',{authorization:participantControl})).json();
+ assert.equal(otherAgency.items.length,1,'A single-agency import must preserve the other agencies');
+ assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM controle_codes WHERE module=? AND barcode=?').get(op,'00001234').n,1,'Old codes are retained rather than deleted');
+}
+const aliasBody={items:[{alias:'Ait Attab',agency:'KHMISS OULED AYAD'}]};
+assert.equal((await controlRequest('/api/admin/controle/aliases',{method:'POST',body:aliasBody})).status,200);
+let aliases=await (await controlRequest('/api/admin/controle/aliases')).json();
+assert.equal(aliases.aliases.find(row=>row.alias==='AIT ATTAB').agency,'KHMISS OULED AYAD');
+assert.equal((await controlRequest('/api/admin/controle/aliases',{method:'POST',body:{items:[{alias:'Ait Attab',agency:'AÎT ATTAB'}]}})).status,200);
+aliases=await (await controlRequest('/api/admin/controle/aliases')).json();
+assert.equal(aliases.aliases.find(row=>row.alias==='AIT ATTAB').agency,'AÎT ATTAB','Alias corrections must replace the mapping, not duplicate it');
+assert.equal((await controlRequest('/api/admin/controle/aliases?alias=AIT%20ATTAB',{method:'DELETE',origin:'https://evil.test'})).status,403);
+assert.equal((await controlRequest('/api/admin/controle/aliases?alias=AIT%20ATTAB',{method:'DELETE'})).status,200);
+// Import the documented maximum under real D1 parameter and query budgets.
+const largeItems=Array.from({length:10000},(_,index)=>({agency:'AFOURER',barcode:'BULK-'+String(index).padStart(6,'0')}));
+const largeImport=await controlRequest('/api/admin/controle/import',{method:'POST',body:{module:'hdg',scope:'single',agency:'AFOURER',fileName:'HDG CAB NomAgence.xlsx',items:largeItems}});
+assert.equal(largeImport.status,200);assert.equal((await largeImport.json()).imported,10000);
+const bulkBefore=sqlite.prepare('SELECT COUNT(*) AS n FROM controle_codes WHERE module=? AND active=1').get('hdg').n;
+sqlite.exec("CREATE TRIGGER fail_control_import BEFORE INSERT ON controle_codes WHEN NEW.barcode='ROLLBACK' BEGIN SELECT RAISE(ABORT,'test import rollback'); END");
+const failedImport=await controlRequest('/api/admin/controle/import',{method:'POST',body:{module:'hdg',scope:'all',items:[{agency:'AFOURER',barcode:'ROLLBACK'}]}});
+assert.equal(failedImport.status,503);
+assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM controle_codes WHERE module=? AND active=1').get('hdg').n,bulkBefore,'A failed import must roll back deactivation and keep the previous file active');
+sqlite.exec('DROP TRIGGER fail_control_import');
+assert.equal(JSON.stringify({needs:sqlite.prepare('SELECT * FROM submissions ORDER BY id').all(),counts:sqlite.prepare('SELECT * FROM count_submissions ORDER BY id').all()}),legacyBefore,'All previous needs and monthly count data must remain byte-for-byte unchanged');
+for(const file of ['0002_controle_codes.sql','0003_controle_acces.sql','0004_controle_agency_aliases.sql'])sqlite.exec(await fs.readFile(path.join(root,'drizzle',file),'utf8'));
+assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM controle_codes WHERE module=? AND active=1').get('hdg').n,bulkBefore,'Reapplying additive migration SQL must not erase data');
+console.log('PASS: four control operations, CAB/agency routing, global/single imports, 10,000 codes within D1 limits, review preservation, aliases, CORS, transactional rollback and legacy data preservation.');
 sqlite.close();
 console.log('PASS: comptage mensuel, agence, brouillons restaurés, export, rôles, séparation des mois et conservation des besoins 2027.');
 console.log('PASS: accès privé, sessions, consolidation, suppression ciblée et protégée, prévention des suppressions périmées, retrait des exports et nouvel envoi après suppression.');

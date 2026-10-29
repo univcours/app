@@ -1,14 +1,14 @@
 import { env } from 'cloudflare:workers';
 import { COUNT_AGENCIES } from './count-agencies.mjs';
 import { chooseAgency, cleanBarcode, validControleModule, validateControleItems, normalizeAgency } from './controle.mjs';
-import { agencyKey } from './validation.mjs';
+import { InputError, agencyKey } from './validation.mjs';
 import { cookieHeader, digest, readToken, signToken, trustedWebOrigin } from './security';
 
 type RecordRow = {id:string;module:string;agency:string;barcode:string;status:string;observation:string;active:number;file_name:string;created_at:string;updated_at:string;reviewed_at:string|null};
 const json=(obj:unknown,status=200)=>Response.json(obj,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
 const db=()=>{if(!env.DB)throw new Error('Base de données indisponible.');return env.DB;};
 const serialize=(r:RecordRow)=>({id:r.id,module:r.module,agency:r.agency,barcode:r.barcode,status:r.status,observation:r.observation,source:r.file_name,updatedAt:r.updated_at,reviewedAt:r.reviewed_at});
-const moduleFrom=(u:URL)=>{const m=u.searchParams.get('module')||'';if(!validControleModule(m))throw Error('Opération non reconnue.');return m;};
+const moduleFrom=(u:URL)=>{const m=u.searchParams.get('module')||'';if(!validControleModule(m))throw new InputError('Opération non reconnue.');return m;};
 function csvCell(v:unknown){return '"'+String(v??'').replace(/"/g,'""').replace(/^[=+@\-]/,match=>"'"+match)+'"';}
 export async function handleControle(request:Request,path:string):Promise<Response|null> {
  if(!path.startsWith('/api/controle/')&&!path.startsWith('/api/admin/controle/'))return null;
@@ -108,20 +108,22 @@ export async function handleControle(request:Request,path:string):Promise<Respon
   if(scope==='single'&&!selected)return json({error:'Sélectionnez une agence valide.'},400);
   if(selected&&items.some(item=>item.agency!==selected))
     return json({error:'Ce fichier contient des codes destinés à une autre agence. Importation refusée.'},400);
-  const fileName=String(obj.fileName??'Import Excel').replace(/[\\u0000-\\u001f<>]/g,'').slice(0,180);
+  const fileName=String(obj.fileName??'Import Excel').replace(/[\u0000-\u001f<>]/g,'').slice(0,180);
   const now=new Date().toISOString();
   // One transactional batch. Global: refresh one operation, all agencies.
   // Single: refresh ONLY the selected agency in that operation.
   const statements=scope==='single'
    ? [db().prepare('UPDATE controle_codes SET active=0 WHERE module=? AND agency_key=?').bind(module,agencyKey(selected!))]
    : [db().prepare('UPDATE controle_codes SET active=0 WHERE module=?').bind(module)];
-  for(let start=0;start<items.length;start+=30){
-   const batch=items.slice(start,start+30);
-   const sql='INSERT INTO controle_codes (id,module,agency,agency_key,barcode,status,observation,active,file_name,created_at,updated_at) VALUES '+
-    batch.map(()=>' (?,?,?,?,?,?,?,?,?,?,?)').join(',')+
-    ' ON CONFLICT(module,agency_key,barcode) DO UPDATE SET active=1,agency=excluded.agency,file_name=excluded.file_name';
-   const args=batch.flatMap(item=>[crypto.randomUUID(),module,item.agency,agencyKey(item.agency),item.barcode,'EN_ATTENTE','',1,fileName,now,now]);
-   statements.push(db().prepare(sql).bind(...args));
+  // D1 permits 100 bound values per statement. A JSON row batch keeps the
+  // entire supported 10,000-code import below 50 database statements, while
+  // preserving the single transaction and existing review results.
+  for(let start=0;start<items.length;start+=250){
+   const batch=items.slice(start,start+250).map(item=>({id:crypto.randomUUID(),agency:item.agency,agencyKey:agencyKey(item.agency),barcode:item.barcode}));
+   const jsonSql='INSERT INTO controle_codes (id,module,agency,agency_key,barcode,status,observation,active,file_name,created_at,updated_at) '+
+    "SELECT json_extract(value,'$.id'), ?, json_extract(value,'$.agency'), json_extract(value,'$.agencyKey'), json_extract(value,'$.barcode'), 'EN_ATTENTE', '', 1, ?, ?, ? FROM json_each(?) WHERE 1 "+
+    'ON CONFLICT(module,agency_key,barcode) DO UPDATE SET active=1,agency=excluded.agency,file_name=excluded.file_name';
+   statements.push(db().prepare(jsonSql).bind(module,fileName,now,now,JSON.stringify(batch)));
   }
   await db().batch(statements);
   const totals=new Map<string,number>();
