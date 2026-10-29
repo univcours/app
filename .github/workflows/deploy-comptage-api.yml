@@ -1,0 +1,99 @@
+name: Deploy univcours agency API (manual)
+run-name: Agency API • ${{ github.actor }}
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-univcours-agency-api
+  cancel-in-progress: false
+
+jobs:
+  deploy-api:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the verified agency application branch
+        uses: actions/checkout@v4
+        with:
+          ref: casa-settat-besoins-2027
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: '11.25.0'
+
+      - name: Validate deployment permissions and settings
+        working-directory: casa-settat-besoins-2027
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          UNIVCOURS_D1_DATABASE_ID: ${{ vars.UNIVCOURS_D1_DATABASE_ID }}
+          UNIVCOURS_ADMIN_PASSWORD: ${{ secrets.UNIVCOURS_ADMIN_PASSWORD }}
+          UNIVCOURS_SESSION_SECRET: ${{ secrets.UNIVCOURS_SESSION_SECRET }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for variable in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID UNIVCOURS_D1_DATABASE_ID UNIVCOURS_ADMIN_PASSWORD UNIVCOURS_SESSION_SECRET; do
+            if [[ -z "${!variable:-}" ]]; then echo "Missing required GitHub secret/variable: $variable"; exit 1; fi
+          done
+          if [[ ${#UNIVCOURS_SESSION_SECRET} -lt 32 ]]; then
+            echo "UNIVCOURS_SESSION_SECRET must contain 32 or more characters"; exit 1
+          fi
+          node scripts/generate-github-worker-config.mjs
+
+      - name: Install locked dependencies
+        working-directory: casa-settat-besoins-2027
+        run: pnpm install --frozen-lockfile
+
+      - name: Bundle standalone Worker without deploying
+        working-directory: casa-settat-besoins-2027
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: pnpm exec wrangler deploy --config worker/wrangler.generated.json --dry-run
+
+      - name: Apply additive database migrations
+        working-directory: casa-settat-besoins-2027
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: pnpm exec wrangler d1 migrations apply DB --remote --config worker/wrangler.generated.json
+
+      - name: Deploy backend (does not change public GitHub Pages links)
+        working-directory: casa-settat-besoins-2027
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: pnpm exec wrangler deploy --config worker/wrangler.generated.json
+
+      - name: Configure Worker login and session secrets
+        working-directory: casa-settat-besoins-2027
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          UNIVCOURS_ADMIN_PASSWORD: ${{ secrets.UNIVCOURS_ADMIN_PASSWORD }}
+          UNIVCOURS_SESSION_SECRET: ${{ secrets.UNIVCOURS_SESSION_SECRET }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s' "$UNIVCOURS_ADMIN_PASSWORD" | pnpm exec wrangler secret put ADMIN_PASSWORD --config worker/wrangler.generated.json
+          printf '%s' "$UNIVCOURS_SESSION_SECRET" | pnpm exec wrangler secret put SESSION_SECRET --config worker/wrangler.generated.json
+
+      - name: Verify the health endpoint
+        working-directory: casa-settat-besoins-2027
+        env:
+          UNIVCOURS_API_URL: ${{ vars.UNIVCOURS_API_URL }}
+        run: |
+          if [[ -z "$UNIVCOURS_API_URL" ]]; then
+            echo "Deployment completed, but set the repository variable UNIVCOURS_API_URL to verify the live health endpoint."
+            exit 0
+          fi
+          node scripts/verify-univcours-api.mjs
