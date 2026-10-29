@@ -29,6 +29,13 @@
       "when": 1793312000000,
       "tag": "0003_controle_acces",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1793320000000,
+      "tag": "0004_controle_agency_aliases",
+      "breakpoints": true
     }
   ]
 }
