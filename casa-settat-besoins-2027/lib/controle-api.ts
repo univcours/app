@@ -28,6 +28,14 @@ export async function handleControle(request:Request,path:string):Promise<Respon
   if(!agency)return json({error:'Sélectionnez une agence valide.'},400);
   const result=await db().prepare('SELECT * FROM controle_codes WHERE module=? AND agency_key=? AND active=1 ORDER BY barcode COLLATE NOCASE LIMIT 10001').bind(module,agencyKey(agency)).all<RecordRow>();
   if(result.results.length>10000)return json({error:'Trop de codes pour une seule agence.'},413);
+  // Une ouverture est comptée uniquement après la sélection de l'agence et
+  // l'affichage réussi de sa liste, même lorsque cette liste est vide.
+  // Ce compteur mesure des consultations, pas l'identité d'un agent.
+  const openedAt=new Date().toISOString();
+  await db().prepare(
+    'INSERT INTO controle_acces (module,agency,agency_key,first_access_at,last_access_at,access_count) VALUES (?,?,?,?,?,1) '+
+    'ON CONFLICT(module,agency_key) DO UPDATE SET last_access_at=excluded.last_access_at,access_count=controle_acces.access_count+1'
+  ).bind(module,agency,agencyKey(agency),openedAt,openedAt).run();
   return json({module,agency,items:result.results.map(serialize)});
  }
  if(path==='/api/controle/review'&&request.method==='POST'){
@@ -70,7 +78,10 @@ export async function handleControle(request:Request,path:string):Promise<Respon
  if(path==='/api/admin/controle/summary'&&request.method==='GET'){
   const module=moduleFrom(u);
   const rows=await db().prepare('SELECT agency, status, COUNT(*) AS quantity FROM controle_codes WHERE module=? AND active=1 GROUP BY agency,status ORDER BY agency').bind(module).all<{agency:string;status:string;quantity:number}>();
-  return json({module,summary:rows.results});
+  const visits=await db().prepare('SELECT agency,first_access_at,last_access_at,access_count FROM controle_acces WHERE module=? ORDER BY agency').bind(module).all<{agency:string;first_access_at:string;last_access_at:string;access_count:number}>();
+  return json({module,summary:rows.results,accesses:visits.results.map(row=>({
+   agency:row.agency,firstAccessAt:row.first_access_at,lastAccessAt:row.last_access_at,accessCount:row.access_count
+  }))});
  }
  if(path==='/api/admin/controle/export'&&request.method==='GET'){
   const module=moduleFrom(u);
