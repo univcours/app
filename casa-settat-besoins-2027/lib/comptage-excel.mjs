@@ -5,6 +5,10 @@ import { COUNT_FIELDS, countTotals, dateLabel, monthLabel, templateDates } from 
 const encoder = new TextEncoder(), decoder = new TextDecoder();
 const escape = value => String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 const textCell = (ref, value, style = '') => `<x:c r="${ref}"${style ? ` s="${style}"` : ''} t="inlineStr"><x:is><x:t xml:space="preserve">${escape(value)}</x:t></x:is></x:c>`;
+export function countAgencyAndRoute(name) {
+  const match = /^(.*?) — tournée de distribution (10|[1-9])$/.exec(name);
+  return match ? { agency: match[1], tournee: Number(match[2]) } : { agency: name, tournee: null };
+}
 const numberCell = (ref, value, style = '22', formula = '') => `<x:c r="${ref}" s="${style}">${formula ? `<x:f>${formula}</x:f>` : ''}<x:v>${value}</x:v></x:c>`;
 
 export function fillCountWorksheet(original, submission) {
@@ -13,9 +17,11 @@ export function fillCountWorksheet(original, submission) {
   const dates = [...new Set([...templateDates(submission.month), ...submission.rows.map(row => row.date)])].sort();
   const values = new Map(submission.rows.map(row => [row.date, row]));
   const month = monthLabel(submission.month);
+  const identity = countAgencyAndRoute(submission.agency);
   const title = `Comptage des envois de la période allant du ${dateLabel(dates[0])} au ${dateLabel(dates.at(-1))} (${month})`;
   const header = original.match(/<x:sheetData>([\s\S]*?)<x:row r="5"/)[1]
-    .replace(/<x:c r="A1"[\s\S]*?<\/x:c>/, textCell('A1', `Agence ABB : ${submission.agency}`, styles.title))
+    .replace(/<x:c r="A1"[\s\S]*?<\/x:c>/, textCell('A1', `Agence ABB : ${identity.agency}`, styles.title))
+    .replace(/<x:c r="A2"[^>]*(?:\/>|>[\s\S]*?<\/x:c>)/, textCell('A2', `Tournée de distribution : ${identity.tournee ?? '—'}`, styleAt('A2')))
     .replace(/<x:c r="E1"[\s\S]*?<\/x:c>/, textCell('E1', title, styles.title));
   const rows = dates.map((date, index) => {
     const rowNumber = index + 5, row = values.get(date);
@@ -47,9 +53,11 @@ export function exportCountWorkbook(template, submissions) {
   const source = decoder.decode(entries.find(entry => entry.name === 'xl/worksheets/sheet1.xml').data);
   const used = new Set();
   const names = submissions.map(submission => {
-    const clean = submission.agency.replace(/[\x00-\x1f\x7f\[\]:*?\\/]/g, ' ').trim().replace(/^'+|'+$/g, '') || 'Agence';
-    let name = clean.slice(0, 31), index = 2;
-    while (used.has(name.toLocaleUpperCase('fr'))) { const suffix = ` (${index++})`; name = clean.slice(0, 31 - suffix.length) + suffix; }
+    const identity = countAgencyAndRoute(submission.agency);
+    const suffix = identity.tournee === null ? '' : ` - T${identity.tournee}`;
+    const clean = identity.agency.replace(/[\x00-\x1f\x7f\[\]:*?\\/]/g, ' ').trim().replace(/^'+|'+$/g, '') || 'Agence';
+    let name = clean.slice(0, 31 - suffix.length) + suffix, index = 2;
+    while (used.has(name.toLocaleUpperCase('fr'))) { const extra = ` (${index++})`; name = clean.slice(0, 31 - suffix.length - extra.length) + suffix + extra; }
     used.add(name.toLocaleUpperCase('fr')); return name;
   });
   const sheets = submissions.map((submission, index) => ({ name: `xl/worksheets/sheet${index + 1}.xml`, data: encoder.encode(fillCountWorksheet(source, submission)) }));
