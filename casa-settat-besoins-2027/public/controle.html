@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Contrôle des codes-barres, Bouclage AM et notifications des agences">
+<title>Contrôle des codes-barres · DR Casablanca-Settat</title>
+<link rel="stylesheet" href="./controle.css?v=1">
+<script defer src="./controle.js?v=1"></script>
+</head><body>
+<header class="site-header"><div class="header-inner"><a class="brand" href="./?page=comptage"><span class="logo">▥</span><span><strong>Comptage<span>Envois</span></strong><small>DR Casablanca-Settat</small></span></a><nav><a href="./?page=comptage">Comptage des envois</a><a href="./?page=gestion-comptage">Suivi mensuel</a></nav></div></header>
+<main class="main">
+<div class="top"><div><span class="eyebrow">DR CASABLANCA-SETTAT · CONTRÔLE OPÉRATIONNEL</span><h1>Contrôle des codes-barres</h1><p>Examinez chaque code de votre agence et consignez le résultat du contrôle.</p></div><button id="admin-toggle" class="button outline">Espace coordinateur</button></div>
+<div id="alert" class="alert hidden" role="alert"></div>
+<div class="operations" id="operations" role="tablist" aria-label="Type d’opération">
+<button class="operation selected" data-module="bouclage_am" role="tab" aria-selected="true"><span class="op-num">01</span><strong>Bouclage AM</strong><small>Contrôle individuel</small></button>
+<button class="operation" data-module="notification_enregistree" role="tab" aria-selected="false"><span class="op-num">02</span><strong>Notification des envois enregistrés</strong><small>Contrôle individuel</small></button>
+<button class="operation" data-module="notification_recommandee" role="tab" aria-selected="false"><span class="op-num">03</span><strong>Notification des envois recommandés</strong><small>Contrôle individuel</small></button>
+</div>
+<section id="agent-panel" class="panel">
+  <div class="panel-heading"><div><span class="eyebrow">CONTRÔLE PAR AGENCE</span><h2 id="agent-module-label">Bouclage AM</h2></div></div>
+  <div class="filters"><div><label for="agency">Nom de l’agence</label><select id="agency" required><option value="">Choisir une agence</option></select></div><button id="load-codes" class="button primary">Afficher les codes-barres</button></div>
+  <div id="agent-empty" class="empty">Sélectionnez une agence pour afficher ses codes-barres.</div>
+  <div id="agent-content" class="hidden">
+    <div id="stats" class="stats"></div>
+    <div class="filters searchbar"><div><label for="code-filter">Rechercher un code-barres</label><input id="code-filter" placeholder="Saisissez un code-barres…"></div><div><label for="status-filter">Statut</label><select id="status-filter"><option value="ALL">Tous les codes</option><option value="EN_ATTENTE">À contrôler</option><option value="OK">Conformes</option><option value="ANOMALIE">Anomalies</option></select></div></div>
+    <div id="record-view" class="record hidden">
+      <div class="record-top"><span id="record-position"></span><span id="record-status" class="status"></span></div>
+      <div class="barcode-frame"><svg id="barcode-svg" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Code-barres"></svg><div id="barcode-unsupported" class="hint hidden">Ce code contient des caractères qui ne sont pas pris en charge par le format de représentation Code 39.</div><strong id="barcode-text"></strong></div>
+      <div class="record-actions"><button id="mark-ok" class="button primary">OK – Conforme</button><button id="show-anomaly" class="button outline">Signaler une anomalie</button></div>
+      <div id="anomaly-box" class="anomaly hidden"><label for="observation">Observation / motif de l’anomalie <span>*</span></label><textarea id="observation" maxlength="500" rows="3" placeholder="Décrivez le problème constaté pour ce code-barres."></textarea><button id="save-anomaly" class="button primary">Enregistrer l’anomalie</button></div>
+      <div class="record-navigation"><button id="previous" class="button outline">Précédent</button><button id="next" class="button outline">Suivant</button></div>
+    </div><div id="no-records" class="empty hidden">Aucun code-barres ne correspond aux critères sélectionnés.</div>
+  </div>
+</section>
+<section id="admin-panel" class="panel hidden"><div class="panel-heading"><div><span class="eyebrow">ACCÈS RÉSERVÉ</span><h2>Importation et suivi des codes-barres</h2></div><button id="close-admin" class="button outline">Revenir au contrôle</button></div>
+<div id="admin-login"><form id="login-form" class="filters"><div><label for="password">Mot de passe du coordinateur</label><input id="password" type="password" required autocomplete="current-password"></div><button class="button primary" type="submit">Se connecter</button></form></div>
+<div id="admin-connected" class="hidden">
+<div class="import-section"><h3>Importer un fichier Excel</h3><p>Choisissez l’opération, importez un fichier Excel, vérifiez les colonnes et les agences avant l’enregistrement. Un nouvel import remplace la liste active de l’opération, sans effacer les contrôles déjà réalisés sur les codes conservés.</p>
+<div class="filters"><div><label for="excel-file">Fichier (.xlsx ou .csv)</label><input id="excel-file" type="file" accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"></div><div><label for="excel-sheet">Feuille</label><select id="excel-sheet" disabled><option value="">Sélectionner un fichier</option></select></div></div>
+<div id="mapping" class="hidden"><div class="filters"><div><label for="header-row">Ligne des en-têtes</label><select id="header-row"></select></div><div><label for="agency-column">Colonne destination / agence</label><select id="agency-column"></select></div><div><label for="barcode-column">Colonne code-barres</label><select id="barcode-column"></select></div></div>
+<div class="preview"><table><thead id="preview-head"></thead><tbody id="preview-body"></tbody></table></div>
+<div id="import-preview" class="summary"></div><div id="unmatched" class="hidden"><h3>Destinations à associer</h3><p>Ces noms ne correspondent pas exactement à la liste des agences. Sélectionnez une agence pour chaque destination avant l’import.</p><div id="unmatched-fields"></div></div>
+<button id="import-button" class="button primary">Importer les codes-barres</button></div></div>
+<div class="import-section"><div class="panel-heading"><div><h3>Suivi des contrôles</h3><p>Résultats de l’opération sélectionnée, par agence.</p></div><button id="export-button" class="button outline">Exporter les résultats (CSV)</button></div><div id="admin-summary" class="summary"></div><button id="refresh-summary" class="button outline">Actualiser le suivi</button></div>
+<button id="admin-logout" class="button outline">Se déconnecter</button>
+</div></section>
+</main><footer>Direction régionale Casablanca-Settat · Contrôle opérationnel des envois</footer>
+</body></html>
