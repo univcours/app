@@ -315,11 +315,18 @@ function progressMarkup(processed,total){
 }
 async function loadAgent(){
  const selectedAgency=$('agency').value,selectedModule=moduleId;
+ const agent=$('agent-name').value.trim().replace(/\s+/g,' ');
+ if(agent.length<3||agent.length>90){
+  if(selectedAgency)message('Saisissez votre nom et prénom (3 à 90 caractères) avant de consulter les CAB.');
+  return;
+ }
+ try{sessionStorage.setItem('controle-agent-name',agent);}catch{}
+
  agency=selectedAgency;if(!agency){$('agent-content').classList.add('hidden');$('agent-empty').classList.remove('hidden');return;}
  clearMessage();$('load-codes').disabled=true;
  try{
   await ensureParticipant();
-  const r=await callAPI('/api/controle/items?module='+encodeURIComponent(selectedModule)+'&agency='+encodeURIComponent(selectedAgency));
+  const r=await callAPI('/api/controle/items?module='+encodeURIComponent(selectedModule)+'&agency='+encodeURIComponent(selectedAgency)+'&agent='+encodeURIComponent(agent));
   const d=await r.json();if(moduleId!==selectedModule||$('agency').value!==selectedAgency)return;
   agentItems=(d.items||[]).filter(x=>x.agency===selectedAgency);
   $('agent-empty').classList.add('hidden');$('agent-content').classList.remove('hidden');recordIndex=0;updateList();
@@ -327,7 +334,7 @@ async function loadAgent(){
  finally{$('load-codes').disabled=false}
 }
 $('load-codes').addEventListener('click',loadAgent);
-$('agency').addEventListener('change',()=>void loadAgent());
+$('agency').addEventListener('change',()=>{if($('agent-name').value.trim().length>=3)void loadAgent();else {$('agent-content').classList.add('hidden');$('agent-empty').classList.remove('hidden');}});
 $('status-filter').addEventListener('change',()=>{recordIndex=0;updateList()});
 $('code-filter').addEventListener('input',()=>{recordIndex=0;updateList()});
 function updateList(){
@@ -383,8 +390,8 @@ async function saveReview(status){
  if(status==='ANOMALIE'&&!observation){message('L’observation est obligatoire pour signaler une anomalie.');return;}
  const previousIndex=recordIndex+1;const buttons=[$('mark-ok'),$('save-anomaly')];buttons.forEach(b=>b.disabled=true);
  try{
-  const r=await callAPI('/api/controle/review',{method:'POST',body:{module:moduleId,agency,id:row.id,status,observation}});
-  const data=await r.json();row.status=data.status;row.observation=data.observation;if(data.status==='OK')row.alreadyNotified=false;
+  const r=await callAPI('/api/controle/review',{method:'POST',body:{module:moduleId,agency,id:row.id,status,observation,agent:$('agent-name').value.trim()}});
+  const data=await r.json();row.status=data.status;row.observation=data.observation;row.reviewer=data.reviewer;if(data.status==='OK')row.alreadyNotified=false;
   clearMessage();updateList();
   if($('status-filter').value==='ALL'&&previousIndex<filteredItems.length){recordIndex=previousIndex;showRecord();}
  }catch(error){message(error.message)}
@@ -791,6 +798,7 @@ $('import-button').addEventListener('click',async()=>{
  }catch(error){message(error.message);}
  finally{refreshImportPreview();}
 });
+try{$('agent-name').value=sessionStorage.getItem('controle-agent-name')||'';}catch{}
 toggleAdmin(false);
 void loadAgencyCatalogue();
 void verifyControleService();
