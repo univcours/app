@@ -43,3 +43,6 @@ yarn-error.log*
 
 # OS metadata
 .DS_Store
+
+# GitHub Actions-generated Cloudflare deployment metadata
+/worker/wrangler.generated.json
