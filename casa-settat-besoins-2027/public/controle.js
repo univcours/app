@@ -24,8 +24,172 @@ async function verifyControleService(){
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const normal=s=>String(s??'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]+/g,' ').trim();
-const agencyFor=value=>{const n=normal(value);return AGENCES.find(a=>normal(a)===n)||null};
-let moduleId='bouclage_am',agentItems=[],filteredItems=[],recordIndex=0,admin=false,books=[],selectedRows=[],agency='';
+const agencyFor=value=>{const n=normal(value),simple=n.replace(/^(AGENCE|BUREAU|ABB|AP|DESTINATION) /,'');return AGENCES.find(a=>normal(a)===n)||AGENCES.find(a=>normal(a)===simple)||null};
+const ALIAS_STORAGE='controle-agency-associations-v1';
+let moduleId='bouclage_am',agentItems=[],filteredItems=[],recordIndex=0,admin=false,books=[],selectedRows=[],confirmedMatches={},agency='',savedAgencyAliases=readAgencyAliases();
+function aliasKey(name){return String(name??'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]+/g,' ').trim().replace(/\s+/g,' ');}
+function readAgencyAliases(){
+ try{
+  const value=JSON.parse(localStorage.getItem(ALIAS_STORAGE)||'{}');
+  if(!value||typeof value!=='object'||Array.isArray(value))return {};
+  return Object.fromEntries(Object.entries(value).filter(([key,destination])=>
+   typeof key==='string'&&key.length>0&&key.length<160&&AGENCES.includes(destination)));
+ }catch{return {};}
+}
+function localSaveAliases(){try{localStorage.setItem(ALIAS_STORAGE,JSON.stringify(savedAgencyAliases));}catch{}}
+function resolvedAgency(raw){
+ const key=aliasKey(raw);
+ // Any explicitly confirmed coordinator association wins, even if the source
+ // is itself an official agency name (e.g. AÎT ATTAB -> KHMISS OULED AYAD).
+ if(confirmedMatches[raw])return confirmedMatches[raw];
+ if(savedAgencyAliases[key])return savedAgencyAliases[key];
+ const exact=agencyMatches(raw).exact;
+ if(exact)return savedAgencyAliases[aliasKey(exact)]||exact;
+ // Reuse an accepted alias only for an extremely close, unambiguous spelling.
+ // Ambiguities are listed for manual review instead of guessing the agency.
+ const ranked=Object.entries(savedAgencyAliases).map(([alias,destination])=>({
+  destination,score:agencySimilarity(raw,alias)
+ })).sort((a,b)=>b.score-a.score);
+ const top=ranked[0],rival=ranked.find(item=>item.destination!==top?.destination);
+ return aliasKey(raw).replace(/\s/g,'').length>=6&&top&&top.score>=0.86&&(!rival||top.score-rival.score>=0.12)?top.destination:'';
+}
+function singleAgencySuggestion(raw){
+ const match=agencyMatches(raw);
+ return !match.exact&&match.suggestions.length===1?match.suggestions[0]:'';
+}
+// Save a single clear suggestion automatically and reuse that association
+// across Bouclage AM, the two Notifications and HDG. Explicit mappings win.
+function acceptUnambiguousSuggestions(names){
+ const rows=[];
+ for(const name of names){
+  if(resolvedAgency(name))continue;
+  const agency=singleAgencySuggestion(name),key=aliasKey(name);
+  if(!agency||!key||key.length>150)continue;
+  savedAgencyAliases[key]=agency;
+  rows.push({alias:key,agency});
+ }
+ if(rows.length){
+  localSaveAliases();
+  renderAssociationList();
+  if(adminToken())for(let offset=0;offset<rows.length;offset+=100){
+   void callAPI('/api/admin/controle/aliases',{
+    administrator:true,method:'POST',body:{items:rows.slice(offset,offset+100)}
+   }).catch(()=>{ /* Saved locally and synchronized on next login. */ });
+  }
+ }
+ return rows;
+}
+async function syncAgencyAliases(){
+ if(!adminToken())return;
+ try{
+  const response=await callAPI('/api/admin/controle/aliases',{administrator:true});
+  const data=await response.json(),server={};
+  for(const row of data.aliases||[]){
+   if(typeof row.alias==='string'&&AGENCES.includes(row.agency)){
+    const key=aliasKey(row.alias);if(key)server[key]=row.agency;
+   }
+  }
+  // The central database wins when both copies disagree.
+  const localOnly=Object.entries(savedAgencyAliases)
+   .filter(([key])=>!Object.hasOwn(server,key)).map(([alias,agency])=>({alias,agency}));
+  savedAgencyAliases={...savedAgencyAliases,...server};localSaveAliases();
+  for(let i=0;i<localOnly.length;i+=100){
+   await callAPI('/api/admin/controle/aliases',{
+    administrator:true,method:'POST',body:{items:localOnly.slice(i,i+100)}
+   });
+  }
+  if(books.length)evaluateMapping();
+  renderAssociationList();
+ }catch{
+  // Keep browser-local mappings if the backend is not activated yet.
+  renderAssociationList();
+ }
+}
+async function rememberAgencyAlias(raw,destination){
+ const key=aliasKey(raw),agency=agencyFor(destination);
+ if(!key||key.length>150||!agency)throw Error('Saisissez un nom de destination et choisissez une agence officielle.');
+ savedAgencyAliases[key]=agency;
+ confirmedMatches[raw]=agency;
+ localSaveAliases();refreshImportPreview();renderAssociationList();
+ if(!adminToken())return false;
+ try{
+  await callAPI('/api/admin/controle/aliases',{administrator:true,method:'POST',body:{
+   items:[{alias:key,agency}]
+  }});
+  return true;
+ }catch{return false;}
+}
+async function forgetAgencyAlias(raw){
+ const key=aliasKey(raw);if(!Object.hasOwn(savedAgencyAliases,key))return true;
+ if(!adminToken())throw Error('Connectez-vous avec le compte coordinateur.');
+ // Keep the previous association intact if central deletion fails.
+ await callAPI('/api/admin/controle/aliases?alias='+encodeURIComponent(key),{
+  administrator:true,method:'DELETE'
+ });
+ delete savedAgencyAliases[key];delete confirmedMatches[raw];localSaveAliases();
+ if(books.length)evaluateMapping();renderAssociationList();
+ return true;
+}
+function renderAssociationList(){
+ const panel=$('association-list');if(!panel)return;
+ const filter=aliasKey($('association-filter').value);
+ const entries=Object.entries(savedAgencyAliases)
+  .filter(([alias,destination])=>!filter||alias.includes(filter)||aliasKey(destination).includes(filter))
+  .sort((a,b)=>a[0].localeCompare(b[0],'fr'));
+ const options=$('association-options');
+ if(options&&!options.children.length)options.innerHTML=AGENCES.map(name=>'<option value="'+esc(name)+'"></option>').join('');
+ panel.innerHTML=entries.length?entries.map(([alias,destination],index)=>
+  '<div class="association-row"><strong>'+esc(alias)+'</strong>'+
+  '<input type="search" list="association-options" value="'+esc(destination)+'" data-association-target="'+index+'" aria-label="Agence officielle pour '+esc(alias)+'">'+
+  '<button type="button" class="button outline" data-association-save="'+index+'">Modifier</button>'+
+  '<button type="button" class="button outline" data-association-delete="'+index+'">Supprimer</button></div>'
+ ).join(''):'<p class="hint">Aucune association enregistrée pour cette recherche.</p>';
+ for(const [index,[alias]] of entries.entries()){
+  const save=panel.querySelector('[data-association-save="'+index+'"]');
+  const remove=panel.querySelector('[data-association-delete="'+index+'"]');
+  save?.addEventListener('click',async()=>{
+   const target=panel.querySelector('[data-association-target="'+index+'"]');
+   const agency=agencyFor(target?.value);
+   if(!agency){message('Choisissez une agence de la liste principale.');return;}
+   save.disabled=true;
+   try{
+    const central=await rememberAgencyAlias(alias,agency);
+    if(books.length)evaluateMapping();
+    message('Association modifiée : '+alias+' → '+agency+
+      (central?' (enregistrée pour les 4 opérations).':' (enregistrée dans ce navigateur ; synchronisation centrale indisponible).'),true);
+   }finally{save.disabled=false;}
+  });
+  remove?.addEventListener('click',async()=>{
+   if(!confirm('Supprimer l’association « '+alias+' » ? Les nouveaux imports utiliseront de nouveau les correspondances ordinaires.'))return;
+   remove.disabled=true;
+   try{
+    await forgetAgencyAlias(alias);
+    message('Association supprimée : '+alias+'.',true);
+   }catch(e){message('Suppression impossible : '+e.message);}
+   finally{remove.disabled=false;}
+  });
+ }
+}
+$('edit-associations').addEventListener('click',()=>{
+ const box=$('association-manager'),show=box.classList.contains('hidden');
+ box.classList.toggle('hidden',!show);
+ $('edit-associations').setAttribute('aria-expanded',String(show));
+ if(show){renderAssociationList();$('association-filter').focus();}
+});
+$('association-filter').addEventListener('input',renderAssociationList);
+$('association-save').addEventListener('click',async()=>{
+ const source=$('association-source').value.trim();
+ const dest=agencyFor($('association-agency').value);
+ if(!source||!dest){message('Indiquez le nom du fichier Excel et sélectionnez une agence officielle.');return;}
+ const btn=$('association-save');btn.disabled=true;
+ try{
+  const central=await rememberAgencyAlias(source,dest);
+  if(books.length)evaluateMapping();
+  $('association-source').value='';$('association-agency').value='';
+  message('Association enregistrée : '+source+' → '+dest+
+    (central?' (valable pour les 4 opérations).':' (sur ce navigateur uniquement ; serveur non disponible).'),true);
+ }finally{btn.disabled=false;}
+});
 function message(text,success=false){const el=$('alert');el.classList.remove('hidden','ok');el.textContent=text;if(success)el.classList.add('ok');window.scrollTo({top:0,behavior:'smooth'});}
 function clearMessage(){$('alert').classList.add('hidden');}
 function participantToken(){return localStorage.getItem('besoin2027-participant-session')||''}
@@ -51,33 +215,35 @@ async function ensureParticipant(){
  if(data.participantToken)localStorage.setItem('besoin2027-participant-session',data.participantToken);
 }
 function agencySelect(select,placeholder='Choisir une agence'){
- const oldValue=select.value;
+ const previous=select.value;
  select.innerHTML='<option value="">'+esc(placeholder)+'</option>'+AGENCES.map(a=>'<option value="'+esc(a)+'">'+esc(a)+'</option>').join('');
- if(AGENCES.includes(oldValue))select.value=oldValue;
+ if(AGENCES.includes(previous))select.value=previous;
 }
 function renderAgencyCatalogue(){
  const field=$('agency-list'),info=$('agency-list-info');
  if(info)info.textContent=AGENCES.length+' agences dans la liste principale.';
  if(field)field.innerHTML='<div class="agency-tags">'+AGENCES.map(a=>'<span>'+esc(a)+'</span>').join('')+'</div>';
  for(const id of ['agency','import-agency'])agencySelect($(id));
+ const options=$('association-options');if(options)options.replaceChildren();
+ renderAssociationList();
  if(books.length)evaluateMapping();
 }
 async function loadAgencyCatalogue(){
  try{
-  const response=await callAPI('/api/controle/agencies');
-  const data=await response.json();
-  if(Array.isArray(data.agencies)&&data.agencies.every(x=>typeof x==='string')){
-   AGENCES=[...new Set(data.agencies)].sort((a,b)=>a.localeCompare(b,'fr'));
+  const response=await callAPI('/api/controle/agencies'),data=await response.json();
+  if(Array.isArray(data.agencies)&&data.agencies.every(name=>typeof name==='string')){
+   AGENCES.splice(0,AGENCES.length,...new Set(data.agencies));
+   AGENCES.sort((a,b)=>a.localeCompare(b,'fr'));
   }
- }catch{/* Keep the established 49 agencies while backend is unavailable. */}
+ }catch{/* Keep existing 49 agencies if newer catalogue API is not available. */}
  renderAgencyCatalogue();
 }
 async function addAgency(name){
- const clean=String(name||'').replace(/\\s+/g,' ').trim();
- if(!clean)throw Error('Saisissez le nom de la nouvelle agence.');
- const response=await callAPI('/api/admin/controle/agencies',{method:'POST',administrator:true,body:{name:clean}});
+ const clean=String(name??'').replace(/\\s+/g,' ').trim();
+ if(clean.length<2||clean.length>100)throw Error('Saisissez le nom exact de la nouvelle agence (2 à 100 caractères).');
+ const response=await callAPI('/api/admin/controle/agencies',{administrator:true,method:'POST',body:{name:clean}});
  const data=await response.json();
- if(Array.isArray(data.agencies))AGENCES=data.agencies;
+ if(Array.isArray(data.agencies))AGENCES.splice(0,AGENCES.length,...data.agencies);
  else if(!AGENCES.includes(data.agency))AGENCES.push(data.agency);
  AGENCES.sort((a,b)=>a.localeCompare(b,'fr'));
  renderAgencyCatalogue();
@@ -87,8 +253,9 @@ $('add-agency-form').addEventListener('submit',async e=>{
  e.preventDefault();
  const button=$('add-agency-button');button.disabled=true;
  try{
-  const agency=await addAgency($('new-agency-name').value);
-  $('new-agency-name').value='';message('Agence ajoutée à la liste principale : '+agency+'.',true);
+  const name=await addAgency($('new-agency-name').value);
+  $('new-agency-name').value='';
+  message('Agence ajoutée à la liste principale : '+name+'.',true);
  }catch(error){message(error.message);}
  finally{button.disabled=false;}
 });
@@ -119,7 +286,7 @@ $('close-admin').addEventListener('click',()=>toggleAdmin(false));
 function toggleAdmin(flag){
  admin=flag;$('admin-panel').classList.toggle('hidden',!flag);$('agent-panel').classList.toggle('hidden',flag);
  $('admin-toggle').textContent=flag?'Contrôle par agence':'Espace coordinateur';
- if(flag&&adminToken()){setAdminConnected(true);void loadSummary();void loadAgencyCatalogue();}
+ if(flag&&adminToken()){setAdminConnected(true);void loadSummary();void syncAgencyAliases();void loadAgencyCatalogue();}
 }
 function setAdminConnected(yes){$('admin-login').classList.toggle('hidden',yes);$('admin-connected').classList.toggle('hidden',!yes);}
 $('login-form').addEventListener('submit',async e=>{
@@ -130,7 +297,7 @@ $('login-form').addEventListener('submit',async e=>{
   const data=await r.json();
   if(!data.adminToken)throw Error('Le serveur n’a pas fourni de session coordinateur.');
   sessionStorage.setItem('besoin2027-coordinateur-session',data.adminToken);
-  $('password').value='';setAdminConnected(true);await loadAgencyCatalogue();await loadSummary();message('Connexion coordinateur établie.',true);
+  $('password').value='';setAdminConnected(true);await loadAgencyCatalogue();await loadSummary();void syncAgencyAliases();message('Connexion coordinateur établie.',true);
  }catch(error){message(error.message);}
 });
 $('admin-logout').addEventListener('click',()=>{sessionStorage.removeItem('besoin2027-coordinateur-session');setAdminConnected(false);message('Session coordinateur fermée.',true)});
@@ -198,7 +365,7 @@ function showRecord(){
  const row=filteredItems[recordIndex];
  $('record-position').textContent='Code '+(recordIndex+1)+' / '+filteredItems.length+' · '+agency;
  $('barcode-text').textContent=row.barcode;barcodeSvg(row.barcode);
- const status=row.status==='OK'?'Conforme':row.status==='ANOMALIE'?'Anomalie':'À contrôler';
+ const status=row.status==='OK'?(row.alreadyNotified?'Déjà notifié':'Bouclé'):row.status==='ANOMALIE'?'Anomalie':'À contrôler';
  $('record-status').textContent=status;
  $('record-status').className='status '+(row.status==='OK'?'ok':row.status==='ANOMALIE'?'bad':'');
  $('observation').value=row.observation||'';
@@ -217,7 +384,7 @@ async function saveReview(status){
  const previousIndex=recordIndex+1;const buttons=[$('mark-ok'),$('save-anomaly')];buttons.forEach(b=>b.disabled=true);
  try{
   const r=await callAPI('/api/controle/review',{method:'POST',body:{module:moduleId,agency,id:row.id,status,observation}});
-  const data=await r.json();row.status=data.status;row.observation=data.observation;
+  const data=await r.json();row.status=data.status;row.observation=data.observation;if(data.status==='OK')row.alreadyNotified=false;
   clearMessage();updateList();
   if($('status-filter').value==='ALL'&&previousIndex<filteredItems.length){recordIndex=previousIndex;showRecord();}
  }catch(error){message(error.message)}
@@ -495,8 +662,19 @@ function evaluateMapping(){
     '<p class="hint">Aucune correspondance certaine. Recherchez l’agence par son nom.</p>';
   return '<div class="alias-pair"><label for="match-'+i+'">'+esc(raw)+' ('+rawCounts.get(raw)+' CAB)</label>'+suggestion+
    '<input type="search" id="match-'+i+'" list="agency-options-'+i+'" autocomplete="off" placeholder="Écrire pour rechercher une agence..." data-raw="'+esc(raw)+'" aria-label="Rechercher l’agence correspondant à '+esc(raw)+'">'+
-   '<datalist id="agency-options-'+i+'">'+optionList+'</datalist><small class="match-feedback">Non associé : ces CAB seront ignorés.</small></div>';
+   '<datalist id="agency-options-'+i+'">'+optionList+'</datalist><small class="match-feedback">Non associé : ces CAB seront ignorés.</small>'+
+   '<button type="button" class="button outline" data-create-agency="'+i+'">Ajouter cette agence à la liste principale</button></div>';
  }).join('');
+ $('unmatched-fields').querySelectorAll('button[data-create-agency]').forEach(button=>{
+  button.addEventListener('click',async()=>{
+   const name=pending[Number(button.dataset.createAgency)];if(!name)return;
+   button.disabled=true;
+   try{
+    const newName=await addAgency(name);
+    message('Agence ajoutée à la liste principale : '+newName+'. Ses CAB seront inclus.',true);
+   }catch(error){message(error.message);button.disabled=false;}
+  });
+ });
  $('unmatched-fields').querySelectorAll('input[data-raw]').forEach(input=>{
   input.addEventListener('input',()=>{
    const matched=agencyFor(input.value);
