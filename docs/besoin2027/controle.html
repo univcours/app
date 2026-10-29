@@ -14,6 +14,7 @@
 <button class="operation selected" data-module="bouclage_am" role="tab" aria-selected="true"><span class="op-num">01</span><strong>Bouclage AM</strong><small>Contrôle individuel</small></button>
 <button class="operation" data-module="notification_enregistree" role="tab" aria-selected="false"><span class="op-num">02</span><strong>Notification des envois enregistrés</strong><small>Contrôle individuel</small></button>
 <button class="operation" data-module="notification_recommandee" role="tab" aria-selected="false"><span class="op-num">03</span><strong>Notification des envois recommandés</strong><small>Contrôle individuel</small></button>
+<button class="operation" data-module="hdg" role="tab" aria-selected="false"><span class="op-num">04</span><strong>HDG</strong><small>Contrôle individuel</small></button>
 </div>
 <section id="agent-panel" class="panel">
   <div class="panel-heading"><div><span class="eyebrow">CONTRÔLE PAR AGENCE</span><h2 id="agent-module-label">Bouclage AM</h2></div></div>
@@ -36,7 +37,7 @@
 <div id="admin-connected" class="hidden">
 <div class="import-section"><h3>Importer un seul fichier Excel pour toutes les agences</h3>
 <p>Sélectionnez l’opération en haut de page, puis chargez un seul fichier Excel contenant les colonnes « CAB » et « Nom agence ». Les codes-barres seront répartis automatiquement par agence. Si un nom est mal orthographié ou différent, vérifiez la proposition et confirmez la destination avant d’importer.</p>
-<p class="hint">Le nom du fichier détermine automatiquement l’opération : Bouclage AM, Notification des envois enregistrés ou Notification des envois recommandés.</p><div class="filters"><div><label for="excel-file">Fichier (.xlsx ou .csv)</label><input id="excel-file" type="file" accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"></div><div><label for="excel-sheet">Feuille</label><select id="excel-sheet" disabled><option value="">Sélectionner un fichier</option></select></div></div>
+<p class="hint">Le nom du fichier détermine automatiquement l’opération : Bouclage AM, Notification des envois enregistrés, Notification des envois recommandés ou HDG.</p><div class="filters"><div><label for="excel-file">Fichier (.xlsx ou .csv)</label><input id="excel-file" type="file" accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"></div><div><label for="excel-sheet">Feuille</label><select id="excel-sheet" disabled><option value="">Sélectionner un fichier</option></select></div></div>
 <p class="hint">Important : dans Excel, formatez la colonne des codes-barres en « Texte » pour conserver les zéros initiaux et éviter la notation scientifique. Après une importation réussie, le fichier est automatiquement retiré de cette zone ; seules les données des codes sont enregistrées, et non le fichier Excel original.</p>
 <div id="mapping" class="hidden"><div class="filters"><div><label for="header-row">Ligne des en-têtes (facultative)</label><select id="header-row"></select></div><div><label for="agency-column">Colonne agence / destination</label><select id="agency-column"></select></div><div><label for="barcode-column">Colonne code-barres</label><select id="barcode-column"></select></div></div>
 <div class="preview"><table><thead id="preview-head"></thead><tbody id="preview-body"></tbody></table></div>
