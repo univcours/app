@@ -20,7 +20,7 @@ export function fillCountWorksheet(original, submission) {
   const identity = countAgencyAndRoute(submission.agency);
   const title = `Comptage des envois de la période allant du ${dateLabel(dates[0])} au ${dateLabel(dates.at(-1))} (${month})`;
   const header = original.match(/<x:sheetData>([\s\S]*?)<x:row r="5"/)[1]
-    .replace(/<x:c r="A1"[\s\S]*?<\/x:c>/, textCell('A1', `Agence ABB : ${identity.agency}`, styles.title))
+    .replace(/<x:c r="A1"[\s\S]*?<\/x:c>/, textCell('A1', `${identity.agency}${identity.tournee === null ? '' : ` T${identity.tournee}`}`, styles.title))
     .replace(/<x:c r="A2"[^>]*(?:\/>|>[\s\S]*?<\/x:c>)/, textCell('A2', `Tournée N°: ${identity.tournee ?? '—'}`, styleAt('A2')))
     .replace(/<x:c r="E1"[\s\S]*?<\/x:c>/, textCell('E1', title, styles.title));
   const rows = dates.map((date, index) => {
@@ -54,7 +54,7 @@ export function exportCountWorkbook(template, submissions) {
   const used = new Set();
   const names = submissions.map(submission => {
     const identity = countAgencyAndRoute(submission.agency);
-    const suffix = identity.tournee === null ? '' : ` - T${identity.tournee}`;
+    const suffix = identity.tournee === null ? '' : ` T${identity.tournee}`;
     const clean = identity.agency.replace(/[\x00-\x1f\x7f\[\]:*?\\/]/g, ' ').trim().replace(/^'+|'+$/g, '') || 'Agence';
     let name = clean.slice(0, 31 - suffix.length) + suffix, index = 2;
     while (used.has(name.toLocaleUpperCase('fr'))) { const extra = ` (${index++})`; name = clean.slice(0, 31 - suffix.length - extra.length) + suffix + extra; }
