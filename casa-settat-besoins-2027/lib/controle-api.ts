@@ -38,7 +38,8 @@ export async function handleControle(request:Request,path:string):Promise<Respon
    await database.prepare('SELECT 1 FROM controle_agency_aliases LIMIT 1').first();
    await database.prepare('SELECT reimport_count,last_reviewer_name FROM controle_codes LIMIT 1').first();
    await database.prepare('SELECT 1 FROM controle_access_log LIMIT 1').first();
-   await database.prepare('SELECT 1 FROM controle_agency_accounts LIMIT 1').first();
+   await database.prepare('SELECT 1 FROM controle_auth_users LIMIT 1').first();
+   await database.prepare('SELECT 1 FROM controle_auth_agencies LIMIT 1').first();
    await database.prepare('SELECT 1 FROM controle_site_state LIMIT 1').first();
    return json({ready:true});
   }catch{
@@ -49,6 +50,7 @@ export async function handleControle(request:Request,path:string):Promise<Respon
   return json(await siteAvailability());
  }
  const admin=isAdminPath?await readToken(request,'budget_admin','admin'):null;
+ if(isAdminPath&&!admin)return json({error:'Accès réservé au coordinateur.'},401);
  if(path==='/api/admin/controle/site-status'&&request.method==='POST'){
   const raw=await request.text();
   if(raw.length>300)return json({error:'Demande trop longue.'},413);
@@ -67,8 +69,8 @@ export async function handleControle(request:Request,path:string):Promise<Respon
   if(!agency)return json({error:'Choisissez une agence de la liste principale.'},400);
   if(typeof body?.username!=='string'||typeof body?.active!=='boolean')return json({error:'Identifiant ou statut invalide.'},400);
   try{
-   return json({account:await writeAgencyAccount(agency,agencyKey(agency),body.username,body.password,body.active)});
-  }catch(error){if(error instanceof Error&&/identifiant|mot de passe|attribué|agence/i.test(error.message))return json({error:error.message},400);throw error;}
+   return json({account:await writeAgencyAccount(agency,agencyKey(agency),body.username,body.password,body.active,body.changePassword===true)});
+  }catch(error){if(error instanceof Error&&/identifiant|mot de passe|attribué|agence|compte|groupe/i.test(error.message))return json({error:error.message},400);throw error;}
  }
  if(path==='/api/controle/login'&&request.method==='POST'){
   const raw=await request.text();
@@ -76,20 +78,19 @@ export async function handleControle(request:Request,path:string):Promise<Respon
   const body=JSON.parse(raw);
   const result=await loginAgency(request,body?.username,body?.password);
   if('error' in result)return json({error:result.error},result.status);
-  return Response.json({ok:true,username:result.username,agency:result.agency,agencyToken:result.token},{
+  return Response.json({ok:true,username:result.username,agencies:result.agencies,agencyToken:result.token},{
    headers:{'Cache-Control':'no-store','Set-Cookie':result.cookie}});
  }
  if(path==='/api/controle/me'&&request.method==='GET'){
   const account=await currentAgencyAccount(request);
   if(!account)return json({error:'Session expirée. Reconnectez-vous.'},401);
-  return json({agency:account.agency,username:account.username});
+  return json({agencies:account.agencies,username:account.username});
  }
  if(path==='/api/controle/logout'&&request.method==='POST'){
   return Response.json({ok:true},{headers:{'Cache-Control':'no-store',
    'Set-Cookie':cookieHeader(request,'controle_agency','',0)}});
  }
 
- if(isAdminPath&&!admin)return json({error:'Accès réservé au coordinateur.'},401);
  if(path==='/api/controle/agencies'&&request.method==='GET'){
   return json({agencies:await officialAgencies()});
  }
@@ -118,7 +119,7 @@ export async function handleControle(request:Request,path:string):Promise<Respon
   const account=await currentAgencyAccount(request);
   if(!account)return json({error:'Connectez-vous avec les identifiants de votre agence.'},401);
   const module=moduleFrom(u),agency=chooseAgency(u.searchParams.get('agency'),await officialAgencies());
-  if(!agency||agencyKey(agency)!==account.agencyKey)return json({error:'Cette agence ne correspond pas à votre compte.'},403);
+  if(!agency||!account.agencyKeys.includes(agencyKey(agency)))return json({error:'Cette agence ne correspond pas à votre compte.'},403);
   const agent=agentName(u.searchParams.get('agent'));
   if(!agency)return json({error:'Sélectionnez une agence valide.'},400);
   if(!agent)return json({error:'Saisissez votre nom et prénom avant de consulter les CAB.'},400);
@@ -128,8 +129,8 @@ export async function handleControle(request:Request,path:string):Promise<Respon
   // l'affichage réussi de sa liste, même lorsque cette liste est vide.
   // Ce compteur mesure des consultations, pas l'identité d'un agent.
   const openedAt=new Date().toISOString();
-  await db().prepare('INSERT INTO controle_access_log (id,module,agency,agency_key,agent_name,session_hash,viewed_at,code_count) VALUES (?,?,?,?,?,?,?,?)')
-   .bind(crypto.randomUUID(),module,agency,agencyKey(agency),agent,await digest('agency:'+account.username+':'+account.agencyKey),openedAt,result.results.length).run();
+  await db().prepare('INSERT INTO controle_access_log (id,module,agency,agency_key,agent_name,session_hash,viewed_at,code_count,login_username) VALUES (?,?,?,?,?,?,?,?,?)')
+   .bind(crypto.randomUUID(),module,agency,agencyKey(agency),agent,await digest('account:'+account.usernameKey),openedAt,result.results.length,account.username).run();
   await db().prepare(
     'INSERT INTO controle_acces (module,agency,agency_key,first_access_at,last_access_at,access_count) VALUES (?,?,?,?,?,1) '+
     'ON CONFLICT(module,agency_key) DO UPDATE SET last_access_at=excluded.last_access_at,access_count=controle_acces.access_count+1'
@@ -144,13 +145,13 @@ export async function handleControle(request:Request,path:string):Promise<Respon
   const obj=JSON.parse(body);
   const agency=chooseAgency(obj?.agency,await officialAgencies()),module=obj?.module;
   const agent=agentName(obj?.agent);
-  if(!agency||agencyKey(agency)!==account.agencyKey)return json({error:'Accès à cette agence interdit.'},403);
+  if(!agency||!account.agencyKeys.includes(agencyKey(agency)))return json({error:'Accès à cette agence interdit.'},403);
   if(!agent||!validControleModule(module)||typeof obj?.id!=='string'||obj.id.length>100)return json({error:'Nom d’agent ou opération invalide.'},400);
   if(!['OK','ANOMALIE'].includes(obj.status))return json({error:'Choisissez OK ou Anomalie.'},400);
   const observation=obj.status==='OK'?'':String(obj.observation??'').trim();
   if(obj.status==='ANOMALIE'&&(!observation||observation.length>500))return json({error:'Une observation de 1 à 500 caractères est obligatoire.'},400);
   const now=new Date().toISOString();
-  const res=await db().prepare('UPDATE controle_codes SET status=?,observation=?,updated_at=?,reviewed_at=?,reviewer_session=?,last_reviewer_name=? WHERE id=? AND module=? AND agency_key=? AND active=1 RETURNING id').bind(obj.status,observation,now,now,await digest('agency:'+account.username+':'+account.agencyKey),agent,obj.id,module,agencyKey(agency)).first<{id:string}>();
+  const res=await db().prepare('UPDATE controle_codes SET status=?,observation=?,updated_at=?,reviewed_at=?,reviewer_session=?,last_reviewer_name=? WHERE id=? AND module=? AND agency_key=? AND active=1 RETURNING id').bind(obj.status,observation,now,now,await digest('account:'+account.usernameKey),agent,obj.id,module,agencyKey(agency)).first<{id:string}>();
   if(!res)return json({error:'Ce code a été retiré ou n’est pas disponible pour cette agence.'},409);
   return json({ok:true,id:res.id,status:obj.status,observation,reviewer:agent,updatedAt:now});
  }
