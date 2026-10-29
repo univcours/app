@@ -53,3 +53,15 @@
 .association-row input{width:100%;min-width:0}
 .association-row .button{min-height:40px}
 @media(max-width:760px){.association-row{grid-template-columns:1fr 1fr}.association-row strong,.association-row input{grid-column:span 2}.association-row button{width:100%}}
+
+
+/* Agency catalogue and per-agency audit details. */
+.agency-tags{display:flex;flex-wrap:wrap;gap:7px;padding:10px}
+.agency-tags span{border:1px solid var(--line);border-radius:7px;padding:5px 9px;font-size:12px}
+.agency-details-button{white-space:nowrap}
+#admin-details{margin-top:20px}
+#admin-details h3{margin:0 0 9px}
+#admin-details h4{margin:18px 0 8px}
+.agency-detail-section{margin:12px 0;border:1px solid var(--line);border-radius:10px;padding:10px}
+.agency-detail-section summary{cursor:pointer;padding:6px}
+.agency-detail-section .summary-scroll{max-height:360px;overflow:auto}
