@@ -25,15 +25,22 @@ async function syncAgencyAliases(){
  try{
   const res=await callAPI('/api/admin/controle/aliases',{administrator:true});
   const data=await res.json();
+  const serverAliases={};
   for(const item of data.aliases||[]){
    if(typeof item.alias==='string'&&AGENCES.includes(item.agency)){
     const key=aliasKey(item.alias);
-    if(key&&!savedAgencyAliases[key])savedAgencyAliases[key]=item.agency;
+    if(key)serverAliases[key]=item.agency;
    }
   }
-  localStorage.setItem(ALIAS_STORAGE,JSON.stringify(savedAgencyAliases));
-  const items=Object.entries(savedAgencyAliases).map(([alias,agency])=>({alias,agency}));
-  if(items.length)await callAPI('/api/admin/controle/aliases',{administrator:true,method:'POST',body:{items}});
+  // Server-confirmed corrections take precedence across devices. Only new
+  // browser-local corrections are uploaded back, in bounded batches.
+  const localOnly=Object.entries(savedAgencyAliases)
+   .filter(([key])=>!Object.hasOwn(serverAliases,key))
+   .map(([alias,agency])=>({alias,agency}));
+  savedAgencyAliases={...savedAgencyAliases,...serverAliases};
+  try{localStorage.setItem(ALIAS_STORAGE,JSON.stringify(savedAgencyAliases));}catch{}
+  for(let i=0;i<localOnly.length;i+=100)
+   await callAPI('/api/admin/controle/aliases',{administrator:true,method:'POST',body:{items:localOnly.slice(i,i+100)}});
   if(books.length)evaluateMapping();
  }catch{/* The association also remains stored in this browser when the server is unavailable. */}
 }
