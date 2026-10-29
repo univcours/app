@@ -5,6 +5,7 @@ import { InputError, validateSubmission } from "../../../lib/validation.mjs";
 import { exportWorkbook } from "../../../lib/excel.mjs";
 import { cookieHeader, digest, equalSecret, readToken, sameOrigin, signToken, trustedWebOrigin } from "../../../lib/security";
 import { handleComptage } from "../../../lib/comptage-api";
+import { handleControle } from "../../../lib/controle-api";
 
 export const dynamic = "force-dynamic";
 type Item = { id: string; quantity: number; comment: string };
@@ -19,7 +20,9 @@ async function handle(request: Request) {
   const path = new URL(request.url).pathname;
   if (request.headers.has("origin") && !sameOrigin(request) && !trustedWebOrigin(request)) return json({ error: "Origine non autorisée." }, 403);
   if (request.method === "POST" && !sameOrigin(request) && !trustedWebOrigin(request)) return json({ error: "Cette demande doit être envoyée depuis le formulaire." }, 403);
-  if (request.method === "POST" && Number(request.headers.get("content-length") || 0) > 400000) return json({ error: "La demande est trop volumineuse." }, 413);
+  if (request.method === "POST" && Number(request.headers.get("content-length") || 0) > (path === "/api/admin/controle/import" ? 2500000 : 400000)) return json({ error: "La demande est trop volumineuse." }, 413);
+  const controleResponse = await handleControle(request, path);
+  if (controleResponse) return controleResponse;
   const countResponse = await handleComptage(request, path);
   if (countResponse) return countResponse;
   if (request.method === "GET" && path === "/api/session") {
