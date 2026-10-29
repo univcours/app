@@ -416,36 +416,78 @@ async function loadSummary(){
   }
   const visited=new Map((data.accesses||[]).map(row=>[row.agency,row]));
   const neverOpened=AGENCES.filter(name=>!visited.has(name)).length;
-  const total=[...groups.values()].reduce((acc,c)=>{
+  const totals=[...groups.values()].reduce((acc,c)=>{
     acc.pending+=c.EN_ATTENTE;acc.ok+=c.OK;acc.anomaly+=c.ANOMALIE;return acc;
   },{pending:0,ok:0,anomaly:0});
-  const processed=total.ok+total.anomaly,all=processed+total.pending;
+  const processed=totals.ok+totals.anomaly,all=processed+totals.pending;
   $('admin-totals').innerHTML=[
-   ['CAB à contrôler',all,''],['Codes traités',processed,'processed'],
-   ['Codes restants',total.pending,total.pending?'remaining':'completed'],['Anomalies',total.anomaly,'']
+   ['CAB à contrôler',all,''],['Bouclés',totals.ok,'processed'],
+   ['Codes restants',totals.pending,totals.pending?'remaining':'completed'],
+   ['Anomalies',totals.anomaly,totals.anomaly?'remaining':'']
   ].map(([label,count,kind])=>'<div class="stat '+kind+'"><strong>'+fmtNumber(count)+'</strong><span>'+label+'</span></div>').join('');
   let html='<div class="controle-progress">'+progressMarkup(processed,all)+'</div>';
-  html+='<p><strong>'+AGENCES.length+' agences</strong> · '+(AGENCES.length-neverOpened)+' ayant consulté la liste · '+neverOpened+' sans consultation enregistrée</p>';
-  html+='<div class="summary-scroll"><table><thead><tr><th>Agence</th><th>Accès</th><th>Dernier accès</th><th>Ouvertures</th><th>Codes traités</th><th class="remaining-column">Codes restants</th><th>OK</th><th>Anomalies</th><th>Total codes</th></tr></thead><tbody>';
+  html+='<p><strong>'+AGENCES.length+' agences</strong> · '+(AGENCES.length-neverOpened)+' ayant ouvert la liste · '+neverOpened+' sans consultation enregistrée</p>';
+  html+='<div class="summary-scroll"><table><thead><tr><th>Agence</th><th>Qui a vu les codes ?</th><th>Dernière consultation</th><th>Ouvertures</th><th>Bouclés</th><th class="remaining-column">Restants</th><th>Anomalies</th><th>Total</th><th>Détails</th></tr></thead><tbody>';
   for(const [name,c] of groups){
-   const access=visited.get(name),consulted=!!access,treated=c.OK+c.ANOMALIE,rest=c.EN_ATTENTE;
-   html+='<tr><td>'+esc(name)+'</td><td><span class="access-label '+(consulted?'visited':'never')+'">'+(consulted?'Consultée':'Jamais consultée')+'</span></td>'+
+   const access=visited.get(name),seen=!!access,remaining=c.EN_ATTENTE;
+   html+='<tr><td>'+esc(name)+'</td>'+
+     '<td>'+(seen?'<strong>'+esc(access?.lastAgent||'Nom non enregistré')+'</strong>':'<span class="access-label never">Non consultée</span>')+
+     (access?.distinctAgents?' <small>('+access.distinctAgents+' agent(s))</small>':'')+'</td>'+
      '<td>'+accessDate(access?.lastAccessAt)+'</td><td>'+(access?.accessCount||0)+'</td>'+
-     '<td><strong class="count-processed">'+treated+'</strong></td>'+
-     '<td><strong class="'+(rest?'count-remaining':'count-completed')+'">'+rest+'</strong></td>'+
-     '<td>'+c.OK+'</td><td>'+c.ANOMALIE+'</td><td>'+(treated+rest)+'</td></tr>';
+     '<td><strong class="count-processed">'+c.OK+'</strong></td>'+
+     '<td><strong class="'+(remaining?'count-remaining':'count-completed')+'">'+remaining+'</strong></td>'+
+     '<td><strong class="'+(c.ANOMALIE?'count-remaining':'')+'">'+c.ANOMALIE+'</strong></td>'+
+     '<td>'+(c.OK+c.ANOMALIE+remaining)+'</td>'+
+     '<td><button type="button" class="button outline agency-details-button" data-agency="'+esc(name)+'">Voir les CAB</button></td></tr>';
   }
-  $('admin-summary').innerHTML=html+'</tbody></table></div><p class="hint">Codes traités = codes OK + codes avec anomalie. « Consultée » signifie seulement qu’une liste a été ouverte, sans identification nominative de l’agent.</p>';
+  $('admin-summary').innerHTML=html+'</tbody></table></div><p class="hint">L’agent est identifié par le nom qu’il saisit : cette déclaration n’est pas une authentification nominative vérifiée.</p>';
+  $('admin-summary').querySelectorAll('button[data-agency]').forEach(btn=>btn.addEventListener('click',()=>void showAgencyDetails(btn.dataset.agency)));
+  $('admin-details').replaceChildren();
  }catch(error){message(error.message);}
+}
+function detailsSection(title,items,kind){
+ const total=items.length;
+ const color=kind==='EN_ATTENTE'?'count-remaining':kind==='ANOMALIE'?'count-remaining':'count-processed';
+ const rows=items.slice(0,500);
+ return '<details class="agency-detail-section" open><summary><strong class="'+color+'">'+esc(title)+' : '+total+'</strong></summary>'+
+  '<div class="summary-scroll"><table><thead><tr><th>CAB</th><th>Statut</th><th>Observation</th><th>Agent</th><th>Date du contrôle</th></tr></thead><tbody>'+
+  rows.map(item=>'<tr><td>'+esc(item.barcode)+'</td><td>'+esc(item.status==='OK'?(item.alreadyNotified?'Déjà notifié':'Bouclé'):item.status==='ANOMALIE'?'Anomalie':'À contrôler')+'</td>'+
+   '<td>'+esc(item.observation||'')+'</td><td>'+esc(item.reviewer||'')+'</td><td>'+accessDate(item.reviewedAt)+'</td></tr>').join('')+
+  '</tbody></table></div>'+(total>rows.length?'<p class="hint">Affichage limité à 500 CAB de cette catégorie. Le fichier Excel contient la liste complète.</p>':'')+'</details>';
+}
+async function showAgencyDetails(name){
+ const target=$('admin-details');
+ target.innerHTML='<p class="hint">Chargement du suivi de '+esc(name)+'…</p>';
+ try{
+  const module=moduleId;
+  const response=await callAPI('/api/admin/controle/details?module='+encodeURIComponent(module)+'&agency='+encodeURIComponent(name),{administrator:true});
+  const data=await response.json();
+  if(moduleId!==module)return;
+  const items=data.codes||[],consultations=data.consultations||[];
+  let html='<h3>Suivi détaillé : '+esc(name)+' · '+esc(MODULES[module])+'</h3>';
+  html+='<p><strong>'+items.length+' CAB actifs</strong> · '+consultations.length+' consultations récentes (maximum 200 affichées)</p>';
+  html+=detailsSection('Bouclés',items.filter(x=>x.status==='OK'),'OK');
+  html+=detailsSection('Restants',items.filter(x=>x.status==='EN_ATTENTE'),'EN_ATTENTE');
+  html+=detailsSection('Anomalies',items.filter(x=>x.status==='ANOMALIE'),'ANOMALIE');
+  html+='<h4>Historique : qui a consulté les CAB ?</h4><div class="summary-scroll"><table><thead><tr><th>Nom déclaré de l’agent</th><th>Date et heure</th><th>CAB visibles</th></tr></thead><tbody>'+
+   consultations.map(row=>'<tr><td>'+esc(row.agent)+'</td><td>'+accessDate(row.date)+'</td><td>'+fmtNumber(row.quantity)+'</td></tr>').join('')+'</tbody></table></div>';
+  if(!consultations.length)html+='<p class="hint">Aucune consultation nominative enregistrée pour cette opération.</p>';
+  if(data.truncated)html+='<p class="hint">Certains CAB dépassent la limite d’affichage. Consultez le fichier Excel.</p>';
+  target.innerHTML=html;
+  target.scrollIntoView({behavior:'smooth',block:'start'});
+ }catch(error){target.textContent='Détails indisponibles : '+error.message;}
 }
 $('refresh-summary').addEventListener('click',loadSummary);
 $('export-button').addEventListener('click',async()=>{
+ const button=$('export-button');button.disabled=true;
  try{
   const token=adminToken();
-  const r=await fetch(BASE+'/api/admin/controle/export?module='+encodeURIComponent(moduleId),{headers:{Authorization:'Bearer '+token},mode:'cors',credentials:'omit'});
-  if(!r.ok)throw Error('Export indisponible.');
-  const url=URL.createObjectURL(await r.blob()),a=document.createElement('a');a.href=url;a.download='controle_'+moduleId+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  const r=await fetch(BASE+'/api/admin/controle/export-xlsx',{headers:{Authorization:'Bearer '+token},mode:'cors',credentials:'omit',cache:'no-store'});
+  if(!r.ok){const info=await r.json().catch(()=>({}));throw Error(info.error||'Export Excel indisponible.');}
+  const url=URL.createObjectURL(await r.blob()),a=document.createElement('a');
+  a.href=url;a.download='Suivi_global_CAB.xlsx';a.click();setTimeout(()=>URL.revokeObjectURL(url),30000);
  }catch(error){message(error.message)}
+ finally{button.disabled=false;}
 });
 // Excel and CSV loading: all files are inspected locally before sending confirmed rows to the server.
 async function decodeZip(buffer){
