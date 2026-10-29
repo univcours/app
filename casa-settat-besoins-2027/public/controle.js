@@ -6,7 +6,7 @@ const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const normal=s=>String(s??'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]+/g,' ').trim();
 const agencyFor=value=>{const n=normal(value),simple=n.replace(/^(AGENCE|BUREAU|ABB|AP|DESTINATION) /,'');return AGENCES.find(a=>normal(a)===n)||AGENCES.find(a=>normal(a)===simple)||null};
-let moduleId='bouclage_am',agentItems=[],filteredItems=[],recordIndex=0,admin=false,books=[],selectedRows=[],unmatchedMap={},agency='';
+let moduleId='bouclage_am',agentItems=[],filteredItems=[],recordIndex=0,admin=false,books=[],selectedRows=[],agency='';
 function message(text,success=false){const el=$('alert');el.classList.remove('hidden','ok');el.textContent=text;if(success)el.classList.add('ok');window.scrollTo({top:0,behavior:'smooth'});}
 function clearMessage(){$('alert').classList.add('hidden');}
 function participantToken(){return localStorage.getItem('besoin2027-participant-session')||''}
@@ -43,6 +43,8 @@ function chooseModule(id){
 }
 document.querySelectorAll('[data-module]').forEach(b=>b.addEventListener('click',()=>chooseModule(b.dataset.module)));
 agencySelect($('agency'));
+agencySelect($('import-agency'));
+$('import-agency').addEventListener('change',()=>refreshImportPreview());
 $('admin-toggle').addEventListener('click',()=>toggleAdmin(true));
 $('close-admin').addEventListener('click',()=>toggleAdmin(false));
 function toggleAdmin(flag){
@@ -245,87 +247,94 @@ $('excel-file').addEventListener('change',async e=>{
  try{
   books=await readBook(file);
   const list=$('excel-sheet');list.disabled=false;list.innerHTML=books.map((s,i)=>'<option value="'+i+'">'+esc(s.name)+'</option>').join('');
-  unmatchedMap={};showMapping();clearMessage();
+  showMapping();clearMessage();
  }catch(error){books=[];$('mapping').classList.add('hidden');message(error.message)}
 });
-$('excel-sheet').addEventListener('change',()=>{unmatchedMap={};showMapping()});
+$('excel-sheet').addEventListener('change',showMapping);
 function selectedSheet(){return books[Number($('excel-sheet').value)||0]}
 function showMapping(){
  const book=selectedSheet();if(!book)return;
  $('mapping').classList.remove('hidden');
- const select=$('header-row');select.innerHTML=book.rows.slice(0,Math.min(20,book.rows.length)).map((r,i)=>'<option value="'+i+'">Ligne '+(i+1)+' : '+esc((r||[]).slice(0,3).join(' | ').slice(0,75))+'</option>').join('');
- const guess=book.rows.slice(0,20).findIndex(row=>(row||[]).some(v=>/agence|destination|code.barres|suivi|tracking|objet/i.test(String(v))));
- select.value=String(Math.max(0,guess));
+ const select=$('header-row');
+ select.innerHTML='<option value="-1">Aucun en-tête : les codes commencent à la première ligne</option>'+
+  book.rows.slice(0,Math.min(20,book.rows.length)).map((r,i)=>
+   '<option value="'+i+'">Ligne '+(i+1)+' : '+esc((r||[]).slice(0,3).join(' | ').slice(0,75))+'</option>').join('');
+ const guess=book.rows.slice(0,20).findIndex(row=>
+  (row||[]).some(v=>/^(code[- ]?barres?|barcode|code d.envoi|num[eé]ro d.envoi|n[°o].? suivi|tracking|identifiant)$/i.test(String(v).trim())));
+ select.value=String(guess<0?-1:guess);
  updateColumns();
 }
 $('header-row').addEventListener('change',updateColumns);
-$('agency-column').addEventListener('change',evaluateMapping);
 $('barcode-column').addEventListener('change',evaluateMapping);
+function excelLetter(n){let text='';for(let x=n+1;x>0;x=Math.floor((x-1)/26))text=String.fromCharCode(65+(x-1)%26)+text;return text;}
 function updateColumns(){
- const book=selectedSheet(),r=book?.rows[Number($('header-row').value)]||[];
- const width=Math.min(80,Math.max(2,...book.rows.slice(0,40).map(x=>(x||[]).length)));
- for(const id of ['agency-column','barcode-column']){
-  $(id).innerHTML=Array.from({length:width},(_,i)=>'<option value="'+i+'">'+String.fromCharCode(65+(i%26))+' — '+esc(String(r[i]||'Colonne '+(i+1)).slice(0,70))+'</option>').join('');
- }
- const guess=regex=>r.findIndex(x=>regex.test(String(x)));
- const agencyIndex=guess(/agence|destination|bureau|établissement|site/i),barcodeIndex=guess(/code.barres|barcode|numéro.*envoi|n°.*envoi|tracking|objet|identifiant/i);
- $('agency-column').value=String(agencyIndex>=0?agencyIndex:0);
- $('barcode-column').value=String(barcodeIndex>=0?barcodeIndex:Math.min(1,width-1));
+ const book=selectedSheet();if(!book)return;
+ const header=Number($('header-row').value);
+ const row=header>=0 ? book.rows[header]||[] : [];
+ const width=Math.min(80,Math.max(1,...book.rows.slice(0,40).map(r=>(r||[]).length)));
+ $('barcode-column').innerHTML=Array.from({length:width},(_,i)=>
+  '<option value="'+i+'">'+excelLetter(i)+' — '+esc(String(row[i]||'Colonne '+(i+1)).slice(0,70))+'</option>').join('');
+ const guess=row.findIndex(v=>/code.barres|barcode|num[eé]ro.*envoi|n[°o].*envoi|tracking|objet|identifiant|n[°o].*suivi/i.test(String(v)));
+ $('barcode-column').value=String(guess>=0?guess:0);
  evaluateMapping();
 }
 function evaluateMapping(){
  const book=selectedSheet();if(!book)return;
- const headerIndex=Number($('header-row').value),a=Number($('agency-column').value),b=Number($('barcode-column').value);
- const rows=book.rows.slice(headerIndex+1);
- const totals=new Map();selectedRows=[];
- let lastAgency='';
- for(const row of rows){
-  const raw=String(row?.[a]??'').trim(),barcode=String(row?.[b]??'').trim();
-  if(raw)lastAgency=raw;
-  if(!barcode)continue;
-  if(!lastAgency)lastAgency='(Destination vide)';
-  selectedRows.push({rawAgency:lastAgency,barcode});
-  totals.set(lastAgency,(totals.get(lastAgency)||0)+1);
+ const headerIndex=Number($('header-row').value),column=Number($('barcode-column').value);
+ selectedRows=[];
+ const seen=new Set();let duplicates=0;
+ for(const row of book.rows.slice(headerIndex+1)){
+   const barcode=String(row?.[column]??'').trim();
+   if(!barcode)continue;
+   const key=barcode.toUpperCase();
+   if(seen.has(key)){duplicates++;continue;}
+   seen.add(key);
+   selectedRows.push({barcode});
  }
- const unrecognized=[...totals.keys()].filter(x=>!agencyFor(x));
- $('unmatched').classList.toggle('hidden',!unrecognized.length);
- $('unmatched-fields').innerHTML=unrecognized.map((name,i)=>'<label>'+esc(name)+' ('+totals.get(name)+' codes)<select data-source="'+esc(name)+'" id="assign-'+i+'"><option value="">Associer à une agence</option>'+AGENCES.map(agency=>'<option value="'+esc(agency)+'" '+(unmatchedMap[name]===agency?'selected':'')+'>'+esc(agency)+'</option>').join('')+'</select></label>').join('');
- $('unmatched-fields').querySelectorAll('select').forEach(select=>select.addEventListener('change',()=>{unmatchedMap[select.dataset.source]=select.value;refreshImportPreview()}));
- const header=(book.rows[headerIndex]||[]),head=$('preview-head'),body=$('preview-body');
- head.innerHTML='<tr>'+header.map((v,i)=>'<th>'+esc(String(v||'Colonne '+(i+1)))+'</th>').join('')+'</tr>';
- body.innerHTML=book.rows.slice(headerIndex+1,headerIndex+9).map(row=>'<tr>'+Array.from({length:header.length},(_,i)=>'<td>'+esc(String(row?.[i]??''))+'</td>').join('')+'</tr>').join('');
+ const header=headerIndex>=0?(book.rows[headerIndex]||[]):[],head=$('preview-head'),body=$('preview-body');
+ const width=Math.min(20,Math.max(1,...book.rows.slice(headerIndex+1,headerIndex+9).map(row=>(row||[]).length)));
+ head.innerHTML='<tr>'+Array.from({length:width},(_,i)=>'<th>'+esc(String(header[i]||'Colonne '+excelLetter(i)))+'</th>').join('')+'</tr>';
+ body.innerHTML=book.rows.slice(headerIndex+1,headerIndex+9).map(row=>
+  '<tr>'+Array.from({length:width},(_,i)=>'<td>'+esc(String(row?.[i]??''))+'</td>').join('')+'</tr>').join('');
+ $('import-preview').dataset.duplicates=String(duplicates);
  refreshImportPreview();
 }
 function refreshImportPreview(){
- const mapped=selectedRows.filter(x=>agencyFor(x.rawAgency)||unmatchedMap[x.rawAgency]);
- const n=selectedRows.length;
- $('import-preview').textContent=n+' codes détectés · '+mapped.length+' codes associés à une agence · '+(n-mapped.length)+' à associer.';
- $('import-button').disabled=!n||mapped.length!==n||n>10000;
+ const destination=$('import-agency').value;
+ const duplicates=Number($('import-preview').dataset.duplicates||0);
+ const count=selectedRows.length;
+ $('import-preview').textContent=count+' codes-barres distincts détectés'+
+  (duplicates?' · '+duplicates+' doublon(s) écarté(s)':'')+
+  ' · Agence destinataire : '+(destination||'non sélectionnée')+'.';
+ $('import-button').disabled=!destination||count===0||count>10000;
 }
 $('import-button').addEventListener('click',async()=>{
- const file=$('excel-file').files[0];if(!file)return;
- const items=selectedRows.map(x=>({agency:agencyFor(x.rawAgency)||unmatchedMap[x.rawAgency],barcode:x.barcode}));
+ const file=$('excel-file').files[0],destination=$('import-agency').value;
+ if(!destination){message('Sélectionnez l’agence destinataire.');return;}
+ if(!file||!selectedRows.length){message('Sélectionnez un fichier Excel contenant des codes-barres.');return;}
+ const items=selectedRows.map(x=>({agency:destination,barcode:x.barcode}));
+ const info=selectedRows.length+' codes-barres seront enregistrés dans « '+MODULES[moduleId]+' » pour '+destination+
+  '. Le nouvel import remplacera la liste active de cette agence uniquement. Continuer ?';
+ if(!window.confirm(info))return;
  const btn=$('import-button');btn.disabled=true;
  try{
-  const r=await callAPI('/api/admin/controle/import',{method:'POST',administrator:true,body:{module:moduleId,fileName:file.name,items}});
+  const r=await callAPI('/api/admin/controle/import',{method:'POST',administrator:true,body:{
+    module:moduleId,agency:destination,fileName:file.name,items
+  }});
   const data=await r.json();
-  // Les fichiers XLSX/CSV ne sont jamais envoyés comme pièces jointes au serveur :
-  // seule la liste validée des codes-barres est transmise. Libérer en plus la
-  // copie temporaire en mémoire et réinitialiser le contrôle de fichier.
   $('excel-file').value='';
-  books=[];selectedRows=[];unmatchedMap={};
+  books=[];selectedRows=[];
   $('excel-sheet').innerHTML='<option value="">Sélectionner un fichier</option>';
   $('excel-sheet').disabled=true;
   $('mapping').classList.add('hidden');
   $('preview-head').replaceChildren();
   $('preview-body').replaceChildren();
   $('import-preview').textContent='';
-  $('unmatched-fields').replaceChildren();
-  $('unmatched').classList.add('hidden');
-  btn.disabled=true;
-  message(data.imported+' codes-barres importés dans « '+MODULES[moduleId]+' » pour '+data.agencies.length+' agences. Le fichier a été retiré de la zone d’import et libéré de la mémoire temporaire.',true);
+  delete $('import-preview').dataset.duplicates;
+  message(data.imported+' codes-barres importés dans « '+MODULES[moduleId]+' » pour '+data.agency+
+    '. Les autres agences n’ont pas été modifiées.',true);
   await loadSummary();
  }catch(error){message(error.message)}
- finally{btn.disabled=!selectedRows.length}
+ finally{refreshImportPreview();}
 });
 toggleAdmin(false);
