@@ -53,3 +53,8 @@ Le coordinateur retrouve le module dans le même espace protégé, avec filtre m
 Sur GitHub Pages : formulaire `?page=comptage`, gestion `?page=gestion-comptage`. Sur le Site : `/comptage`, gestion `/gestion?section=comptage`.
 
 Vérification du module : `node scripts/test-comptage.mjs` et `node --experimental-vm-modules scripts/test-api.mjs`. Migration ajoutée : `drizzle/0001_funny_doctor_strange.sql`.
+
+
+### Suivi des agences non complètes
+
+Dans l'espace coordinateur du comptage mensuel, « Agences à compléter » compare les envois du **mois sélectionné** aux **49 agences autorisées** et aux dates du canevas (`templateDates`). Une agence sans aucun envoi est toujours affichée ; une agence ayant plusieurs tournées transmises apparaît si au moins une de ces tournées a des dates non saisies. Cliquer sur l'agence affiche les dates manquantes, regroupées par « Tournée N°: ». Un zéro saisi est une journée renseignée ; une ligne sans valeur ne l'est pas. Les dates futures sont « non encore saisies », pas des retards. Les tournées jamais transmises ne peuvent pas être déduites. Aucune migration ou suppression des saisies existantes n'est nécessaire.
