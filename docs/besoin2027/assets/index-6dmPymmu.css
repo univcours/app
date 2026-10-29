@@ -2,3 +2,8 @@
 
 /* Distribution route selector on the first monthly-count screen. */
 .welcome-form-card form>select#count-agency,.welcome-form-card form>select#count-tournee{width:100%;height:49px;border:1px solid #dce4e0;background:#fff;border-radius:8px;padding:0 14px;font-size:13px}.welcome-form-card form>label[for="count-tournee"]{margin-top:20px}
+
+/* Hide optional monthly counting controls, keeping data and day navigation intact. */
+.count-main .count-day-footer .button,
+.count-main .count-add-date,
+.count-main .count-view-toggle button:last-child { display: none !important; }
