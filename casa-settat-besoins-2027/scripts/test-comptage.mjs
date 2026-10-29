@@ -4,6 +4,8 @@ import path from 'node:path';
 import { inflateRawSync } from 'node:zlib';
 import { COUNT_FIELDS, COUNT_GROUPS, countFingerprint, countRowsToDraft, countTotals, monthDates, templateDates, validateCountSubmission } from '../lib/comptage.mjs';
 import { countAgencyAndRoute, exportCountWorkbook, fillCountWorksheet } from '../lib/comptage-excel.mjs';
+import { conciseCountWorkbook } from '../lib/count-excel-client.mjs';
+import { zipStored } from '../lib/excel.mjs';
 
 const root=path.resolve(import.meta.dirname,'..');
 const template=JSON.parse(await fs.readFile(path.join(root,'lib/comptage-template.json'),'utf8'));
@@ -54,6 +56,18 @@ assert.match(tourneeSheet,/Tournée N°: 1/);
 const label=fillCountWorksheet(source,{...tourneeOne,agency:'AZEMMOUR — tournée de distribution 1'});
 assert.match(label,/AZEMMOUR T1/);
 assert.doesNotMatch(label,/AZEMMOUR — tournée de distribution 1/);
+const oldTitle=source.replace(/<x:c r="A1"[\\s\\S]*?<\\/x:c>/,
+  '<x:c r="A1" s="1" t="inlineStr"><x:is><x:t>AZEMMOUR — tournée de distribution 1</x:t></x:is></x:c>');
+const oldDownload=zipStored([
+  {name:'xl/worksheets/sheet1.xml',data:new TextEncoder().encode(oldTitle)},
+  {name:'xl/workbook.xml',data:new TextEncoder().encode('<x:workbook><x:sheets><x:sheet name="AZEMMOUR — tournée de distribut" sheetId="1"/></x:sheets></x:workbook>')},
+]);
+const amended=Buffer.from(await (await conciseCountWorkbook(
+  new Blob([oldDownload],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),
+  [{agency:'AZEMMOUR — tournée de distribution 1'}]
+)).arrayBuffer());
+assert.ok(amended.includes(Buffer.from('AZEMMOUR T1')),'Browser download must show the short agency + route label');
+assert.ok(!amended.includes(Buffer.from('AZEMMOUR — tournée de distribut')),'Long route label must not appear in downloadable ZIP');
 const second={...first,agency:'Agence Settat / Centre',rows:[{date:'2026-11-02',frequency:1,values:values(2,1)}]};
 const bytes=exportCountWorkbook(template,[first,second,tourneeOne,tourneeTen]);
 assert.ok(bytes.length>10000);
