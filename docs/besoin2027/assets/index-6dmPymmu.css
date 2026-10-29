@@ -28,3 +28,6 @@
 .missing-date{display:inline-flex;font-size:11px;color:var(--ink);border:1px solid #dce5df;background:#fff;border-radius:6px;padding:6px 9px;font-variant-numeric:tabular-nums}
 .missing-hint{display:block;margin-top:18px;font-size:10px;color:var(--muted)}
 @media(max-width:680px){.missing-agency-toggle{grid-template-columns:33px minmax(0,1fr) 18px;gap:9px;padding:13px 11px}.missing-agency-count{grid-column:2;justify-self:start;padding:4px 7px}.missing-agency-toggle>svg{grid-column:3;grid-row:1 / span 2}.missing-agency-details{padding:13px 15px}}
+
+/* Comptage is the only public module; retain the legacy Besoins 2027 files and data. */
+.module-link,.count-story-link,.admin-module-tabs button:first-child{display:none!important}
