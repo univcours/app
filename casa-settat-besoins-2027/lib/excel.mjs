@@ -60,7 +60,7 @@ function concat(arrays) {
   for (const array of arrays) { result.set(array, offset); offset += array.length; }
   return result;
 }
-function zipStored(entries) {
+export function zipStored(entries) {
   const locals = [], directory = [];
   let offset = 0;
   for (const entry of entries) {
