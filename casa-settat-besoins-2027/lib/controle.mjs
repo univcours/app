@@ -1,4 +1,5 @@
 import { COUNT_AGENCIES } from './count-agencies.mjs';
+import { InputError } from './validation.mjs';
 export const CONTROLE_MODULES = Object.freeze([
  {id:'bouclage_am',label:'Bouclage AM'},
  {id:'notification_enregistree',label:'Notification des envois enregistrés'},
@@ -18,16 +19,16 @@ export function chooseAgency(value) {
 export function validControleModule(id){return CONTROLE_MODULES.some(x=>x.id===id);}
 export function cleanBarcode(value) {
  const raw=String(value??'').trim().replace(/[\u0000-\u001f\u007f]/g,'');
- if(!raw||raw.length>128||/[<>]/.test(raw))throw Error('Code-barres invalide (1 à 128 caractères).');
+ if(!raw||raw.length>128||/[<>]/.test(raw))throw new InputError('Code-barres invalide (1 à 128 caractères).');
  return raw;
 }
 export function validateControleItems(module,items){
- if(!validControleModule(module))throw Error('Opération non reconnue.');
- if(!Array.isArray(items)||items.length<1||items.length>10000)throw Error('Le fichier doit contenir de 1 à 10 000 codes-barres.');
+ if(!validControleModule(module))throw new InputError('Opération non reconnue.');
+ if(!Array.isArray(items)||items.length<1||items.length>10000)throw new InputError('Le fichier doit contenir de 1 à 10 000 codes-barres.');
  const seen=new Set(),clean=[];
  for(const value of items){
   const agency=chooseAgency(value?.agency);
-  if(!agency)throw Error('Agence inconnue : '+String(value?.agency??'').slice(0,60));
+  if(!agency)throw new InputError('Agence inconnue : '+String(value?.agency??'').slice(0,60));
   const barcode=cleanBarcode(value?.barcode);
   const key=normalizeAgency(agency)+'|'+barcode.toUpperCase();
   if(seen.has(key))continue;
