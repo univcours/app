@@ -3,13 +3,14 @@
 <meta name="description" content="Contrôle des codes-barres, Bouclage AM et notifications des agences">
 <title>Contrôle des codes-barres · DR Casablanca-Settat</title>
 <link rel="stylesheet" href="./controle.css?v=modifier-associations-20261029">
-<script defer src="./controle.js?v=auto-cab-nomagence-20261029"></script>
+<script defer src="./controle.js?v=service-etat-20261029"></script>
 <script>(function(){try{const u=new URL(location.href);if(u.searchParams.has('utm_source')){u.searchParams.delete('utm_source');history.replaceState(history.state,'',u.pathname+u.search+u.hash)}}catch{}})();</script>
 </head><body>
 <header class="site-header"><div class="header-inner"><a class="brand" href="./?page=comptage"><span class="logo">▥</span><span><strong>Comptage<span>Envois</span></strong><small>DR Casablanca-Settat</small></span></a><nav><a href="./?page=comptage">Comptage des envois</a><a href="./?page=gestion-comptage">Suivi mensuel</a></nav></div></header>
 <main class="main">
 <div class="top"><div><span class="eyebrow">DR CASABLANCA-SETTAT · CONTRÔLE OPÉRATIONNEL</span><h1>Contrôle des codes-barres</h1><p>Examinez chaque code de votre agence et consignez le résultat du contrôle.</p></div><button id="admin-toggle" class="button outline">Espace coordinateur</button></div>
 <div id="alert" class="alert hidden" role="alert"></div>
+<div id="service-state" class="alert hidden" role="status" aria-live="polite"></div>
 <div class="operations" id="operations" role="tablist" aria-label="Type d’opération">
 <button class="operation selected" data-module="bouclage_am" role="tab" aria-selected="true"><span class="op-num">01</span><strong>Bouclage AM</strong><small>Contrôle individuel</small></button>
 <button class="operation" data-module="notification_enregistree" role="tab" aria-selected="false"><span class="op-num">02</span><strong>Notification des envois enregistrés</strong><small>Contrôle individuel</small></button>
