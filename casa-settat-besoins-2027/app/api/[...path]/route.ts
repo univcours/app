@@ -6,6 +6,7 @@ import { exportWorkbook } from "../../../lib/excel.mjs";
 import { cookieHeader, digest, equalSecret, readToken, sameOrigin, signToken, trustedWebOrigin } from "../../../lib/security";
 import { handleComptage } from "../../../lib/comptage-api";
 import { handleControle } from "../../../lib/controle-api";
+import { isControleSiteOpen } from "../../../lib/controle-auth";
 
 export const dynamic = "force-dynamic";
 type Item = { id: string; quantity: number; comment: string };
@@ -21,6 +22,11 @@ async function handle(request: Request) {
   if (request.headers.has("origin") && !sameOrigin(request) && !trustedWebOrigin(request)) return json({ error: "Origine non autorisée." }, 403);
   if (request.method === "POST" && !sameOrigin(request) && !trustedWebOrigin(request)) return json({ error: "Cette demande doit être envoyée depuis le formulaire." }, 403);
   if (request.method === "POST" && Number(request.headers.get("content-length") || 0) > (path === "/api/admin/controle/import" ? 2500000 : 400000)) return json({ error: "La demande est trop volumineuse." }, 413);
+  // The coordinator must always be able to log in and reopen the service.
+  // All other public APIs (including monthly comptage) are closed centrally.
+  const bypassGate=path.startsWith('/api/admin/')||path==='/api/controle/site-status'||path==='/api/controle/health';
+  if(!bypassGate&&!(await isControleSiteOpen()))
+    return json({error:'Le site est temporairement fermé par le coordinateur.',siteClosed:true},423);
   const controleResponse = await handleControle(request, path);
   if (controleResponse) return controleResponse;
   const countResponse = await handleComptage(request, path);
