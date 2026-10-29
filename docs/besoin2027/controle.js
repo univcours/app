@@ -43,6 +43,16 @@ function chooseModule(id){
 }
 document.querySelectorAll('[data-module]').forEach(b=>b.addEventListener('click',()=>chooseModule(b.dataset.module)));
 agencySelect($('agency'));
+agencySelect($('import-agency'));
+const isSingleImport=()=>$('import-scope').value==='single';
+function toggleImportScope(){
+ const single=isSingleImport();
+ $('single-agency-field').classList.toggle('hidden',!single);
+ $('agency-column-wrap').classList.toggle('hidden',single);
+ if(books.length)showMapping();else refreshImportPreview();
+}
+$('import-scope').addEventListener('change',toggleImportScope);
+$('import-agency').addEventListener('change',refreshImportPreview);
 
 $('admin-toggle').addEventListener('click',()=>toggleAdmin(true));
 $('close-admin').addEventListener('click',()=>toggleAdmin(false));
@@ -279,21 +289,24 @@ function moduleFromFilename(filename){
 }
 $('excel-file').addEventListener('change',async e=>{
  const file=e.target.files[0];if(!file)return;
- const identified=moduleFromFilename(file.name);
- if(!identified){
+ // The coordinator chooses the operation. A filename may corroborate it,
+ // but it must never silently switch operations or assign data elsewhere.
+ const detected=moduleFromFilename(file.name);
+ if(detected && detected!==moduleId){
   e.target.value='';books=[];selectedRows=[];$('mapping').classList.add('hidden');
-  message('Nom de fichier non reconnu. Nommez le fichier « Bouclage AM », « Notification des envois enregistrés », « Notification des envois recommandés » ou « HDG » (format .xlsx ou .csv).');
+  message('Ce fichier semble correspondre à « '+MODULES[detected]+
+   ' » alors que « '+MODULES[moduleId]+' » est sélectionné. Choisissez la bonne opération avant de continuer.');
   return;
  }
- chooseModule(identified);
  try{
   books=await readBook(file);
-  const list=$('excel-sheet');list.disabled=false;list.innerHTML=books.map((s,i)=>'<option value="'+i+'">'+esc(s.name)+'</option>').join('');
+  const list=$('excel-sheet');list.disabled=false;
+  list.innerHTML=books.map((sheet,i)=>'<option value="'+i+'">'+esc(sheet.name)+'</option>').join('');
   confirmedMatches={};showMapping();clearMessage();
- }catch(error){books=[];$('mapping').classList.add('hidden');message(error.message)}
+ }catch(error){books=[];selectedRows=[];$('mapping').classList.add('hidden');message(error.message);}
 });
 $('excel-sheet').addEventListener('change',showMapping);
-function selectedSheet(){return books[Number($('excel-sheet').value)||0]}
+function selectedSheet(){return books[Number($('excel-sheet').value)||0];}
 
 const COUNT_AGENCIES=AGENCES;
 const norm = s => String(s??'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]+/g,' ').trim().replace(/\s+/g,' ');
@@ -327,117 +340,142 @@ function agencyMatches(input) {
 function showMapping(){
  const book=selectedSheet();if(!book)return;
  $('mapping').classList.remove('hidden');
- const header=$('header-row');
- header.innerHTML='<option value="-1">Sans ligne d’en-tête</option>'+
-   book.rows.slice(0,Math.min(book.rows.length,20)).map((r,i)=>
-   '<option value="'+i+'">Ligne '+(i+1)+' : '+esc((r||[]).slice(0,4).join(' | ').slice(0,85))+'</option>').join('');
- const guess=book.rows.slice(0,20).findIndex(row=>{
-   const vals=(row||[]).map(v=>normal(v));
-   return vals.includes('CAB') && vals.includes('NOM AGENCE');
+ $('agency-column-wrap').classList.toggle('hidden',isSingleImport());
+ const rowSelect=$('header-row');
+ rowSelect.innerHTML='<option value="-1">Sans ligne d’en-tête</option>'+
+   book.rows.slice(0,Math.min(book.rows.length,20)).map((row,i)=>
+   '<option value="'+i+'">Ligne '+(i+1)+' : '+esc((row||[]).slice(0,4).join(' | ').slice(0,85))+'</option>').join('');
+ const headerGuess=book.rows.slice(0,20).findIndex(row=>{
+  const cells=(row||[]).map(value=>normal(value));
+  return isSingleImport()?cells.includes('CAB'):(cells.includes('CAB')&&cells.includes('NOM AGENCE'));
  });
- header.value=String(guess>=0?guess:-1);
+ rowSelect.value=String(headerGuess>=0?headerGuess:-1);
  updateColumns();
 }
 $('header-row').addEventListener('change',updateColumns);
 $('barcode-column').addEventListener('change',evaluateMapping);
 $('agency-column').addEventListener('change',evaluateMapping);
-function excelLetter(n) {
- let code='';for(let k=n+1;k>0;k=Math.floor((k-1)/26))code=String.fromCharCode(65+(k-1)%26)+code;
- return code;
-}
+function excelLetter(n){let value='';for(let k=n+1;k>0;k=Math.floor((k-1)/26))value=String.fromCharCode(65+(k-1)%26)+value;return value;}
 function updateColumns(){
- const sheet=selectedSheet();if(!sheet)return;
- const headerIndex=Number($('header-row').value),header=headerIndex>=0?sheet.rows[headerIndex]||[]:[];
- const width=Math.min(80,Math.max(2,...sheet.rows.slice(0,40).map(r=>(r||[]).length)));
- for(const id of ['agency-column','barcode-column']) {
+ const book=selectedSheet();if(!book)return;
+ const rowNo=Number($('header-row').value),header=rowNo>=0?book.rows[rowNo]||[]:[];
+ const width=Math.min(80,Math.max(2,...book.rows.slice(0,40).map(row=>(row||[]).length)));
+ for(const id of ['agency-column','barcode-column']){
   $(id).innerHTML=Array.from({length:width},(_,i)=>'<option value="'+i+'">'+
    excelLetter(i)+' — '+esc(String(header[i]||'Colonne '+(i+1)).slice(0,70))+'</option>').join('');
  }
- const colOf=key=>header.findIndex(v=>normal(v)===key);
- // Priority: the requested canonical two-column file: CAB and Nom agence.
- const agencyCol=colOf('NOM AGENCE'),barcodeCol=colOf('CAB');
- $('agency-column').value=String(agencyCol>=0?agencyCol:1);
- $('barcode-column').value=String(barcodeCol>=0?barcodeCol:0);
+ const column=name=>header.findIndex(value=>normal(value)===name);
+ const agencyColumn=column('NOM AGENCE'),cabColumn=column('CAB');
+ $('agency-column').value=String(agencyColumn>=0?agencyColumn:1);
+ $('barcode-column').value=String(cabColumn>=0?cabColumn:0);
  evaluateMapping();
 }
 function evaluateMapping(){
  const sheet=selectedSheet();if(!sheet)return;
- const h=Number($('header-row').value),a=Number($('agency-column').value),b=Number($('barcode-column').value);
- const rawRows=sheet.rows.slice(h+1);
+ const headerNo=Number($('header-row').value),agencyColumn=Number($('agency-column').value);
+ const cabColumn=Number($('barcode-column').value),rawRows=sheet.rows.slice(headerNo+1);
+ const single=isSingleImport(),destination=$('import-agency').value;
+ const explicitHeader=headerNo>=0?sheet.rows[headerNo]||[]:[];
+ const sourceAgencyColumn=explicitHeader.findIndex(value=>normal(value)==='NOM AGENCE');
  selectedRows=[];confirmedMatches={};
- const found=new Set(),counts=new Map();
- let previous='',duplicates=0;
- for(const cells of rawRows){
-  const name=String(cells?.[a]??'').trim(),cab=String(cells?.[b]??'').trim();
-  if(name)previous=name;
-  if(!cab)continue;
-  const rawAgency=previous||'(Nom agence manquant)',key=normal(rawAgency)+'|'+cab.toUpperCase();
-  if(found.has(key)){duplicates++;continue;}
-  found.add(key);
-  selectedRows.push({rawAgency,barcode:cab});
-  counts.set(rawAgency,(counts.get(rawAgency)||0)+1);
+ const observed=new Set(),rawCounts=new Map();let lastName='',duplicates=0;
+ const conflicts=new Set();
+ for(const row of rawRows){
+  const barcode=String(row?.[cabColumn]??'').trim();
+  if(!barcode)continue;
+  const cellName=String(row?.[single?sourceAgencyColumn:agencyColumn]??'').trim();
+  if(!single&&cellName)lastName=cellName;
+  const rawAgency=single?destination||'':lastName||'(Nom agence manquant)';
+  const key=normal(rawAgency)+'|'+barcode.toUpperCase();
+  if(observed.has(key)){duplicates++;continue;}
+  observed.add(key);selectedRows.push({rawAgency,barcode,sourceAgencyName:cellName});
+  rawCounts.set(rawAgency,(rawCounts.get(rawAgency)||0)+1);
+  // If a single-agency file still contains an explicit Nom agence column,
+  // reject known codes belonging to another destination.
+  if(single&&sourceAgencyColumn>=0&&cellName&&agencyMatches(cellName).exact&&agencyMatches(cellName).exact!==destination)
+   conflicts.add(cellName);
  }
- const pending=[...counts.keys()].filter(a=>!agencyMatches(a).exact);
+ $('import-preview').dataset.duplicates=String(duplicates);
+ $('import-preview').dataset.conflicts=JSON.stringify([...conflicts]);
+ const pending=single?[]:[...rawCounts.keys()].filter(name=>!agencyMatches(name).exact);
  $('unmatched').classList.toggle('hidden',pending.length===0);
- $('unmatched-fields').innerHTML=pending.map((raw,i)=>{
-  const options=agencyMatches(raw).suggestions;
-  const suggestion=options.length?'<p class="hint">Suggestion : '+options.map(esc).join(' / ')+'</p>':'<p class="hint">Agence non reconnue. Choisissez-la manuellement.</p>';
-  return '<label>'+esc(raw)+' ('+counts.get(raw)+' code(s))'+suggestion+
-   '<select id="match-'+i+'" data-raw="'+esc(raw)+'"><option value="">Confirmer une agence...</option>'+
-   AGENCES.map(a=>'<option value="'+esc(a)+'">'+esc(a)+'</option>').join('')+'</select></label>';
+ $('unmatched-fields').innerHTML=pending.map((name,i)=>{
+  const matches=agencyMatches(name).suggestions;
+  const suggestion=matches.length?'<p class="hint">Suggestion : '+matches.map(esc).join(' / ')+'</p>':
+    '<p class="hint">Agence non reconnue. Choisissez-la manuellement.</p>';
+  return '<label>'+esc(name)+' ('+rawCounts.get(name)+' code(s))'+suggestion+
+   '<select id="match-'+i+'" data-raw="'+esc(name)+'"><option value="">Confirmer une agence...</option>'+
+   AGENCES.map(item=>'<option value="'+esc(item)+'">'+esc(item)+'</option>').join('')+'</select></label>';
  }).join('');
  $('unmatched-fields').querySelectorAll('select').forEach(select=>select.addEventListener('change',()=>{
-  confirmedMatches[select.dataset.raw]=select.value;
-  refreshImportPreview();
+  confirmedMatches[select.dataset.raw]=select.value;refreshImportPreview();
  }));
- const head=h>=0?sheet.rows[h]||[]:[],width=Math.min(15,Math.max(2,...rawRows.slice(0,8).map(r=>(r||[]).length)));
- $('preview-head').innerHTML='<tr>'+Array.from({length:width},(_,i)=>'<th>'+esc(String(head[i]||'Colonne '+excelLetter(i)))+'</th>').join('')+'</tr>';
+ const header=headerNo>=0?sheet.rows[headerNo]||[]:[],width=Math.min(15,Math.max(2,...rawRows.slice(0,8).map(row=>(row||[]).length)));
+ $('preview-head').innerHTML='<tr>'+Array.from({length:width},(_,i)=>'<th>'+esc(String(header[i]||'Colonne '+excelLetter(i)))+'</th>').join('')+'</tr>';
  $('preview-body').innerHTML=rawRows.slice(0,8).map(row=>'<tr>'+
   Array.from({length:width},(_,i)=>'<td>'+esc(String(row?.[i]??''))+'</td>').join('')+'</tr>').join('');
- $('import-preview').dataset.duplicates=String(duplicates);
  refreshImportPreview();
 }
 function mappedRows(){
- return selectedRows.map(row=>({...row,agency:agencyMatches(row.rawAgency).exact||confirmedMatches[row.rawAgency]||''}));
+ const single=isSingleImport(),destination=$('import-agency').value;
+ return selectedRows.map(row=>({...row,agency:single?destination:
+   agencyMatches(row.rawAgency).exact||confirmedMatches[row.rawAgency]||''}));
 }
 function refreshImportPreview(){
- const items=mappedRows(),linked=items.filter(row=>row.agency);
- const missing=new Set(items.filter(row=>!row.agency).map(row=>row.rawAgency));
- const totals=new Map();
- for(const row of linked)totals.set(row.agency,(totals.get(row.agency)||0)+1);
+ const single=isSingleImport(),items=mappedRows(),assigned=items.filter(row=>row.agency);
+ const unmapped=new Set(items.filter(row=>!row.agency).map(row=>row.rawAgency));
+ const counts=new Map();
+ for(const row of assigned)counts.set(row.agency,(counts.get(row.agency)||0)+1);
  const duplicates=Number($('import-preview').dataset.duplicates||0);
- $('import-preview').textContent=items.length+' CAB distincts détectés · '+linked.length+
-  ' associés à une agence · '+missing.size+' nom(s) à confirmer'+(duplicates?' · '+duplicates+' doublon(s) ignoré(s)':'')+'.';
- $('import-groups').innerHTML=totals.size?
-  '<strong>Répartition prévue</strong><div class="preview"><table><thead><tr><th>Agence</th><th>Nombre de CAB</th></tr></thead><tbody>'+
-  [...totals].sort((a,b)=>a[0].localeCompare(b[0])).map(([a,n])=>'<tr><td>'+esc(a)+'</td><td>'+n+'</td></tr>').join('')+
-  '</tbody></table></div>':'';
- $('import-button').disabled=!items.length||items.length>10000||missing.size>0;
+ let conflicts=[];try{conflicts=JSON.parse($('import-preview').dataset.conflicts||'[]');}catch{}
+ const dest=$('import-agency').value;
+ if(single){
+  $('import-preview').textContent=items.length+' CAB distincts détectés · Agence : '+(dest||'non sélectionnée')+
+  (duplicates?' · '+duplicates+' doublon(s) ignoré(s)':'')+
+  (conflicts.length?' · ATTENTION : agences différentes détectées dans le fichier : '+conflicts.join(', '):'')+'.';
+ }else{
+  $('import-preview').textContent=items.length+' CAB distincts détectés · '+assigned.length+
+   ' associés à une agence · '+unmapped.size+' nom(s) à confirmer'+
+   (duplicates?' · '+duplicates+' doublon(s) ignoré(s)':'')+'.';
+ }
+ $('import-groups').innerHTML=counts.size?'<strong>Répartition prévue</strong><div class="preview"><table><thead><tr><th>Agence</th><th>Nombre de CAB</th></tr></thead><tbody>'+
+ [...counts].sort((a,b)=>a[0].localeCompare(b[0])).map(([name,n])=>'<tr><td>'+esc(name)+'</td><td>'+n+'</td></tr>').join('')+
+ '</tbody></table></div>':'';
+ $('import-button').disabled=!items.length||items.length>10000||unmapped.size>0||conflicts.length>0;
 }
 $('import-button').addEventListener('click',async()=>{
- const file=$('excel-file').files[0],items=mappedRows();
+ const file=$('excel-file').files[0],items=mappedRows(),single=isSingleImport(),destination=$('import-agency').value;
  if(!file||!items.length){message('Sélectionnez un fichier contenant des CAB.');return;}
- if(items.some(row=>!row.agency)){message('Validez tous les noms d’agences à vérifier avant l’import.');return;}
+ if(single&&!destination){message('Sélectionnez l’agence destinataire.');return;}
+ if(items.some(row=>!row.agency)){message('Confirmez tous les noms d’agences avant l’importation.');return;}
+ let conflicts=[];try{conflicts=JSON.parse($('import-preview').dataset.conflicts||'[]');}catch{}
+ if(conflicts.length){message('Le fichier contient des CAB d’une autre agence : '+conflicts.join(', ')+'.');return;}
  const groups=new Set(items.map(row=>row.agency));
- const accepted=window.confirm('Vous allez importer '+items.length+' CAB pour '+groups.size+
-  ' agence(s) dans « '+MODULES[moduleId]+' ». Les codes actifs précédents de cette opération seront remplacés. Confirmer ?');
- if(!accepted)return;
- const btn=$('import-button');btn.disabled=true;
+ const question=single?
+  'Vous allez remplacer les CAB actifs de '+destination+' uniquement dans « '+MODULES[moduleId]+
+   ' » par '+items.length+' code(s). Les autres agences ne seront pas modifiées. Confirmer ?':
+  'Vous allez importer '+items.length+' CAB pour '+groups.size+' agence(s) dans « '+MODULES[moduleId]+
+   ' ». Les listes précédentes de cette opération seront remplacées. Confirmer ?';
+ if(!window.confirm(question))return;
+ const button=$('import-button');button.disabled=true;
  try{
-  const r=await callAPI('/api/admin/controle/import',{method:'POST',administrator:true,body:{
-   module:moduleId,fileName:file.name,items:items.map(({agency,barcode})=>({agency,barcode}))
+  const response=await callAPI('/api/admin/controle/import',{method:'POST',administrator:true,body:{
+   module:moduleId,scope:single?'single':'all',agency:single?destination:undefined,fileName:file.name,
+   items:items.map(({agency,barcode})=>({agency,barcode}))
   }});
-  const result=await r.json();
+  const result=await response.json();
   $('excel-file').value='';books=[];selectedRows=[];confirmedMatches={};
-  $('excel-sheet').innerHTML='<option value="">Sélectionner un fichier</option>';
-  $('excel-sheet').disabled=true;$('mapping').classList.add('hidden');
+  $('excel-sheet').innerHTML='<option value="">Sélectionner un fichier</option>';$('excel-sheet').disabled=true;
+  $('mapping').classList.add('hidden');
   $('preview-head').replaceChildren();$('preview-body').replaceChildren();
-  $('import-preview').textContent='';$('import-groups').replaceChildren();
-  $('unmatched').classList.add('hidden');$('unmatched-fields').replaceChildren();
-  message(result.imported+' CAB importés et répartis entre '+result.agencies.length+
-   ' agence(s) dans « '+MODULES[moduleId]+' ».',true);
+  $('import-preview').textContent='';delete $('import-preview').dataset.duplicates;
+  delete $('import-preview').dataset.conflicts;
+  $('import-groups').replaceChildren();$('unmatched').classList.add('hidden');$('unmatched-fields').replaceChildren();
+  message(single?result.imported+' CAB importés pour '+result.agency+' dans « '+MODULES[moduleId]+
+    ' ». Les autres agences ne sont pas modifiées.':
+    result.imported+' CAB importés et répartis entre '+result.agencies.length+' agence(s) dans « '+MODULES[moduleId]+' ».',true);
   await loadSummary();
- }catch(error){message(error.message)}
+ }catch(error){message(error.message);}
  finally{refreshImportPreview();}
 });
 toggleAdmin(false);
