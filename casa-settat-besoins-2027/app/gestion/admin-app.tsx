@@ -10,8 +10,8 @@ import { apiFetch, formPath } from "../../lib/api-client";
 
 type Submission = { id: string; agency: string; items: { id: string; quantity: number; comment: string }[]; createdAt: string; updatedAt: string };
 
-export default function AdminApp({ initialSection = "besoins" }: { initialSection?: "besoins" | "comptage" }) {
-  const [section, setSection] = useState(initialSection);
+export default function AdminApp({ initialSection = "comptage" }: { initialSection?: "besoins" | "comptage" }) {
+  const [section, setSection] = useState<"besoins" | "comptage">("comptage");
   useEffect(() => { if (new URLSearchParams(window.location.search).get("section") === "comptage") setSection("comptage"); }, []);
   const [authenticated, setAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
