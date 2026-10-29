@@ -1,7 +1,8 @@
 declare const __BUDGET_API_BASE__: string | undefined;
 declare const __BUDGET_FORM_PATH__: string | undefined;
 
-const apiBase = typeof __BUDGET_API_BASE__ === "string" ? __BUDGET_API_BASE__ : "";
+declare global { interface Window { __UNIVCOURS_API_BASE__?: string } }
+const apiBase = (typeof window !== "undefined" && typeof window.__UNIVCOURS_API_BASE__ === "string" ? window.__UNIVCOURS_API_BASE__ : "") || (typeof __BUDGET_API_BASE__ === "string" ? __BUDGET_API_BASE__ : "");
 export const formPath = typeof __BUDGET_FORM_PATH__ === "string" ? __BUDGET_FORM_PATH__ : "/";
 export const managementPath = apiBase ? `${formPath}?page=gestion` : "/gestion";
 export const countingPath = apiBase ? `${formPath}?page=comptage` : "/comptage";
