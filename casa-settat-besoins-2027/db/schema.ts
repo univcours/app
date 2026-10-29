@@ -1,4 +1,4 @@
-import { integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { integer, primaryKey, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export const submissions = sqliteTable("submissions", {
   id: text("id").primaryKey(),
@@ -52,4 +52,4 @@ export const controleAcces = sqliteTable("controle_acces", {
   firstAccessAt: text("first_access_at").notNull(),
   lastAccessAt: text("last_access_at").notNull(),
   accessCount: integer("access_count").notNull().default(1),
-}, (table) => [uniqueIndex("controle_acces_module_agency_unique").on(table.module, table.agencyKey)]);
+}, (table) => [primaryKey({columns:[table.module, table.agencyKey]})]);
