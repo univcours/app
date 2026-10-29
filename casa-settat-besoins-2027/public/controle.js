@@ -8,50 +8,143 @@ const normal=s=>String(s??'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').t
 const agencyFor=value=>{const n=normal(value),simple=n.replace(/^(AGENCE|BUREAU|ABB|AP|DESTINATION) /,'');return AGENCES.find(a=>normal(a)===n)||AGENCES.find(a=>normal(a)===simple)||null};
 const ALIAS_STORAGE='controle-agency-associations-v1';
 let moduleId='bouclage_am',agentItems=[],filteredItems=[],recordIndex=0,admin=false,books=[],selectedRows=[],confirmedMatches={},agency='',savedAgencyAliases=readAgencyAliases();
-function aliasKey(name){return String(name??'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]+/g,' ').trim().replace(/\s+/g,' ');}
+function aliasKey(name){return String(name??'').normalize('NFKD').replace(/[\\u0300-\\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]+/g,' ').trim().replace(/\\s+/g,' ');}
 function readAgencyAliases(){
  try{
-  const raw=JSON.parse(localStorage.getItem(ALIAS_STORAGE)||'{}');
-  if(!raw||typeof raw!=='object'||Array.isArray(raw))return {};
-  return Object.fromEntries(Object.entries(raw).filter(([key,value])=>
-   typeof key==='string'&&key.length>0&&key.length<160&&AGENCES.includes(value)));
+  const value=JSON.parse(localStorage.getItem(ALIAS_STORAGE)||'{}');
+  if(!value||typeof value!=='object'||Array.isArray(value))return {};
+  return Object.fromEntries(Object.entries(value).filter(([key,destination])=>
+   typeof key==='string'&&key.length>0&&key.length<160&&AGENCES.includes(destination)));
  }catch{return {};}
 }
+function localSaveAliases(){try{localStorage.setItem(ALIAS_STORAGE,JSON.stringify(savedAgencyAliases));}catch{}}
 function resolvedAgency(raw){
- return agencyMatches(raw).exact||savedAgencyAliases[aliasKey(raw)]||confirmedMatches[raw]||'';
+ const key=aliasKey(raw);
+ // Any explicitly confirmed coordinator association wins, even if the source
+ // is itself an official agency name (e.g. AÎT ATTAB -> KHMISS OULED AYAD).
+ if(confirmedMatches[raw])return confirmedMatches[raw];
+ if(savedAgencyAliases[key])return savedAgencyAliases[key];
+ const exact=agencyMatches(raw).exact;
+ if(exact)return savedAgencyAliases[aliasKey(exact)]||exact;
+ // Reuse an accepted alias only for an extremely close, unambiguous spelling.
+ // Ambiguities are listed for manual review instead of guessing the agency.
+ const ranked=Object.entries(savedAgencyAliases).map(([alias,destination])=>({
+  destination,score:agencySimilarity(raw,alias)
+ })).sort((a,b)=>b.score-a.score);
+ const top=ranked[0],rival=ranked.find(item=>item.destination!==top?.destination);
+ return top&&top.score>=0.90&&(!rival||top.score-rival.score>=0.12)?top.destination:'';
 }
 async function syncAgencyAliases(){
  if(!adminToken())return;
  try{
-  const res=await callAPI('/api/admin/controle/aliases',{administrator:true});
-  const data=await res.json();
-  const serverAliases={};
-  for(const item of data.aliases||[]){
-   if(typeof item.alias==='string'&&AGENCES.includes(item.agency)){
-    const key=aliasKey(item.alias);
-    if(key)serverAliases[key]=item.agency;
+  const response=await callAPI('/api/admin/controle/aliases',{administrator:true});
+  const data=await response.json(),server={};
+  for(const row of data.aliases||[]){
+   if(typeof row.alias==='string'&&AGENCES.includes(row.agency)){
+    const key=aliasKey(row.alias);if(key)server[key]=row.agency;
    }
   }
-  // Server-confirmed corrections take precedence across devices. Only new
-  // browser-local corrections are uploaded back, in bounded batches.
+  // The central database wins when both copies disagree.
   const localOnly=Object.entries(savedAgencyAliases)
-   .filter(([key])=>!Object.hasOwn(serverAliases,key))
-   .map(([alias,agency])=>({alias,agency}));
-  savedAgencyAliases={...savedAgencyAliases,...serverAliases};
-  try{localStorage.setItem(ALIAS_STORAGE,JSON.stringify(savedAgencyAliases));}catch{}
-  for(let i=0;i<localOnly.length;i+=100)
-   await callAPI('/api/admin/controle/aliases',{administrator:true,method:'POST',body:{items:localOnly.slice(i,i+100)}});
+   .filter(([key])=>!Object.hasOwn(server,key)).map(([alias,agency])=>({alias,agency}));
+  savedAgencyAliases={...savedAgencyAliases,...server};localSaveAliases();
+  for(let i=0;i<localOnly.length;i+=100){
+   await callAPI('/api/admin/controle/aliases',{
+    administrator:true,method:'POST',body:{items:localOnly.slice(i,i+100)}
+   });
+  }
   if(books.length)evaluateMapping();
- }catch{/* The association also remains stored in this browser when the server is unavailable. */}
+  renderAssociationList();
+ }catch{
+  // Keep browser-local mappings if the backend is not activated yet.
+  renderAssociationList();
+ }
 }
-function rememberAgencyAlias(raw,agency){
- const key=aliasKey(raw);
- if(!key||!AGENCES.includes(agency))return;
+async function rememberAgencyAlias(raw,destination){
+ const key=aliasKey(raw),agency=agencyFor(destination);
+ if(!key||key.length>150||!agency)throw Error('Saisissez un nom de destination et choisissez une agence officielle.');
  savedAgencyAliases[key]=agency;
  confirmedMatches[raw]=agency;
- try{localStorage.setItem(ALIAS_STORAGE,JSON.stringify(savedAgencyAliases));}catch{}
- if(adminToken())void callAPI('/api/admin/controle/aliases',{administrator:true,method:'POST',body:{items:[{alias:key,agency}]}}).catch(()=>{});
+ localSaveAliases();refreshImportPreview();renderAssociationList();
+ if(!adminToken())return false;
+ try{
+  await callAPI('/api/admin/controle/aliases',{administrator:true,method:'POST',body:{
+   items:[{alias:key,agency}]
+  }});
+  return true;
+ }catch{return false;}
 }
+async function forgetAgencyAlias(raw){
+ const key=aliasKey(raw);if(!Object.hasOwn(savedAgencyAliases,key))return true;
+ if(!adminToken())throw Error('Connectez-vous avec le compte coordinateur.');
+ // Keep the previous association intact if central deletion fails.
+ await callAPI('/api/admin/controle/aliases?alias='+encodeURIComponent(key),{
+  administrator:true,method:'DELETE'
+ });
+ delete savedAgencyAliases[key];delete confirmedMatches[raw];localSaveAliases();
+ if(books.length)evaluateMapping();renderAssociationList();
+ return true;
+}
+function renderAssociationList(){
+ const panel=$('association-list');if(!panel)return;
+ const filter=aliasKey($('association-filter').value);
+ const entries=Object.entries(savedAgencyAliases)
+  .filter(([alias,destination])=>!filter||alias.includes(filter)||aliasKey(destination).includes(filter))
+  .sort((a,b)=>a[0].localeCompare(b[0],'fr'));
+ const options=$('association-options');
+ if(options&&!options.children.length)options.innerHTML=AGENCES.map(name=>'<option value="'+esc(name)+'"></option>').join('');
+ panel.innerHTML=entries.length?entries.map(([alias,destination],index)=>
+  '<div class="association-row"><strong>'+esc(alias)+'</strong>'+
+  '<input type="search" list="association-options" value="'+esc(destination)+'" data-association-target="'+index+'" aria-label="Agence officielle pour '+esc(alias)+'">'+
+  '<button type="button" class="button outline" data-association-save="'+index+'">Modifier</button>'+
+  '<button type="button" class="button outline" data-association-delete="'+index+'">Supprimer</button></div>'
+ ).join(''):'<p class="hint">Aucune association enregistrée pour cette recherche.</p>';
+ for(const [index,[alias]] of entries.entries()){
+  const save=panel.querySelector('[data-association-save="'+index+'"]');
+  const remove=panel.querySelector('[data-association-delete="'+index+'"]');
+  save?.addEventListener('click',async()=>{
+   const target=panel.querySelector('[data-association-target="'+index+'"]');
+   const agency=agencyFor(target?.value);
+   if(!agency){message('Choisissez une agence de la liste principale.');return;}
+   save.disabled=true;
+   try{
+    const central=await rememberAgencyAlias(alias,agency);
+    if(books.length)evaluateMapping();
+    message('Association modifiée : '+alias+' → '+agency+
+      (central?' (enregistrée pour les 4 opérations).':' (enregistrée dans ce navigateur ; synchronisation centrale indisponible).'),true);
+   }finally{save.disabled=false;}
+  });
+  remove?.addEventListener('click',async()=>{
+   if(!confirm('Supprimer l’association « '+alias+' » ? Les nouveaux imports utiliseront de nouveau les correspondances ordinaires.'))return;
+   remove.disabled=true;
+   try{
+    await forgetAgencyAlias(alias);
+    message('Association supprimée : '+alias+'.',true);
+   }catch(e){message('Suppression impossible : '+e.message);}
+   finally{remove.disabled=false;}
+  });
+ }
+}
+$('edit-associations').addEventListener('click',()=>{
+ const box=$('association-manager'),show=box.classList.contains('hidden');
+ box.classList.toggle('hidden',!show);
+ $('edit-associations').setAttribute('aria-expanded',String(show));
+ if(show){renderAssociationList();$('association-filter').focus();}
+});
+$('association-filter').addEventListener('input',renderAssociationList);
+$('association-save').addEventListener('click',async()=>{
+ const source=$('association-source').value.trim();
+ const dest=agencyFor($('association-agency').value);
+ if(!source||!dest){message('Indiquez le nom du fichier Excel et sélectionnez une agence officielle.');return;}
+ const btn=$('association-save');btn.disabled=true;
+ try{
+  const central=await rememberAgencyAlias(source,dest);
+  if(books.length)evaluateMapping();
+  $('association-source').value='';$('association-agency').value='';
+  message('Association enregistrée : '+source+' → '+dest+
+    (central?' (valable pour les 4 opérations).':' (sur ce navigateur uniquement ; serveur non disponible).'),true);
+ }finally{btn.disabled=false;}
+});
 function message(text,success=false){const el=$('alert');el.classList.remove('hidden','ok');el.textContent=text;if(success)el.classList.add('ok');window.scrollTo({top:0,behavior:'smooth'});}
 function clearMessage(){$('alert').classList.add('hidden');}
 function participantToken(){return localStorage.getItem('besoin2027-participant-session')||''}
@@ -462,12 +555,12 @@ function evaluateMapping(){
    const matched=agencyFor(input.value);
    const feedback=input.parentElement.querySelector('.match-feedback');
    if(matched){
-    rememberAgencyAlias(input.dataset.raw,matched);
-    feedback.textContent='Associé à '+matched+' · choix mémorisé pour les 4 opérations.';
-    feedback.classList.add('matched');
+    void rememberAgencyAlias(input.dataset.raw,matched).then(central=>{
+     feedback.textContent='Associé à '+matched+(central?' · association enregistrée pour les 4 opérations.':' · association locale enregistrée, synchronisation centrale indisponible.');
+     feedback.classList.add('matched');
+    });
    }else{
-    if(confirmedMatches[input.dataset.raw])delete confirmedMatches[input.dataset.raw];
-    feedback.textContent='Choisissez un nom d’agence proposé. Sinon, ces CAB seront ignorés.';
+    feedback.textContent='Choisissez un nom d’agence proposé. Sinon, les CAB non attribués seront ignorés.';
     feedback.classList.remove('matched');
    }
    refreshImportPreview();
