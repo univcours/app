@@ -57,6 +57,13 @@
       "when": 1793400000000,
       "tag": "0007_agency_access_site_control",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1793401000000,
+      "tag": "0008_shared_agency_accounts",
+      "breakpoints": true
     }
   ]
 }
