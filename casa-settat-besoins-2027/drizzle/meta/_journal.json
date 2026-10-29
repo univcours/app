@@ -15,6 +15,13 @@
       "when": 1793271969077,
       "tag": "0001_funny_doctor_strange",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1793300000000,
+      "tag": "0002_controle_codes",
+      "breakpoints": true
     }
   ]
 }
