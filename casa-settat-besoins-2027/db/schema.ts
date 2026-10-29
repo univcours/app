@@ -26,3 +26,21 @@ export const countSubmissions = sqliteTable("count_submissions", {
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 }, (table) => [uniqueIndex("count_agency_month_unique").on(table.agencyKey, table.month)]);
+
+export const controleCodes = sqliteTable("controle_codes", {
+  id: text("id").primaryKey(),
+  module: text("module").notNull(),
+  agency: text("agency").notNull(),
+  agencyKey: text("agency_key").notNull(),
+  barcode: text("barcode").notNull(),
+  status: text("status").notNull().default("EN_ATTENTE"),
+  observation: text("observation").notNull().default(""),
+  active: integer("active").notNull().default(1),
+  fileName: text("file_name").notNull().default(""),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+  reviewedAt: text("reviewed_at"),
+  reviewerSession: text("reviewer_session"),
+}, (table) => [
+  uniqueIndex("controle_module_agency_barcode").on(table.module, table.agencyKey, table.barcode),
+]);
