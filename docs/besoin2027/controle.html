@@ -2,8 +2,8 @@
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="description" content="Contrôle des codes-barres, Bouclage AM et notifications des agences">
 <title>Contrôle des codes-barres · DR Casablanca-Settat</title>
-<link rel="stylesheet" href="./controle.css?v=hdg-20261029">
-<script defer src="./controle.js?v=deux-modes-import-20261029"></script>
+<link rel="stylesheet" href="./controle.css?v=association-cab-agence-20261029">
+<script defer src="./controle.js?v=association-cab-agence-20261029"></script>
 <script>(function(){try{const u=new URL(location.href);if(u.searchParams.has('utm_source')){u.searchParams.delete('utm_source');history.replaceState(history.state,'',u.pathname+u.search+u.hash)}}catch{}})();</script>
 </head><body>
 <header class="site-header"><div class="header-inner"><a class="brand" href="./?page=comptage"><span class="logo">▥</span><span><strong>Comptage<span>Envois</span></strong><small>DR Casablanca-Settat</small></span></a><nav><a href="./?page=comptage">Comptage des envois</a><a href="./?page=gestion-comptage">Suivi mensuel</a></nav></div></header>
@@ -47,7 +47,7 @@
 <div class="preview"><table><thead id="preview-head"></thead><tbody id="preview-body"></tbody></table></div>
 <div id="import-preview" class="summary"></div>
 <div id="import-groups" class="summary"></div>
-<div id="unmatched" class="hidden"><h3>Noms d’agences à vérifier</h3><p>Pour chaque nom non reconnu exactement, validez la bonne agence. Les suggestions ne sont jamais appliquées sans votre confirmation.</p><div id="unmatched-fields"></div></div>
+<div id="unmatched" class="hidden"><h3>Destinations à associer (facultatif)</h3><p>Écrivez le nom de l’agence et sélectionnez-le parmi les propositions. L’association sera retenue pour les quatre opérations. Les destinations sans agence associée seront ignorées : elles ne bloqueront pas l’import.</p><div id="unmatched-fields"></div></div>
 <button id="import-button" class="button primary" disabled>Valider l’importation des codes-barres</button></div>
 <div class="import-section"><div class="panel-heading"><div><h3>Suivi des contrôles et des accès</h3><p>Vérifiez les agences ayant consulté les codes, le dernier accès et les résultats des contrôles.</p></div><button id="export-button" class="button outline">Exporter les résultats (CSV)</button></div><div id="admin-totals" class="stats" aria-live="polite"></div><div id="admin-summary" class="summary"></div><button id="refresh-summary" class="button outline">Actualiser le suivi</button></div>
 <button id="admin-logout" class="button outline">Se déconnecter</button>
