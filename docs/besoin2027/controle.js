@@ -8,7 +8,7 @@ const normal=s=>String(s??'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').t
 const agencyFor=value=>{const n=normal(value),simple=n.replace(/^(AGENCE|BUREAU|ABB|AP|DESTINATION) /,'');return AGENCES.find(a=>normal(a)===n)||AGENCES.find(a=>normal(a)===simple)||null};
 const ALIAS_STORAGE='controle-agency-associations-v1';
 let moduleId='bouclage_am',agentItems=[],filteredItems=[],recordIndex=0,admin=false,books=[],selectedRows=[],confirmedMatches={},agency='',savedAgencyAliases=readAgencyAliases();
-function aliasKey(name){return String(name??'').normalize('NFKD').replace(/[\\u0300-\\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]+/g,' ').trim().replace(/\\s+/g,' ');}
+function aliasKey(name){return String(name??'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]+/g,' ').trim().replace(/\s+/g,' ');}
 function readAgencyAliases(){
  try{
   const value=JSON.parse(localStorage.getItem(ALIAS_STORAGE)||'{}');
@@ -482,7 +482,7 @@ function agencyMatches(input) {
 }
 
 function headerColumnKind(value){
- const key=String(value??'').normalize('NFKD').replace(/[\\u0300-\\u036f]/g,'')
+ const key=String(value??'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'')
    .toUpperCase().replace(/[^A-Z0-9]/g,'');
  if(key==='CAB'||key==='CODEBARRES'||key==='CODEBARRE')return 'cab';
  // Recognizes NomAgence, Nom agence, NOM_AGENCE and the stray comma/N variant.
