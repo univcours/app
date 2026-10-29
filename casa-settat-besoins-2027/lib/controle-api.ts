@@ -1,14 +1,19 @@
 import { env } from 'cloudflare:workers';
 import { COUNT_AGENCIES } from './count-agencies.mjs';
-import { chooseAgency, cleanBarcode, validControleModule, validateControleItems, normalizeAgency } from './controle.mjs';
+import { chooseAgency, validControleModule, validateControleItems, normalizeAgency } from './controle.mjs';
 import { InputError, agencyKey } from './validation.mjs';
 import { cookieHeader, digest, readToken, signToken, trustedWebOrigin } from './security';
 
-type RecordRow = {id:string;module:string;agency:string;barcode:string;status:string;observation:string;active:number;file_name:string;created_at:string;updated_at:string;reviewed_at:string|null};
+type RecordRow = {id:string;module:string;agency:string;barcode:string;status:string;observation:string;active:number;file_name:string;created_at:string;updated_at:string;reviewed_at:string|null;reimport_count:number};
 const json=(obj:unknown,status=200)=>Response.json(obj,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
 const db=()=>{if(!env.DB)throw new Error('Base de données indisponible.');return env.DB;};
-const serialize=(r:RecordRow)=>({id:r.id,module:r.module,agency:r.agency,barcode:r.barcode,status:r.status,observation:r.observation,source:r.file_name,updatedAt:r.updated_at,reviewedAt:r.reviewed_at});
+const serialize=(r:RecordRow)=>({id:r.id,module:r.module,agency:r.agency,barcode:r.barcode,status:r.status,observation:r.observation,source:r.file_name,updatedAt:r.updated_at,reviewedAt:r.reviewed_at,alreadyNotified:r.status==='OK'&&r.reimport_count>0});
 const moduleFrom=(u:URL)=>{const m=u.searchParams.get('module')||'';if(!validControleModule(m))throw new InputError('Opération non reconnue.');return m;};
+async function officialAgencies():Promise<string[]> {
+ const rows=await db().prepare('SELECT name FROM controle_agencies ORDER BY name COLLATE NOCASE LIMIT 1000').all<{name:string}>();
+ return [...new Set([...COUNT_AGENCIES,...rows.results.map(row=>row.name)])].sort((a,b)=>a.localeCompare(b,'fr'));
+}
+
 function csvCell(v:unknown){return '"'+String(v??'').replace(/"/g,'""').replace(/^[=+@\-]/,match=>"'"+match)+'"';}
 export async function handleControle(request:Request,path:string):Promise<Response|null> {
  if(!path.startsWith('/api/controle/')&&!path.startsWith('/api/admin/controle/'))return null;
@@ -18,7 +23,8 @@ export async function handleControle(request:Request,path:string):Promise<Respon
    const database=db();
    await database.prepare('SELECT 1 FROM controle_codes LIMIT 1').first();
    await database.prepare('SELECT 1 FROM controle_acces LIMIT 1').first();
-   await database.prepare('SELECT 1 FROM controle_agency_aliases LIMIT 1').first();
+   await database.prepare('SELECT 1 FROM controle_agencies LIMIT 1').first();
+   await database.prepare('SELECT reimport_count FROM controle_codes LIMIT 1').first();
    return json({ready:true});
   }catch{
    return json({ready:false,error:'Le service des codes-barres attend la mise à jour de la base de données.'},503);
@@ -26,6 +32,23 @@ export async function handleControle(request:Request,path:string):Promise<Respon
  }
  const admin=isAdminPath?await readToken(request,'budget_admin','admin'):null;
  if(isAdminPath&&!admin)return json({error:'Accès réservé au coordinateur.'},401);
+ if(path==='/api/controle/agencies'&&request.method==='GET'){
+  return json({agencies:await officialAgencies()});
+ }
+ if(path==='/api/admin/controle/agencies'&&request.method==='POST'){
+  const raw=await request.text();
+  if(raw.length>1000)return json({error:'Nom d’agence trop long.'},413);
+  const data=JSON.parse(raw),name=String(data?.name??'').trim().replace(/\\s+/g,' ');
+  const normalized=normalizeAgency(name);
+  if(name.length<2||name.length>100||normalized.length<2||!/[A-Z]/.test(normalized)||/[<>\\u0000-\\u001f]/.test(name))
+   return json({error:'Indiquez un nom d’agence valide (2 à 100 caractères).'},400);
+  const already=chooseAgency(name,await officialAgencies());
+  if(already)return json({error:'Cette agence existe déjà dans la liste principale : '+already},409);
+  const result=await db().prepare('INSERT INTO controle_agencies (agency_key,name,created_at) VALUES (?,?,?) ON CONFLICT(agency_key) DO NOTHING')
+   .bind(normalized,name,new Date().toISOString()).run();
+  if(!result.meta.changes)return json({error:'Cette agence est déjà enregistrée.'},409);
+  return json({ok:true,agency:name,agencies:await officialAgencies()});
+ }
  if(path==='/api/controle/session'&&request.method==='GET'){
   let session=await readToken(request,'budget_participant','participant');
   if(!session)session=crypto.randomUUID();
@@ -35,7 +58,7 @@ export async function handleControle(request:Request,path:string):Promise<Respon
  }
  if(path==='/api/controle/items'&&request.method==='GET'){
   if(!await readToken(request,'budget_participant','participant'))return json({error:'Session expirée. Rechargez la page.'},401);
-  const module=moduleFrom(u),agency=chooseAgency(u.searchParams.get('agency'));
+  const module=moduleFrom(u),agency=chooseAgency(u.searchParams.get('agency'),await officialAgencies());
   if(!agency)return json({error:'Sélectionnez une agence valide.'},400);
   const result=await db().prepare('SELECT * FROM controle_codes WHERE module=? AND agency_key=? AND active=1 ORDER BY barcode COLLATE NOCASE LIMIT 10001').bind(module,agencyKey(agency)).all<RecordRow>();
   if(result.results.length>10000)return json({error:'Trop de codes pour une seule agence.'},413);
@@ -55,7 +78,7 @@ export async function handleControle(request:Request,path:string):Promise<Respon
   const body=await request.text();
   if(body.length>3000)return json({error:'Demande trop longue.'},413);
   const obj=JSON.parse(body);
-  const agency=chooseAgency(obj?.agency),module=obj?.module;
+  const agency=chooseAgency(obj?.agency,await officialAgencies()),module=obj?.module;
   if(!agency||!validControleModule(module)||typeof obj?.id!=='string'||obj.id.length>100)return json({error:'Sélection invalide.'},400);
   if(!['OK','ANOMALIE'].includes(obj.status))return json({error:'Choisissez OK ou Anomalie.'},400);
   const observation=obj.status==='OK'?'':String(obj.observation??'').trim();
@@ -65,46 +88,15 @@ export async function handleControle(request:Request,path:string):Promise<Respon
   if(!res)return json({error:'Ce code a été retiré ou n’est pas disponible pour cette agence.'},409);
   return json({ok:true,id:res.id,status:obj.status,observation,updatedAt:now});
  }
- if(path==='/api/admin/controle/aliases'&&request.method==='GET'){
-  const result=await db().prepare('SELECT alias_key,agency FROM controle_agency_aliases ORDER BY alias_key LIMIT 5000').all<{alias_key:string;agency:string}>();
-  return json({aliases:result.results.map(({alias_key,agency})=>({alias:alias_key,agency}))});
- }
- if(path==='/api/admin/controle/aliases'&&request.method==='POST'){
-  const raw=await request.text();
-  if(raw.length>45000)return json({error:'Liste d’associations trop longue.'},413);
-  const body=JSON.parse(raw);
-  if(!Array.isArray(body?.items)||body.items.length<1||body.items.length>150)
-   return json({error:'Veuillez transmettre entre 1 et 150 associations.'},400);
-  const pairs=new Map<string,string>();
-  for(const item of body.items){
-   if(typeof item?.alias!=='string'||item.alias.length>150)return json({error:'Nom de destination invalide.'},400);
-   const alias=normalizeAgency(item.alias),agency=chooseAgency(item?.agency);
-   if(!alias||alias.length>150||!agency)return json({error:'Association de destination invalide.'},400);
-   pairs.set(alias,agency);
-  }
-  const now=new Date().toISOString();
-  await db().batch([...pairs].map(([alias,agency])=>
-   db().prepare('INSERT INTO controle_agency_aliases (alias_key,agency,updated_at) VALUES (?,?,?) '+
-   'ON CONFLICT(alias_key) DO UPDATE SET agency=excluded.agency,updated_at=excluded.updated_at')
-   .bind(alias,agency,now)));
-  return json({ok:true,saved:pairs.size});
- }
- if(path==='/api/admin/controle/aliases'&&request.method==='DELETE'){
-  const supplied=u.searchParams.get('alias');
-  if(!supplied||supplied.length>150)return json({error:'Nom de destination invalide.'},400);
-  const key=normalizeAgency(supplied);
-  if(!key||key.length>150)return json({error:'Nom de destination invalide.'},400);
-  const deleted=await db().prepare('DELETE FROM controle_agency_aliases WHERE alias_key=?').bind(key).run();
-  return json({ok:true,deleted:deleted.meta.changes||0});
- }
  if(path==='/api/admin/controle/import'&&request.method==='POST'){
   const raw=await request.text();
   if(raw.length>2500000)return json({error:'Import trop volumineux (maximum 2,5 Mo).'},413);
   const obj=JSON.parse(raw),module=obj?.module;
   const scope=obj?.scope??'all';
   if(scope!=='all'&&scope!=='single')return json({error:'Mode d’importation non reconnu.'},400);
-  const items=validateControleItems(module,obj?.items);
-  const selected=scope==='single'?chooseAgency(obj?.agency):null;
+  const agencies=await officialAgencies();
+  const items=validateControleItems(module,obj?.items,agencies);
+  const selected=scope==='single'?chooseAgency(obj?.agency,agencies):null;
   if(scope==='single'&&!selected)return json({error:'Sélectionnez une agence valide.'},400);
   if(selected&&items.some(item=>item.agency!==selected))
     return json({error:'Ce fichier contient des codes destinés à une autre agence. Importation refusée.'},400);
@@ -122,7 +114,7 @@ export async function handleControle(request:Request,path:string):Promise<Respon
    const batch=items.slice(start,start+250).map(item=>({id:crypto.randomUUID(),agency:item.agency,agencyKey:agencyKey(item.agency),barcode:item.barcode}));
    const jsonSql='INSERT INTO controle_codes (id,module,agency,agency_key,barcode,status,observation,active,file_name,created_at,updated_at) '+
     "SELECT json_extract(value,'$.id'), ?, json_extract(value,'$.agency'), json_extract(value,'$.agencyKey'), json_extract(value,'$.barcode'), 'EN_ATTENTE', '', 1, ?, ?, ? FROM json_each(?) WHERE 1 "+
-    'ON CONFLICT(module,agency_key,barcode) DO UPDATE SET active=1,agency=excluded.agency,file_name=excluded.file_name';
+    'ON CONFLICT(module,agency_key,barcode) DO UPDATE SET active=1,agency=excluded.agency,file_name=excluded.file_name,reimport_count=controle_codes.reimport_count+CASE WHEN controle_codes.status='OK' THEN 1 ELSE 0 END';
    statements.push(db().prepare(jsonSql).bind(module,fileName,now,now,JSON.stringify(batch)));
   }
   await db().batch(statements);
@@ -143,7 +135,7 @@ export async function handleControle(request:Request,path:string):Promise<Respon
   const module=moduleFrom(u);
   const rows=await db().prepare('SELECT * FROM controle_codes WHERE module=? AND active=1 ORDER BY agency,barcode').bind(module).all<RecordRow>();
   const header=['Opération','Agence','Code-barres','Statut','Observation','Date du contrôle','Fichier source'];
-  const csv='\ufeff'+[header,...rows.results.map(r=>[r.module,r.agency,r.barcode,r.status,r.observation,r.reviewed_at??'',r.file_name])]
+  const csv='\ufeff'+[header,...rows.results.map(r=>[r.module,r.agency,r.barcode,r.status==='OK'&&r.reimport_count>0?'Déjà notifié':r.status,r.observation,r.reviewed_at??'',r.file_name])]
    .map(row=>row.map(csvCell).join(';')).join('\r\n');
   return new Response(csv,{headers:{'Content-Type':'text/csv; charset=utf-8','Content-Disposition':'attachment; filename="controle_'+module+'.csv"','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
  }
