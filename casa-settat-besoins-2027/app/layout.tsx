@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Casablanca-Settat · Besoins des agences 2027",
-  description: "Exprimez les besoins de votre agence pour le budget d’investissement 2027.",
+  title: "Casablanca-Settat · Comptage des envois",
+  description: "Comptage mensuel des envois par agence et tournée.",
   icons: {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",
