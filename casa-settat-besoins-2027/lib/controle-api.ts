@@ -1,6 +1,6 @@
 import { env } from 'cloudflare:workers';
 import { COUNT_AGENCIES } from './count-agencies.mjs';
-import { chooseAgency, cleanBarcode, validControleModule, validateControleItems } from './controle.mjs';
+import { chooseAgency, cleanBarcode, validControleModule, validateControleItems, normalizeAgency } from './controle.mjs';
 import { agencyKey } from './validation.mjs';
 import { cookieHeader, digest, readToken, signToken, trustedWebOrigin } from './security';
 
@@ -53,6 +53,30 @@ export async function handleControle(request:Request,path:string):Promise<Respon
   const res=await db().prepare('UPDATE controle_codes SET status=?,observation=?,updated_at=?,reviewed_at=?,reviewer_session=? WHERE id=? AND module=? AND agency_key=? AND active=1 RETURNING id').bind(obj.status,observation,now,now,await digest(session),obj.id,module,agencyKey(agency)).first<{id:string}>();
   if(!res)return json({error:'Ce code a été retiré ou n’est pas disponible pour cette agence.'},409);
   return json({ok:true,id:res.id,status:obj.status,observation,updatedAt:now});
+ }
+ if(path==='/api/admin/controle/aliases'&&request.method==='GET'){
+  const result=await db().prepare('SELECT alias_key,agency FROM controle_agency_aliases ORDER BY alias_key LIMIT 5000').all<{alias_key:string;agency:string}>();
+  return json({aliases:result.results.map(({alias_key,agency})=>({alias:alias_key,agency}))});
+ }
+ if(path==='/api/admin/controle/aliases'&&request.method==='POST'){
+  const raw=await request.text();
+  if(raw.length>45000)return json({error:'Liste d’associations trop longue.'},413);
+  const body=JSON.parse(raw);
+  if(!Array.isArray(body?.items)||body.items.length<1||body.items.length>150)
+   return json({error:'Veuillez transmettre entre 1 et 150 associations.'},400);
+  const pairs=new Map<string,string>();
+  for(const item of body.items){
+   if(typeof item?.alias!=='string'||item.alias.length>150)return json({error:'Nom de destination invalide.'},400);
+   const alias=normalizeAgency(item.alias),agency=chooseAgency(item?.agency);
+   if(!alias||alias.length>150||!agency)return json({error:'Association de destination invalide.'},400);
+   pairs.set(alias,agency);
+  }
+  const now=new Date().toISOString();
+  await db().batch([...pairs].map(([alias,agency])=>
+   db().prepare('INSERT INTO controle_agency_aliases (alias_key,agency,updated_at) VALUES (?,?,?) '+
+   'ON CONFLICT(alias_key) DO UPDATE SET agency=excluded.agency,updated_at=excluded.updated_at')
+   .bind(alias,agency,now)));
+  return json({ok:true,saved:pairs.size});
  }
  if(path==='/api/admin/controle/import'&&request.method==='POST'){
   const raw=await request.text();
