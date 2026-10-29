@@ -11,10 +11,26 @@ type Submission = { id: string; agency: string; items: Item[]; createdAt: string
 type Row = { id: string; agency: string; payload: string; created_at: string; updated_at: string };
 const json = (data: unknown, status = 200, headers: Record<string, string> = {}) => Response.json(data, { status, headers: { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", ...headers } });
 const db = () => { if (!env.DB) throw new Error("Le service d’enregistrement est indisponible."); return env.DB; };
+
+// GitHub Pages uses a separate API host. A newly provisioned D1 database may
+// exist before its first migration has been applied. Bootstrap only missing
+// schema objects; CREATE IF NOT EXISTS preserves all existing agency responses.
+let schemaReady = false;
+async function ensureSchema() {
+  if (schemaReady) return;
+  const database = db();
+  await database.batch([
+    database.prepare("CREATE TABLE IF NOT EXISTS submissions (id TEXT PRIMARY KEY NOT NULL, agency TEXT NOT NULL, agency_key TEXT NOT NULL, session_hash TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)"),
+    database.prepare("CREATE TABLE IF NOT EXISTS login_attempts (key TEXT PRIMARY KEY NOT NULL, attempts INTEGER NOT NULL, expires_at INTEGER NOT NULL)"),
+    database.prepare("CREATE UNIQUE INDEX IF NOT EXISTS submissions_agency_unique ON submissions (agency_key)"),
+  ]);
+  schemaReady = true;
+}
 function responseRow(row: Row): Submission { return { id: row.id, agency: row.agency, items: JSON.parse(row.payload), createdAt: row.created_at, updatedAt: row.updated_at }; }
 async function isAdmin(request: Request) { return !!(await readToken(request, "budget_admin", "admin")); }
 
 async function handle(request: Request) {
+  await ensureSchema();
   const path = new URL(request.url).pathname;
   if (request.headers.has("origin") && !sameOrigin(request) && !trustedWebOrigin(request)) return json({ error: "Origine non autorisée." }, 403);
   if (request.method === "POST" && !sameOrigin(request) && !trustedWebOrigin(request)) return json({ error: "Cette demande doit être envoyée depuis le formulaire." }, 403);
