@@ -21,7 +21,7 @@ export function fillCountWorksheet(original, submission) {
   const title = `Comptage des envois de la période allant du ${dateLabel(dates[0])} au ${dateLabel(dates.at(-1))} (${month})`;
   const header = original.match(/<x:sheetData>([\s\S]*?)<x:row r="5"/)[1]
     .replace(/<x:c r="A1"[\s\S]*?<\/x:c>/, textCell('A1', `Agence ABB : ${identity.agency}`, styles.title))
-    .replace(/<x:c r="A2"[^>]*(?:\/>|>[\s\S]*?<\/x:c>)/, textCell('A2', `Tournée de distribution : ${identity.tournee ?? '—'}`, styleAt('A2')))
+    .replace(/<x:c r="A2"[^>]*(?:\/>|>[\s\S]*?<\/x:c>)/, textCell('A2', `Tournée N°: ${identity.tournee ?? '—'}`, styleAt('A2')))
     .replace(/<x:c r="E1"[\s\S]*?<\/x:c>/, textCell('E1', title, styles.title));
   const rows = dates.map((date, index) => {
     const rowNumber = index + 5, row = values.get(date);
