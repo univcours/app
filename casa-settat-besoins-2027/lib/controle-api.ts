@@ -205,7 +205,7 @@ export async function handleControle(request:Request,path:string):Promise<Respon
   // Small paginated queries keep each D1 response bounded.
   for(const module of MODULES){
    for(let offset=0;offset<100000;offset+=1000){
-    const result=await db().prepare('SELECT * FROM controle_codes WHERE module=? AND active=1 ORDER BY agency_key,barcode LIMIT 1000 OFFSET ?')
+    const result=await db().prepare('SELECT * FROM controle_codes WHERE module=? ORDER BY agency_key,barcode LIMIT 1000 OFFSET ?')
       .bind(module,offset).all<RecordRow>();
     codes.push(...result.results);
     if(result.results.length<1000)break;
@@ -224,6 +224,7 @@ export async function handleControle(request:Request,path:string):Promise<Respon
   }
   const totals=new Map<string,{total:number;ok:number;notified:number;pending:number;anomaly:number}>();
   for(const row of codes){
+   if(!row.active)continue;
    const key=row.module+'|'+row.agency;
    const item=totals.get(key)||{total:0,ok:0,notified:0,pending:0,anomaly:0};
    item.total++;
@@ -241,7 +242,7 @@ export async function handleControle(request:Request,path:string):Promise<Respon
   const sheets=[summary,...MODULES.map(mod=>codes.filter(row=>row.module===mod).map(row=>[
    row.agency,row.barcode,row.status==='OK'?(row.reimport_count>0?'Déjà notifié':'Bouclé'):
    row.status==='ANOMALIE'?'Anomalie':'À contrôler',
-   row.observation,row.last_reviewer_name||'',row.reviewed_at||'',row.file_name,row.reimport_count
+   row.observation,row.last_reviewer_name||'',row.reviewed_at||'',row.file_name,row.reimport_count,row.active?'Oui':'Historique'
   ])),accessRows.map(row=>[LABELS[row.module]||row.module,row.agency,row.agent_name,row.viewed_at,row.code_count])];
   const data=createControleWorkbook(sheets);
   return new Response(data,{headers:{
