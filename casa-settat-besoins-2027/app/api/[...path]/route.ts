@@ -103,7 +103,7 @@ async function endpoint(request: Request) {
   function withCors(response: Response) {
     if (cors) {
       response.headers.set("Access-Control-Allow-Origin", request.headers.get("origin")!);
-      response.headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+      response.headers.set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
       response.headers.set("Access-Control-Allow-Headers", "Authorization, Content-Type");
       response.headers.set("Access-Control-Expose-Headers", "Content-Disposition");
       response.headers.set("Vary", "Origin");
@@ -120,4 +120,5 @@ async function endpoint(request: Request) {
 }
 export const GET = endpoint;
 export const POST = endpoint;
+export const DELETE = endpoint;
 export const OPTIONS = endpoint;
