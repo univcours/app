@@ -3,7 +3,7 @@
 <meta name="description" content="Contrôle des codes-barres, Bouclage AM et notifications des agences">
 <title>Contrôle des codes-barres · DR Casablanca-Settat</title>
 <link rel="stylesheet" href="./controle.css?v=suivi-acces-20261029">
-<script defer src="./controle.js?v=suivi-acces-20261029"></script>
+<script defer src="./controle.js?v=import-par-agence-20261029"></script>
 </head><body>
 <header class="site-header"><div class="header-inner"><a class="brand" href="./?page=comptage"><span class="logo">▥</span><span><strong>Comptage<span>Envois</span></strong><small>DR Casablanca-Settat</small></span></a><nav><a href="./?page=comptage">Comptage des envois</a><a href="./?page=gestion-comptage">Suivi mensuel</a></nav></div></header>
 <main class="main">
@@ -33,13 +33,13 @@
 <section id="admin-panel" class="panel hidden"><div class="panel-heading"><div><span class="eyebrow">ACCÈS RÉSERVÉ</span><h2>Importation et suivi des codes-barres</h2></div><button id="close-admin" class="button outline">Revenir au contrôle</button></div>
 <div id="admin-login"><form id="login-form" class="filters"><div><label for="password">Mot de passe du coordinateur</label><input id="password" type="password" required autocomplete="current-password"></div><button class="button primary" type="submit">Se connecter</button></form></div>
 <div id="admin-connected" class="hidden">
-<div class="import-section"><h3>Importer un fichier Excel</h3><p>Choisissez l’opération, importez un fichier Excel, vérifiez les colonnes et les agences avant l’enregistrement. Un nouvel import remplace la liste active de l’opération, sans effacer les contrôles déjà réalisés sur les codes conservés.</p>
+<div class="import-section"><h3>Importer les codes-barres d’une agence</h3><p>Sélectionnez une opération ci-dessus, puis l’agence destinataire. Importez son fichier Excel : seuls les codes de cette agence seront affichés dans son espace. Les autres agences ne sont pas modifiées.</p><div class="filters"><div><label for="import-agency">Agence destinataire <span aria-hidden="true">*</span></label><select id="import-agency" required><option value="">Choisir une agence</option></select></div></div>
 <div class="filters"><div><label for="excel-file">Fichier (.xlsx ou .csv)</label><input id="excel-file" type="file" accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"></div><div><label for="excel-sheet">Feuille</label><select id="excel-sheet" disabled><option value="">Sélectionner un fichier</option></select></div></div>
 <p class="hint">Important : dans Excel, formatez la colonne des codes-barres en « Texte » pour conserver les zéros initiaux et éviter la notation scientifique. Après une importation réussie, le fichier est automatiquement retiré de cette zone ; seules les données des codes sont enregistrées, et non le fichier Excel original.</p>
-<div id="mapping" class="hidden"><div class="filters"><div><label for="header-row">Ligne des en-têtes</label><select id="header-row"></select></div><div><label for="agency-column">Colonne destination / agence</label><select id="agency-column"></select></div><div><label for="barcode-column">Colonne code-barres</label><select id="barcode-column"></select></div></div>
+<div id="mapping" class="hidden"><div class="filters"><div><label for="header-row">Ligne des en-têtes (facultative)</label><select id="header-row"></select></div><div><label for="barcode-column">Colonne code-barres</label><select id="barcode-column"></select></div></div>
 <div class="preview"><table><thead id="preview-head"></thead><tbody id="preview-body"></tbody></table></div>
-<div id="import-preview" class="summary"></div><div id="unmatched" class="hidden"><h3>Destinations à associer</h3><p>Ces noms ne correspondent pas exactement à la liste des agences. Sélectionnez une agence pour chaque destination avant l’import.</p><div id="unmatched-fields"></div></div>
-<button id="import-button" class="button primary">Importer les codes-barres</button></div></div>
+<div id="import-preview" class="summary"></div>
+<button id="import-button" class="button primary" disabled>Importer les codes-barres dans l’agence sélectionnée</button></div></div>
 <div class="import-section"><div class="panel-heading"><div><h3>Suivi des contrôles et des accès</h3><p>Vérifiez les agences ayant consulté les codes, le dernier accès et les résultats des contrôles.</p></div><button id="export-button" class="button outline">Exporter les résultats (CSV)</button></div><div id="admin-summary" class="summary"></div><button id="refresh-summary" class="button outline">Actualiser le suivi</button></div>
 <button id="admin-logout" class="button outline">Se déconnecter</button>
 </div></section>
