@@ -42,6 +42,7 @@ export const controleCodes = sqliteTable("controle_codes", {
   reviewedAt: text("reviewed_at"),
   reviewerSession: text("reviewer_session"),
   reimportCount: integer("reimport_count").notNull().default(0),
+  lastReviewerName: text("last_reviewer_name"),
 }, (table) => [
   uniqueIndex("controle_module_agency_barcode").on(table.module, table.agencyKey, table.barcode),
 ]);
@@ -65,4 +66,15 @@ export const controleAgencies = sqliteTable("controle_agencies", {
   agencyKey: text("agency_key").primaryKey(),
   name: text("name").notNull(),
   createdAt: text("created_at").notNull(),
+});
+
+export const controleAccessLog = sqliteTable("controle_access_log", {
+  id: text("id").primaryKey(),
+  module: text("module").notNull(),
+  agency: text("agency").notNull(),
+  agencyKey: text("agency_key").notNull(),
+  agentName: text("agent_name").notNull(),
+  sessionHash: text("session_hash").notNull(),
+  viewedAt: text("viewed_at").notNull(),
+  codeCount: integer("code_count").notNull().default(0),
 });
