@@ -4,6 +4,7 @@ export const CONTROLE_MODULES = Object.freeze([
  {id:'bouclage_am',label:'Bouclage AM'},
  {id:'notification_enregistree',label:'Notification des envois enregistrés'},
  {id:'notification_recommandee',label:'Notification des envois recommandés'},
+ {id:'hdg',label:'HDG'},
 ]);
 export const CONTROLE_STATUSES = ['EN_ATTENTE','OK','ANOMALIE'];
 export const normalizeAgency = s => String(s??'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]+/g,' ').trim();
