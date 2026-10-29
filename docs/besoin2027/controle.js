@@ -6,7 +6,7 @@ const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const normal=s=>String(s??'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]+/g,' ').trim();
 const agencyFor=value=>{const n=normal(value),simple=n.replace(/^(AGENCE|BUREAU|ABB|AP|DESTINATION) /,'');return AGENCES.find(a=>normal(a)===n)||AGENCES.find(a=>normal(a)===simple)||null};
-let moduleId='bouclage_am',agentItems=[],filteredItems=[],recordIndex=0,admin=false,books=[],selectedRows=[],agency='';
+let moduleId='bouclage_am',agentItems=[],filteredItems=[],recordIndex=0,admin=false,books=[],selectedRows=[],confirmedMatches={},agency='';
 function message(text,success=false){const el=$('alert');el.classList.remove('hidden','ok');el.textContent=text;if(success)el.classList.add('ok');window.scrollTo({top:0,behavior:'smooth'});}
 function clearMessage(){$('alert').classList.add('hidden');}
 function participantToken(){return localStorage.getItem('besoin2027-participant-session')||''}
@@ -43,8 +43,7 @@ function chooseModule(id){
 }
 document.querySelectorAll('[data-module]').forEach(b=>b.addEventListener('click',()=>chooseModule(b.dataset.module)));
 agencySelect($('agency'));
-agencySelect($('import-agency'));
-$('import-agency').addEventListener('change',()=>refreshImportPreview());
+
 $('admin-toggle').addEventListener('click',()=>toggleAdmin(true));
 $('close-admin').addEventListener('click',()=>toggleAdmin(false));
 function toggleAdmin(flag){
@@ -247,92 +246,153 @@ $('excel-file').addEventListener('change',async e=>{
  try{
   books=await readBook(file);
   const list=$('excel-sheet');list.disabled=false;list.innerHTML=books.map((s,i)=>'<option value="'+i+'">'+esc(s.name)+'</option>').join('');
-  showMapping();clearMessage();
+  confirmedMatches={};showMapping();clearMessage();
  }catch(error){books=[];$('mapping').classList.add('hidden');message(error.message)}
 });
 $('excel-sheet').addEventListener('change',showMapping);
 function selectedSheet(){return books[Number($('excel-sheet').value)||0]}
+
+const COUNT_AGENCIES=AGENCES;
+const norm = s => String(s??'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]+/g,' ').trim().replace(/\s+/g,' ');
+const clean = s => norm(s).replace(/^(?:(?:AGENCE|BUREAU|ABB|AP|DESTINATION|AG|ETABLISSEMENT|STE)\s+)+/,'').replace(/\s+(?:AGENCE|ABB)$/,'').trim();
+function agencySimilarity(name, candidate) {
+ const a=clean(name),b=clean(candidate);
+ if(!a||!b)return 0;
+ if(a===b)return 1;
+ const x=a.replace(/\s/g,''),y=b.replace(/\s/g,'');
+ if(x===y)return .99;
+ const dp=Array.from({length:y.length+1},(_,i)=>i);
+ for(let i=1;i<=x.length;i++){
+  let prev=dp[0];dp[0]=i;
+  for(let j=1;j<=y.length;j++){
+   const old=dp[j];dp[j]=Math.min(dp[j]+1,dp[j-1]+1,prev+(x[i-1]===y[j-1]?0:1));prev=old;
+  }
+ }
+ const distance=dp[y.length],score=1-distance/Math.max(x.length,y.length);
+ return Math.max(0,score);
+}
+function agencyMatches(input) {
+ const normalized=clean(input);
+ const exact=COUNT_AGENCIES.filter(a=>clean(a)===normalized);
+ if(exact.length===1)return {exact:exact[0],suggestions:[exact[0]]};
+ const ranked=COUNT_AGENCIES.map(agency=>({agency,score:agencySimilarity(input,agency)})).sort((a,b)=>b.score-a.score);
+ const best=ranked[0]?.score||0;
+ // Suggestions are never automatically assigned. The coordinator must explicitly confirm.
+ return {exact:null,suggestions:best>=0.58?ranked.filter(p=>p.score>=Math.max(0.58,best-0.20)).slice(0,5).map(p=>p.agency):[]};
+}
+
 function showMapping(){
  const book=selectedSheet();if(!book)return;
  $('mapping').classList.remove('hidden');
- const select=$('header-row');
- select.innerHTML='<option value="-1">Aucun en-tête : les codes commencent à la première ligne</option>'+
-  book.rows.slice(0,Math.min(20,book.rows.length)).map((r,i)=>
-   '<option value="'+i+'">Ligne '+(i+1)+' : '+esc((r||[]).slice(0,3).join(' | ').slice(0,75))+'</option>').join('');
- const guess=book.rows.slice(0,20).findIndex(row=>
-  (row||[]).some(v=>/^(code[- ]?barres?|barcode|code d.envoi|num[eé]ro d.envoi|n[°o].? suivi|tracking|identifiant)$/i.test(String(v).trim())));
- select.value=String(guess<0?-1:guess);
+ const header=$('header-row');
+ header.innerHTML='<option value="-1">Sans ligne d’en-tête</option>'+
+   book.rows.slice(0,Math.min(book.rows.length,20)).map((r,i)=>
+   '<option value="'+i+'">Ligne '+(i+1)+' : '+esc((r||[]).slice(0,4).join(' | ').slice(0,85))+'</option>').join('');
+ const guess=book.rows.slice(0,20).findIndex(row=>{
+   const vals=(row||[]).map(v=>normal(v));
+   return vals.includes('CAB') && vals.includes('NOM AGENCE');
+ });
+ header.value=String(guess>=0?guess:-1);
  updateColumns();
 }
 $('header-row').addEventListener('change',updateColumns);
 $('barcode-column').addEventListener('change',evaluateMapping);
-function excelLetter(n){let text='';for(let x=n+1;x>0;x=Math.floor((x-1)/26))text=String.fromCharCode(65+(x-1)%26)+text;return text;}
+$('agency-column').addEventListener('change',evaluateMapping);
+function excelLetter(n) {
+ let code='';for(let k=n+1;k>0;k=Math.floor((k-1)/26))code=String.fromCharCode(65+(k-1)%26)+code;
+ return code;
+}
 function updateColumns(){
- const book=selectedSheet();if(!book)return;
- const header=Number($('header-row').value);
- const row=header>=0 ? book.rows[header]||[] : [];
- const width=Math.min(80,Math.max(1,...book.rows.slice(0,40).map(r=>(r||[]).length)));
- $('barcode-column').innerHTML=Array.from({length:width},(_,i)=>
-  '<option value="'+i+'">'+excelLetter(i)+' — '+esc(String(row[i]||'Colonne '+(i+1)).slice(0,70))+'</option>').join('');
- const guess=row.findIndex(v=>/code.barres|barcode|num[eé]ro.*envoi|n[°o].*envoi|tracking|objet|identifiant|n[°o].*suivi/i.test(String(v)));
- $('barcode-column').value=String(guess>=0?guess:0);
+ const sheet=selectedSheet();if(!sheet)return;
+ const headerIndex=Number($('header-row').value),header=headerIndex>=0?sheet.rows[headerIndex]||[]:[];
+ const width=Math.min(80,Math.max(2,...sheet.rows.slice(0,40).map(r=>(r||[]).length)));
+ for(const id of ['agency-column','barcode-column']) {
+  $(id).innerHTML=Array.from({length:width},(_,i)=>'<option value="'+i+'">'+
+   excelLetter(i)+' — '+esc(String(header[i]||'Colonne '+(i+1)).slice(0,70))+'</option>').join('');
+ }
+ const colOf=key=>header.findIndex(v=>normal(v)===key);
+ // Priority: the requested canonical two-column file: CAB and Nom agence.
+ const agencyCol=colOf('NOM AGENCE'),barcodeCol=colOf('CAB');
+ $('agency-column').value=String(agencyCol>=0?agencyCol:1);
+ $('barcode-column').value=String(barcodeCol>=0?barcodeCol:0);
  evaluateMapping();
 }
 function evaluateMapping(){
- const book=selectedSheet();if(!book)return;
- const headerIndex=Number($('header-row').value),column=Number($('barcode-column').value);
- selectedRows=[];
- const seen=new Set();let duplicates=0;
- for(const row of book.rows.slice(headerIndex+1)){
-   const barcode=String(row?.[column]??'').trim();
-   if(!barcode)continue;
-   const key=barcode.toUpperCase();
-   if(seen.has(key)){duplicates++;continue;}
-   seen.add(key);
-   selectedRows.push({barcode});
+ const sheet=selectedSheet();if(!sheet)return;
+ const h=Number($('header-row').value),a=Number($('agency-column').value),b=Number($('barcode-column').value);
+ const rawRows=sheet.rows.slice(h+1);
+ selectedRows=[];confirmedMatches={};
+ const found=new Set(),counts=new Map();
+ let previous='',duplicates=0;
+ for(const cells of rawRows){
+  const name=String(cells?.[a]??'').trim(),cab=String(cells?.[b]??'').trim();
+  if(name)previous=name;
+  if(!cab)continue;
+  const rawAgency=previous||'(Nom agence manquant)',key=normal(rawAgency)+'|'+cab.toUpperCase();
+  if(found.has(key)){duplicates++;continue;}
+  found.add(key);
+  selectedRows.push({rawAgency,barcode:cab});
+  counts.set(rawAgency,(counts.get(rawAgency)||0)+1);
  }
- const header=headerIndex>=0?(book.rows[headerIndex]||[]):[],head=$('preview-head'),body=$('preview-body');
- const width=Math.min(20,Math.max(1,...book.rows.slice(headerIndex+1,headerIndex+9).map(row=>(row||[]).length)));
- head.innerHTML='<tr>'+Array.from({length:width},(_,i)=>'<th>'+esc(String(header[i]||'Colonne '+excelLetter(i)))+'</th>').join('')+'</tr>';
- body.innerHTML=book.rows.slice(headerIndex+1,headerIndex+9).map(row=>
-  '<tr>'+Array.from({length:width},(_,i)=>'<td>'+esc(String(row?.[i]??''))+'</td>').join('')+'</tr>').join('');
+ const pending=[...counts.keys()].filter(a=>!agencyMatches(a).exact);
+ $('unmatched').classList.toggle('hidden',pending.length===0);
+ $('unmatched-fields').innerHTML=pending.map((raw,i)=>{
+  const options=agencyMatches(raw).suggestions;
+  const suggestion=options.length?'<p class="hint">Suggestion : '+options.map(esc).join(' / ')+'</p>':'<p class="hint">Agence non reconnue. Choisissez-la manuellement.</p>';
+  return '<label>'+esc(raw)+' ('+counts.get(raw)+' code(s))'+suggestion+
+   '<select id="match-'+i+'" data-raw="'+esc(raw)+'"><option value="">Confirmer une agence...</option>'+
+   AGENCES.map(a=>'<option value="'+esc(a)+'">'+esc(a)+'</option>').join('')+'</select></label>';
+ }).join('');
+ $('unmatched-fields').querySelectorAll('select').forEach(select=>select.addEventListener('change',()=>{
+  confirmedMatches[select.dataset.raw]=select.value;
+  refreshImportPreview();
+ }));
+ const head=h>=0?sheet.rows[h]||[]:[],width=Math.min(15,Math.max(2,...rawRows.slice(0,8).map(r=>(r||[]).length)));
+ $('preview-head').innerHTML='<tr>'+Array.from({length:width},(_,i)=>'<th>'+esc(String(head[i]||'Colonne '+excelLetter(i)))+'</th>').join('')+'</tr>';
+ $('preview-body').innerHTML=rawRows.slice(0,8).map(row=>'<tr>'+
+  Array.from({length:width},(_,i)=>'<td>'+esc(String(row?.[i]??''))+'</td>').join('')+'</tr>').join('');
  $('import-preview').dataset.duplicates=String(duplicates);
  refreshImportPreview();
 }
+function mappedRows(){
+ return selectedRows.map(row=>({...row,agency:agencyMatches(row.rawAgency).exact||confirmedMatches[row.rawAgency]||''}));
+}
 function refreshImportPreview(){
- const destination=$('import-agency').value;
+ const items=mappedRows(),linked=items.filter(row=>row.agency);
+ const missing=new Set(items.filter(row=>!row.agency).map(row=>row.rawAgency));
+ const totals=new Map();
+ for(const row of linked)totals.set(row.agency,(totals.get(row.agency)||0)+1);
  const duplicates=Number($('import-preview').dataset.duplicates||0);
- const count=selectedRows.length;
- $('import-preview').textContent=count+' codes-barres distincts détectés'+
-  (duplicates?' · '+duplicates+' doublon(s) écarté(s)':'')+
-  ' · Agence destinataire : '+(destination||'non sélectionnée')+'.';
- $('import-button').disabled=!destination||count===0||count>10000;
+ $('import-preview').textContent=items.length+' CAB distincts détectés · '+linked.length+
+  ' associés à une agence · '+missing.size+' nom(s) à confirmer'+(duplicates?' · '+duplicates+' doublon(s) ignoré(s)':'')+'.';
+ $('import-groups').innerHTML=totals.size?
+  '<strong>Répartition prévue</strong><div class="preview"><table><thead><tr><th>Agence</th><th>Nombre de CAB</th></tr></thead><tbody>'+
+  [...totals].sort((a,b)=>a[0].localeCompare(b[0])).map(([a,n])=>'<tr><td>'+esc(a)+'</td><td>'+n+'</td></tr>').join('')+
+  '</tbody></table></div>':'';
+ $('import-button').disabled=!items.length||items.length>10000||missing.size>0;
 }
 $('import-button').addEventListener('click',async()=>{
- const file=$('excel-file').files[0],destination=$('import-agency').value;
- if(!destination){message('Sélectionnez l’agence destinataire.');return;}
- if(!file||!selectedRows.length){message('Sélectionnez un fichier Excel contenant des codes-barres.');return;}
- const items=selectedRows.map(x=>({agency:destination,barcode:x.barcode}));
- const info=selectedRows.length+' codes-barres seront enregistrés dans « '+MODULES[moduleId]+' » pour '+destination+
-  '. Le nouvel import remplacera la liste active de cette agence uniquement. Continuer ?';
- if(!window.confirm(info))return;
+ const file=$('excel-file').files[0],items=mappedRows();
+ if(!file||!items.length){message('Sélectionnez un fichier contenant des CAB.');return;}
+ if(items.some(row=>!row.agency)){message('Validez tous les noms d’agences à vérifier avant l’import.');return;}
+ const groups=new Set(items.map(row=>row.agency));
+ const accepted=window.confirm('Vous allez importer '+items.length+' CAB pour '+groups.size+
+  ' agence(s) dans « '+MODULES[moduleId]+' ». Les codes actifs précédents de cette opération seront remplacés. Confirmer ?');
+ if(!accepted)return;
  const btn=$('import-button');btn.disabled=true;
  try{
   const r=await callAPI('/api/admin/controle/import',{method:'POST',administrator:true,body:{
-    module:moduleId,agency:destination,fileName:file.name,items
+   module:moduleId,fileName:file.name,items:items.map(({agency,barcode})=>({agency,barcode}))
   }});
-  const data=await r.json();
-  $('excel-file').value='';
-  books=[];selectedRows=[];
+  const result=await r.json();
+  $('excel-file').value='';books=[];selectedRows=[];confirmedMatches={};
   $('excel-sheet').innerHTML='<option value="">Sélectionner un fichier</option>';
-  $('excel-sheet').disabled=true;
-  $('mapping').classList.add('hidden');
-  $('preview-head').replaceChildren();
-  $('preview-body').replaceChildren();
-  $('import-preview').textContent='';
-  delete $('import-preview').dataset.duplicates;
-  message(data.imported+' codes-barres importés dans « '+MODULES[moduleId]+' » pour '+data.agency+
-    '. Les autres agences n’ont pas été modifiées.',true);
+  $('excel-sheet').disabled=true;$('mapping').classList.add('hidden');
+  $('preview-head').replaceChildren();$('preview-body').replaceChildren();
+  $('import-preview').textContent='';$('import-groups').replaceChildren();
+  $('unmatched').classList.add('hidden');$('unmatched-fields').replaceChildren();
+  message(result.imported+' CAB importés et répartis entre '+result.agencies.length+
+   ' agence(s) dans « '+MODULES[moduleId]+' ».',true);
   await loadSummary();
  }catch(error){message(error.message)}
  finally{refreshImportPreview();}
