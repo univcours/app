@@ -32,7 +32,7 @@ function resolvedAgency(raw){
   destination,score:agencySimilarity(raw,alias)
  })).sort((a,b)=>b.score-a.score);
  const top=ranked[0],rival=ranked.find(item=>item.destination!==top?.destination);
- return top&&top.score>=0.90&&(!rival||top.score-rival.score>=0.12)?top.destination:'';
+ return aliasKey(raw).replace(/\s/g,'').length>=6&&top&&top.score>=0.86&&(!rival||top.score-rival.score>=0.12)?top.destination:'';
 }
 async function syncAgencyAliases(){
  if(!adminToken())return;
