@@ -6,7 +6,45 @@ const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const normal=s=>String(s??'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]+/g,' ').trim();
 const agencyFor=value=>{const n=normal(value),simple=n.replace(/^(AGENCE|BUREAU|ABB|AP|DESTINATION) /,'');return AGENCES.find(a=>normal(a)===n)||AGENCES.find(a=>normal(a)===simple)||null};
-let moduleId='bouclage_am',agentItems=[],filteredItems=[],recordIndex=0,admin=false,books=[],selectedRows=[],confirmedMatches={},agency='';
+let moduleId='bouclage_am',agentItems=[],filteredItems=[],recordIndex=0,admin=false,books=[],selectedRows=[],confirmedMatches={},agency='',savedAgencyAliases=readAgencyAliases();
+const ALIAS_STORAGE='controle-agency-associations-v1';
+function aliasKey(name){return String(name??'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]+/g,' ').trim().replace(/\s+/g,' ');}
+function readAgencyAliases(){
+ try{
+  const raw=JSON.parse(localStorage.getItem(ALIAS_STORAGE)||'{}');
+  if(!raw||typeof raw!=='object'||Array.isArray(raw))return {};
+  return Object.fromEntries(Object.entries(raw).filter(([key,value])=>
+   typeof key==='string'&&key.length>0&&key.length<160&&AGENCES.includes(value)));
+ }catch{return {};}
+}
+function resolvedAgency(raw){
+ return agencyMatches(raw).exact||savedAgencyAliases[aliasKey(raw)]||confirmedMatches[raw]||'';
+}
+async function syncAgencyAliases(){
+ if(!adminToken())return;
+ try{
+  const res=await callAPI('/api/admin/controle/aliases',{administrator:true});
+  const data=await res.json();
+  for(const item of data.aliases||[]){
+   if(typeof item.alias==='string'&&AGENCES.includes(item.agency)){
+    const key=aliasKey(item.alias);
+    if(key&&!savedAgencyAliases[key])savedAgencyAliases[key]=item.agency;
+   }
+  }
+  localStorage.setItem(ALIAS_STORAGE,JSON.stringify(savedAgencyAliases));
+  const items=Object.entries(savedAgencyAliases).map(([alias,agency])=>({alias,agency}));
+  if(items.length)await callAPI('/api/admin/controle/aliases',{administrator:true,method:'POST',body:{items}});
+  if(books.length)evaluateMapping();
+ }catch{/* The association also remains stored in this browser when the server is unavailable. */}
+}
+function rememberAgencyAlias(raw,agency){
+ const key=aliasKey(raw);
+ if(!key||!AGENCES.includes(agency))return;
+ savedAgencyAliases[key]=agency;
+ confirmedMatches[raw]=agency;
+ try{localStorage.setItem(ALIAS_STORAGE,JSON.stringify(savedAgencyAliases));}catch{}
+ if(adminToken())void callAPI('/api/admin/controle/aliases',{administrator:true,method:'POST',body:{items:[{alias:key,agency}]}}).catch(()=>{});
+}
 function message(text,success=false){const el=$('alert');el.classList.remove('hidden','ok');el.textContent=text;if(success)el.classList.add('ok');window.scrollTo({top:0,behavior:'smooth'});}
 function clearMessage(){$('alert').classList.add('hidden');}
 function participantToken(){return localStorage.getItem('besoin2027-participant-session')||''}
@@ -59,7 +97,7 @@ $('close-admin').addEventListener('click',()=>toggleAdmin(false));
 function toggleAdmin(flag){
  admin=flag;$('admin-panel').classList.toggle('hidden',!flag);$('agent-panel').classList.toggle('hidden',flag);
  $('admin-toggle').textContent=flag?'Contrôle par agence':'Espace coordinateur';
- if(flag&&adminToken()){setAdminConnected(true);void loadSummary();}
+ if(flag&&adminToken()){setAdminConnected(true);void loadSummary();void syncAgencyAliases();}
 }
 function setAdminConnected(yes){$('admin-login').classList.toggle('hidden',yes);$('admin-connected').classList.toggle('hidden',!yes);}
 $('login-form').addEventListener('submit',async e=>{
@@ -70,7 +108,7 @@ $('login-form').addEventListener('submit',async e=>{
   const data=await r.json();
   if(!data.adminToken)throw Error('Le serveur n’a pas fourni de session coordinateur.');
   sessionStorage.setItem('besoin2027-coordinateur-session',data.adminToken);
-  $('password').value='';setAdminConnected(true);await loadSummary();message('Connexion coordinateur établie.',true);
+  $('password').value='';setAdminConnected(true);await loadSummary();void syncAgencyAliases();message('Connexion coordinateur établie.',true);
  }catch(error){message(error.message);}
 });
 $('admin-logout').addEventListener('click',()=>{sessionStorage.removeItem('besoin2027-coordinateur-session');setAdminConnected(false);message('Session coordinateur fermée.',true)});
@@ -397,19 +435,33 @@ function evaluateMapping(){
  }
  $('import-preview').dataset.duplicates=String(duplicates);
  $('import-preview').dataset.conflicts=JSON.stringify([...conflicts]);
- const pending=single?[]:[...rawCounts.keys()].filter(name=>!agencyMatches(name).exact);
+ const pending=single?[]:[...rawCounts.keys()].filter(name=>!resolvedAgency(name));
  $('unmatched').classList.toggle('hidden',pending.length===0);
- $('unmatched-fields').innerHTML=pending.map((name,i)=>{
-  const matches=agencyMatches(name).suggestions;
+ const optionList=AGENCES.map(agency=>'<option value="'+esc(agency)+'"></option>').join('');
+ $('unmatched-fields').innerHTML=pending.map((raw,i)=>{
+  const matches=agencyMatches(raw).suggestions;
   const suggestion=matches.length?'<p class="hint">Suggestion : '+matches.map(esc).join(' / ')+'</p>':
-    '<p class="hint">Agence non reconnue. Choisissez-la manuellement.</p>';
-  return '<label>'+esc(name)+' ('+rawCounts.get(name)+' code(s))'+suggestion+
-   '<select id="match-'+i+'" data-raw="'+esc(name)+'"><option value="">Confirmer une agence...</option>'+
-   AGENCES.map(item=>'<option value="'+esc(item)+'">'+esc(item)+'</option>').join('')+'</select></label>';
+    '<p class="hint">Aucune correspondance certaine. Recherchez l’agence par son nom.</p>';
+  return '<div class="alias-pair"><label for="match-'+i+'">'+esc(raw)+' ('+rawCounts.get(raw)+' CAB)</label>'+suggestion+
+   '<input type="search" id="match-'+i+'" list="agency-options-'+i+'" autocomplete="off" placeholder="Écrire pour rechercher une agence..." data-raw="'+esc(raw)+'" aria-label="Rechercher l’agence correspondant à '+esc(raw)+'">'+
+   '<datalist id="agency-options-'+i+'">'+optionList+'</datalist><small class="match-feedback">Non associé : ces CAB seront ignorés.</small></div>';
  }).join('');
- $('unmatched-fields').querySelectorAll('select').forEach(select=>select.addEventListener('change',()=>{
-  confirmedMatches[select.dataset.raw]=select.value;refreshImportPreview();
- }));
+ $('unmatched-fields').querySelectorAll('input[data-raw]').forEach(input=>{
+  input.addEventListener('input',()=>{
+   const matched=agencyFor(input.value);
+   const feedback=input.parentElement.querySelector('.match-feedback');
+   if(matched){
+    rememberAgencyAlias(input.dataset.raw,matched);
+    feedback.textContent='Associé à '+matched+' · choix mémorisé pour les 4 opérations.';
+    feedback.classList.add('matched');
+   }else{
+    if(confirmedMatches[input.dataset.raw])delete confirmedMatches[input.dataset.raw];
+    feedback.textContent='Choisissez un nom d’agence proposé. Sinon, ces CAB seront ignorés.';
+    feedback.classList.remove('matched');
+   }
+   refreshImportPreview();
+  });
+ });
  const header=headerNo>=0?sheet.rows[headerNo]||[]:[],width=Math.min(15,Math.max(2,...rawRows.slice(0,8).map(row=>(row||[]).length)));
  $('preview-head').innerHTML='<tr>'+Array.from({length:width},(_,i)=>'<th>'+esc(String(header[i]||'Colonne '+excelLetter(i)))+'</th>').join('')+'</tr>';
  $('preview-body').innerHTML=rawRows.slice(0,8).map(row=>'<tr>'+
@@ -419,7 +471,7 @@ function evaluateMapping(){
 function mappedRows(){
  const single=isSingleImport(),destination=$('import-agency').value;
  return selectedRows.map(row=>({...row,agency:single?destination:
-   agencyMatches(row.rawAgency).exact||confirmedMatches[row.rawAgency]||''}));
+   resolvedAgency(row.rawAgency)}));
 }
 function refreshImportPreview(){
  const single=isSingleImport(),items=mappedRows(),assigned=items.filter(row=>row.agency);
@@ -438,22 +490,23 @@ function refreshImportPreview(){
   (conflicts.length?' · ATTENTION : agences différentes détectées dans le fichier : '+conflicts.join(', '):'')+'.';
  }else{
   $('import-preview').textContent=items.length+' CAB distincts détectés · '+assigned.length+
-   ' associés à une agence · '+unmapped.size+' nom(s) à confirmer'+
+   ' affectés à une agence · '+unmapped.size+' destination(s) ignorée(s)'+
    (duplicates?' · '+duplicates+' doublon(s) ignoré(s)':'')+'.';
  }
  $('import-groups').innerHTML=counts.size?'<strong>Répartition prévue</strong><div class="preview"><table><thead><tr><th>Agence</th><th>Nombre de CAB</th></tr></thead><tbody>'+
  [...counts].sort((a,b)=>a[0].localeCompare(b[0])).map(([name,n])=>'<tr><td>'+esc(name)+'</td><td>'+n+'</td></tr>').join('')+
  '</tbody></table></div>':'';
- $('import-button').disabled=!items.length||items.length>10000||unmapped.size>0||conflicts.length>0||!!mismatchedFile;
+ $('import-button').disabled=!assigned.length||assigned.length>10000||conflicts.length>0||!!mismatchedFile;
 }
 $('import-button').addEventListener('click',async()=>{
- const file=$('excel-file').files[0],items=mappedRows(),single=isSingleImport(),destination=$('import-agency').value;
+ const file=$('excel-file').files[0],allItems=mappedRows(),single=isSingleImport(),destination=$('import-agency').value;
+ const items=allItems.filter(row=>!!row.agency);const ignored=allItems.length-items.length;
  if(file && moduleFromFilename(file.name) && moduleFromFilename(file.name)!==moduleId){
   message('Le nom du fichier indique une autre opération. Revenez à l’opération correspondant au fichier.');return;
  }
  if(!file||!items.length){message('Sélectionnez un fichier contenant des CAB.');return;}
  if(single&&!destination){message('Sélectionnez l’agence destinataire.');return;}
- if(items.some(row=>!row.agency)){message('Confirmez tous les noms d’agences avant l’importation.');return;}
+ if(!items.length){message('Aucun CAB associé à une agence. Effectuez au moins une association.');return;}
  let conflicts=[];try{conflicts=JSON.parse($('import-preview').dataset.conflicts||'[]');}catch{}
  if(conflicts.length){message('Le fichier contient des CAB d’une autre agence : '+conflicts.join(', ')+'.');return;}
  const groups=new Set(items.map(row=>row.agency));
@@ -461,7 +514,7 @@ $('import-button').addEventListener('click',async()=>{
   'Vous allez remplacer les CAB actifs de '+destination+' uniquement dans « '+MODULES[moduleId]+
    ' » par '+items.length+' code(s). Les autres agences ne seront pas modifiées. Confirmer ?':
   'Vous allez importer '+items.length+' CAB pour '+groups.size+' agence(s) dans « '+MODULES[moduleId]+
-   ' ». Les listes précédentes de cette opération seront remplacées. Confirmer ?';
+   ' ». '+ignored+' CAB non affecté(s) seront ignorés. Les listes précédentes de cette opération seront remplacées. Confirmer ?';
  if(!window.confirm(question))return;
  const button=$('import-button');button.disabled=true;
  try{
@@ -479,7 +532,7 @@ $('import-button').addEventListener('click',async()=>{
   $('import-groups').replaceChildren();$('unmatched').classList.add('hidden');$('unmatched-fields').replaceChildren();
   message(single?result.imported+' CAB importés pour '+result.agency+' dans « '+MODULES[moduleId]+
     ' ». Les autres agences ne sont pas modifiées.':
-    result.imported+' CAB importés et répartis entre '+result.agencies.length+' agence(s) dans « '+MODULES[moduleId]+' ».',true);
+    result.imported+' CAB importés et répartis entre '+result.agencies.length+' agence(s) dans « '+MODULES[moduleId]+' ». '+ignored+' CAB non attribué(s) ignoré(s).',true);
   await loadSummary();
  }catch(error){message(error.message);}
  finally{refreshImportPreview();}
