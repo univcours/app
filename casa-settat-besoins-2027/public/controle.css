@@ -12,3 +12,20 @@
 .access-label{display:inline-block;padding:4px 8px;border-radius:20px;font-size:10px;font-weight:700;white-space:nowrap}
 .access-label.visited{background:#e3f4e8;color:#166042}
 .access-label.never{background:#f2f2ee;color:#68746d}
+
+
+/* Progress visible to each agency and its coordinator. Outstanding codes in red. */
+.stat.remaining{background:#fff0ed;border-color:#f0bdb4}
+.stat.remaining strong,.count-remaining,.remaining-column{color:#be3224!important}
+.stat.processed{background:#eef8f1;border-color:#c3dfca}
+.stat.processed strong,.count-processed{color:#216b49}
+.stat.completed{background:#eaf7ed}
+.stat.completed strong,.count-completed{color:#24734d}
+.controle-progress{margin:8px 0 24px;max-width:850px}
+.progress-info{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;font-size:12px;margin-bottom:9px}
+.progress-info strong{color:var(--ink)}
+.progress-info span{color:var(--muted)}
+.progress-track{height:12px;background:#f6d7d3;border-radius:100px;overflow:hidden}
+.progress-fill{height:100%;background:#2e8d66;border-radius:100px;transition:width .25s}
+#admin-totals{margin-top:10px;margin-bottom:17px}
+#admin-summary .controle-progress{margin-top:5px}
