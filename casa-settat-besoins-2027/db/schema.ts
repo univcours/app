@@ -53,3 +53,9 @@ export const controleAcces = sqliteTable("controle_acces", {
   lastAccessAt: text("last_access_at").notNull(),
   accessCount: integer("access_count").notNull().default(1),
 }, (table) => [primaryKey({columns:[table.module, table.agencyKey]})]);
+
+export const controleAgencyAliases = sqliteTable("controle_agency_aliases", {
+  aliasKey: text("alias_key").primaryKey(),
+  agency: text("agency").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
