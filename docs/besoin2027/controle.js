@@ -6,8 +6,8 @@ const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const normal=s=>String(s??'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]+/g,' ').trim();
 const agencyFor=value=>{const n=normal(value),simple=n.replace(/^(AGENCE|BUREAU|ABB|AP|DESTINATION) /,'');return AGENCES.find(a=>normal(a)===n)||AGENCES.find(a=>normal(a)===simple)||null};
-let moduleId='bouclage_am',agentItems=[],filteredItems=[],recordIndex=0,admin=false,books=[],selectedRows=[],confirmedMatches={},agency='',savedAgencyAliases=readAgencyAliases();
 const ALIAS_STORAGE='controle-agency-associations-v1';
+let moduleId='bouclage_am',agentItems=[],filteredItems=[],recordIndex=0,admin=false,books=[],selectedRows=[],confirmedMatches={},agency='',savedAgencyAliases=readAgencyAliases();
 function aliasKey(name){return String(name??'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]+/g,' ').trim().replace(/\s+/g,' ');}
 function readAgencyAliases(){
  try{
@@ -77,6 +77,7 @@ function chooseModule(id){
  $('agent-module-label').textContent=MODULES[id];
  agentItems=[];filteredItems=[];recordIndex=0;$('agent-content').classList.add('hidden');$('agent-empty').classList.remove('hidden');
  if(admin)void loadSummary();
+ else if($('agency').value)void loadAgent();
  if(books.length)showMapping();
 }
 document.querySelectorAll('[data-module]').forEach(b=>b.addEventListener('click',()=>chooseModule(b.dataset.module)));
@@ -125,17 +126,20 @@ function progressMarkup(processed,total){
      '<div class="progress-fill" style="width:'+percentage+'%"></div></div>';
 }
 async function loadAgent(){
- agency=$('agency').value;if(!agency){message('Veuillez choisir votre agence.');return;}
+ const selectedAgency=$('agency').value,selectedModule=moduleId;
+ agency=selectedAgency;if(!agency){$('agent-content').classList.add('hidden');$('agent-empty').classList.remove('hidden');return;}
  clearMessage();$('load-codes').disabled=true;
  try{
   await ensureParticipant();
-  const r=await callAPI('/api/controle/items?module='+encodeURIComponent(moduleId)+'&agency='+encodeURIComponent(agency));
-  const d=await r.json();agentItems=d.items||[];
+  const r=await callAPI('/api/controle/items?module='+encodeURIComponent(selectedModule)+'&agency='+encodeURIComponent(selectedAgency));
+  const d=await r.json();if(moduleId!==selectedModule||$('agency').value!==selectedAgency)return;
+  agentItems=(d.items||[]).filter(x=>x.agency===selectedAgency);
   $('agent-empty').classList.add('hidden');$('agent-content').classList.remove('hidden');recordIndex=0;updateList();
  }catch(error){message(error.message)}
  finally{$('load-codes').disabled=false}
 }
 $('load-codes').addEventListener('click',loadAgent);
+$('agency').addEventListener('change',()=>void loadAgent());
 $('status-filter').addEventListener('change',()=>{recordIndex=0;updateList()});
 $('code-filter').addEventListener('input',()=>{recordIndex=0;updateList()});
 function updateList(){
