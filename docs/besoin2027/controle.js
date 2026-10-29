@@ -427,6 +427,9 @@ function refreshImportPreview(){
  const counts=new Map();
  for(const row of assigned)counts.set(row.agency,(counts.get(row.agency)||0)+1);
  const duplicates=Number($('import-preview').dataset.duplicates||0);
+ const currentFile=$('excel-file').files[0];
+ const mismatchedFile=currentFile && moduleFromFilename(currentFile.name) &&
+   moduleFromFilename(currentFile.name)!==moduleId;
  let conflicts=[];try{conflicts=JSON.parse($('import-preview').dataset.conflicts||'[]');}catch{}
  const dest=$('import-agency').value;
  if(single){
@@ -441,10 +444,13 @@ function refreshImportPreview(){
  $('import-groups').innerHTML=counts.size?'<strong>Répartition prévue</strong><div class="preview"><table><thead><tr><th>Agence</th><th>Nombre de CAB</th></tr></thead><tbody>'+
  [...counts].sort((a,b)=>a[0].localeCompare(b[0])).map(([name,n])=>'<tr><td>'+esc(name)+'</td><td>'+n+'</td></tr>').join('')+
  '</tbody></table></div>':'';
- $('import-button').disabled=!items.length||items.length>10000||unmapped.size>0||conflicts.length>0;
+ $('import-button').disabled=!items.length||items.length>10000||unmapped.size>0||conflicts.length>0||!!mismatchedFile;
 }
 $('import-button').addEventListener('click',async()=>{
  const file=$('excel-file').files[0],items=mappedRows(),single=isSingleImport(),destination=$('import-agency').value;
+ if(file && moduleFromFilename(file.name) && moduleFromFilename(file.name)!==moduleId){
+  message('Le nom du fichier indique une autre opération. Revenez à l’opération correspondant au fichier.');return;
+ }
  if(!file||!items.length){message('Sélectionnez un fichier contenant des CAB.');return;}
  if(single&&!destination){message('Sélectionnez l’agence destinataire.');return;}
  if(items.some(row=>!row.agency)){message('Confirmez tous les noms d’agences avant l’importation.');return;}
