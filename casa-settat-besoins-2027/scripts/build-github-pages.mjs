@@ -11,7 +11,7 @@ await build({
   publicDir: path.join(root, 'public'),
   css: { postcss: root },
   define: {
-    __BUDGET_API_BASE__: JSON.stringify('https://besoin2027.hamidtawfiq2.chatgpt.site'),
+    __BUDGET_API_BASE__: JSON.stringify(process.env.UNIVCOURS_API_BASE || 'https://besoin2027.hamidtawfiq2.chatgpt.site'),
     __BUDGET_FORM_PATH__: JSON.stringify('/app/besoin2027/'),
   },
   build: { outDir: path.join(output, 'besoin2027'), emptyOutDir: true, sourcemap: false },
