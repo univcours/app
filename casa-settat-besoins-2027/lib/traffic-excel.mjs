@@ -60,7 +60,7 @@ function sheetXml(report) {
     '<sheetViews><sheetView workbookViewId="0"><pane ySplit="4" topLeftCell="A5" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>' +
     '<sheetFormatPr defaultRowHeight="20"/><cols><col min="1" max="1" width="14" customWidth="1"/><col min="2" max="2" width="18" customWidth="1"/><col min="3" max="16" width="19" customWidth="1"/></cols>' +
     '<sheetData>' + lines.join("") + '</sheetData>' +
-    '<mergeCells count="7"><mergeCell ref="A1:P1"/><mergeCell ref="A2:P2"/><mergeCell ref="A3:A4"/><mergeCell ref="B3:B4"/><mergeCell ref="C3:E3"/><mergeCell ref="F3:J3"/><mergeCell ref="K3:N3"/><mergeCell ref="O3:P3"/></mergeCells>' +
+    '<mergeCells count="8"><mergeCell ref="A1:P1"/><mergeCell ref="A2:P2"/><mergeCell ref="A3:A4"/><mergeCell ref="B3:B4"/><mergeCell ref="C3:E3"/><mergeCell ref="F3:J3"/><mergeCell ref="K3:N3"/><mergeCell ref="O3:P3"/></mergeCells>' +
     '<pageMargins left="0.2" right="0.2" top="0.4" bottom="0.4" header="0.2" footer="0.2"/><pageSetup orientation="landscape" paperSize="9" fitToWidth="1"/>' +
     '</worksheet>';
 }
