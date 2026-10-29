@@ -56,8 +56,12 @@ assert.match(tourneeSheet,/Tournée N°: 1/);
 const label=fillCountWorksheet(source,{...tourneeOne,agency:'AZEMMOUR — tournée de distribution 1'});
 assert.match(label,/AZEMMOUR T1/);
 assert.doesNotMatch(label,/AZEMMOUR — tournée de distribution 1/);
-const oldTitle=source.replace(/<x:c r="A1"[\\s\\S]*?<\\/x:c>/,
-  '<x:c r="A1" s="1" t="inlineStr"><x:is><x:t>AZEMMOUR — tournée de distribution 1</x:t></x:is></x:c>');
+const startTitle=source.indexOf('<x:c r="A1"');
+const endTitle=source.indexOf('</x:c>',startTitle)+6;
+assert.ok(startTitle>=0 && endTitle>startTitle,'The Excel template must contain a title cell');
+const oldTitle=source.slice(0,startTitle)
+  + '<x:c r="A1" s="1" t="inlineStr"><x:is><x:t>AZEMMOUR — tournée de distribution 1</x:t></x:is></x:c>'
+  + source.slice(endTitle);
 const oldDownload=zipStored([
   {name:'xl/worksheets/sheet1.xml',data:new TextEncoder().encode(oldTitle)},
   {name:'xl/workbook.xml',data:new TextEncoder().encode('<x:workbook><x:sheets><x:sheet name="AZEMMOUR — tournée de distribut" sheetId="1"/></x:sheets></x:workbook>')},
