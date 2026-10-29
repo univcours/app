@@ -2,6 +2,25 @@
 const AGENCES=["AFOURER","BNI AYAT","AÎT ATTAB","TAOUNZA AP","ARBAA AOUNAT","AZEMMOUR","AZILAL","BEJÂAD","BEN AHMED","BNI KHLOUG","GUISSER","BIR JDID","BOUJNIBA","BOULANOUAR","BZOU","DAR OULED ZIDOUH","DEMNATE","EL BOROUJ","RAS EL AIN","OULED ABBOU","EL GARA","EL KSIBA","AGHBALA","FOUM EL ANSER","TAGHZIRT","FOUM JEMÂA","HAD BRADIA","HAD SOUALEM","SIDI RAHAL PLAGE","SOUALEM TRIFIA","HATTANE","KHMISS OULED AYAD","KHMISS ZMAMRA","MLY ABDELLAH","SIDI BOUZID","OUALIDIA","OUAOUIZAGHT","OULED FREJ","OULED M'BAREK","FOUM OUDI","LÂAYAYTA AP","OULED YAÎCH","SIDI BENNOUR","SIDI HAJJAJ","SIDI JABER","SIDI ISMAIL","SOUK TLAT LOULAD","TNIN GHARBIA","ZAOUIA ECHCHEIKH"];
 const MODULES={bouclage_am:'Bouclage AM',notification_enregistree:'Notification des envois enregistrés',notification_recommandee:'Notification des envois recommandés',hdg:'HDG'};
 const BASE='https://besoin2027.hamidtawfiq2.chatgpt.site';
+let controleServiceReady=false;
+const unavailableNotice='Service des codes-barres non activé sur le serveur : import Excel, validation OK/Anomalie et suivi partagé indisponibles. La mise à jour de l’API et de la base de données doit être publiée.';
+async function verifyControleService(){
+ const el=document.getElementById('service-state');
+ try{
+  const response=await fetch(BASE+'/api/controle/health',{method:'GET',mode:'cors',credentials:'omit',cache:'no-store'});
+  const body=await response.json().catch(()=>({}));
+  if(!response.ok||body.ready!==true)throw Error(body.error||unavailableNotice);
+  controleServiceReady=true;
+  el?.classList.add('hidden');
+ }catch(error){
+  controleServiceReady=false;
+  if(el){
+   el.textContent=unavailableNotice;
+   el.classList.remove('hidden');
+  }
+ }
+ if(document.getElementById('import-preview'))refreshImportPreview();
+}
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const normal=s=>String(s??'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]+/g,' ').trim();
@@ -158,6 +177,7 @@ async function callAPI(path,{method='GET',body,administrator=false}={}){
  try{r=await fetch(BASE+path,{method,headers,body:body===undefined?undefined:JSON.stringify(body),credentials:'omit',mode:'cors',cache:'no-store'});}
  catch{throw Error('Connexion au serveur impossible. Vérifiez votre connexion et la disponibilité du service.');}
  if(!r.ok){
+  if(r.status===404&&/^\/api\/(?:admin\/)?controle\//.test(path))throw Error(unavailableNotice);
   const error=await r.json().catch(()=>({}));
   throw Error(error.error||('Erreur du serveur ('+r.status+'). Mise à jour du service peut-être nécessaire.'));
  }
@@ -645,7 +665,7 @@ function refreshImportPreview(){
  $('import-groups').innerHTML=counts.size?'<strong>Répartition prévue : CAB initiaux et CAB des destinations associées</strong><div class="preview"><table><thead><tr><th>Agence</th><th>CAB directs</th><th>CAB rattachés</th><th>Total à afficher à l’agence</th></tr></thead><tbody>'+
  [...counts].sort((a,b)=>a[0].localeCompare(b[0])).map(([name,n])=>'<tr><td>'+esc(name)+'</td><td>'+sources.get(name).direct+'</td><td>'+sources.get(name).attached+'</td><td><strong>'+n+'</strong></td></tr>').join('')+
  '</tbody></table></div>':'';
- $('import-button').disabled=!assigned.length||assigned.length>10000||conflicts.length>0||!!mismatchedFile;
+ $('import-button').disabled=!controleServiceReady||!assigned.length||assigned.length>10000||conflicts.length>0||!!mismatchedFile;
 }
 $('import-button').addEventListener('click',async()=>{
  const file=$('excel-file').files[0],allItems=mappedRows(),single=isSingleImport(),destination=$('import-agency').value;
@@ -690,3 +710,4 @@ $('import-button').addEventListener('click',async()=>{
  finally{refreshImportPreview();}
 });
 toggleAdmin(false);
+void verifyControleService();
