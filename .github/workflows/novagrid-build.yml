@@ -1,0 +1,39 @@
+name: NovaGrid Android beta
+on:
+  workflow_dispatch:
+  push:
+    branches: [novagrid-mvp]
+    paths:
+      - 'novagrid/**'
+      - '.github/workflows/novagrid-build.yml'
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    permissions: {contents: read}
+    defaults:
+      run:
+        working-directory: novagrid
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Install packages
+        run: npm install --no-audit --no-fund
+      - name: Test puzzle engine
+        run: npm test
+      - name: Prepare web assets
+        run: npm run build
+      - name: Create Android project
+        run: npx cap add android
+      - name: Build debug APK and unsigned bundle
+        run: |
+          chmod +x android/gradlew
+          cd android && ./gradlew :app:bundleRelease :app:assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: novagrid-debug-apk
+          path: novagrid/android/app/build/outputs/apk/debug/*.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: novagrid-unsigned-aab
+          path: novagrid/android/app/build/outputs/bundle/release/*.aab

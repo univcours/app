@@ -1,0 +1,12 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {emptyBoard,canPlace,place,PATTERNS,drawTray,seededRng,hashDate,makeGame,runMove,hasMove} from '../web/engine.js';
+test('seeded generator is repeatable',()=>{const a=seededRng(12),b=seededRng(12);assert.deepEqual(Array.from({length:25},a),Array.from({length:25},b));assert.equal(hashDate('2026-10-31'),hashDate('2026-10-31'));});
+test('pieces stay within bounds and cannot overlap',()=>{const b=emptyBoard(),p=[[0,0],[0,1]];assert.equal(canPlace(b,p,8,8),false);assert.equal(canPlace(b,p,5,5),true);b[5][6]=1;assert.equal(canPlace(b,p,5,5),false);});
+test('row clear removes all nine cells',()=>{let b=emptyBoard();for(let c=0;c<8;c++)b[0][c]=1;let x=place(b,[[0,0]],0,8);assert.equal(x.groups,1);assert.equal(x.cleared,9);assert.equal(x.board[0].filter(Boolean).length,0);});
+test('column clear removes all nine cells',()=>{let b=emptyBoard();for(let r=1;r<9;r++)b[r][2]=1;let x=place(b,[[0,0]],0,2);assert.equal(x.groups,1);assert.equal(x.board.every(row=>row[2]===0),true);});
+test('3x3 clear removes square',()=>{let b=emptyBoard();for(let r=3;r<6;r++)for(let c=3;c<6;c++)b[r][c]=1;b[5][5]=0;let x=place(b,[[0,0]],5,5);assert.equal(x.groups,1);assert.equal(x.board.slice(3,6).every(row=>row.slice(3,6).every(v=>v===0)),true);});
+test('overlapping groups clear cells only once',()=>{let b=emptyBoard();for(let c=0;c<9;c++)b[0][c]=1;for(let r=1;r<9;r++)b[r][0]=1;b[8][0]=0;let x=place(b,[[0,0]],8,0);assert.equal(x.groups,2);assert.equal(x.cleared,17);});
+test('fresh games have three pieces and valid placement',()=>{for(let i=0;i<30;i++){let s=makeGame();assert.equal(s.tray.length,3);assert.equal(hasMove(s.board,s.tray),true);}});
+test('daily challenge starts deterministically',()=>{const a=makeGame('daily','2026-10-31'),b=makeGame('daily','2026-10-31');assert.deepEqual(a.tray,b.tray);assert.equal(a.seed,b.seed);});
+test('move increments score/moves without mutating original',()=>{let s=makeGame('daily','2026-10-31');let r=runMove(s,0,0,0);assert.ok(r);assert.equal(r.state.moves,1);assert.ok(r.state.score>0);assert.equal(s.moves,0);assert.deepEqual(s.board,emptyBoard());});
+test('all piece patterns are compact nonempty coordinates',()=>{for(const p of PATTERNS){assert.ok(p.length>0);assert.equal(new Set(p.map(v=>v.join(','))).size,p.length);assert.ok(p.every(v=>v.length===2&&v.every(Number.isInteger)));}});

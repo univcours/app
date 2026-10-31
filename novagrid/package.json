@@ -1,0 +1,7 @@
+{
+ "name":"novagrid-cosmic-puzzle","version":"0.1.0","private":true,"type":"module",
+ "description":"Original offline 9x9 block puzzle for Android and the web",
+ "scripts":{"test":"node --test tests/*.test.js","build":"node scripts/build.mjs","android:init":"npx cap add android","android:sync":"npm run build && npx cap sync android","android:open":"npx cap open android"},
+ "dependencies":{"@capacitor/core":"8.5.3","@capacitor/android":"8.5.3"},
+ "devDependencies":{"@capacitor/cli":"8.5.3"}
+}
