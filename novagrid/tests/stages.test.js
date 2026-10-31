@@ -110,3 +110,20 @@ test('sector shape selection is reproducible and always playable',()=>{
   assert.ok(newTray.every(piece=>piece.length>=1));
  }
 });
+test('all twelve thousand stage configurations remain valid and every hundredth starts playable',()=>{
+ const types=new Set(),sections=new Set();
+ for(let level=1;level<=TOTAL_STAGES;level++){
+  const cfg=stageConfig(level);
+  assert.equal(cfg.level,level);assert.ok(Number.isFinite(cfg.goal)&&cfg.goal>0);
+  assert.ok(cfg.sector>=0&&cfg.sector<6);
+  assert.ok(cfg.world>=0&&cfg.world<120);
+  assert.ok(cfg.minMoves>=6&&cfg.unlockCost>=0);
+  types.add(cfg.kind);sections.add(cfg.sectorId);
+  if(level===1||level%100===0){
+   const s=startStage(level);
+   assert.equal(s.board.length,9);assert.equal(s.tray.length,3);
+   assert.equal(hasMove(s.board,s.tray),true,'stage '+level+' must have a move');
+  }
+ }
+ assert.ok(types.size>=9);assert.equal(sections.size,6);
+});
