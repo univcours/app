@@ -27,15 +27,15 @@ export function place(board,shape,row,col){
  if(!shape||!canPlace(board,shape,row,col))return null;
  const b=board.map(line=>[...line]);
  for(const [dr,dc] of shape)b[row+dr][col+dc]=1;
- const clear=new Set();let groups=0;
- for(let r=0;r<SIZE;r++)if(b[r].every(Boolean)){groups++;for(let c=0;c<SIZE;c++)clear.add(`${r},${c}`);}
- for(let c=0;c<SIZE;c++)if(b.every(line=>line[c])){groups++;for(let r=0;r<SIZE;r++)clear.add(`${r},${c}`);}
+ const clear=new Set();let groups=0,rows=0,columns=0,squares=0;
+ for(let r=0;r<SIZE;r++)if(b[r].every(Boolean)){groups++;rows++;for(let c=0;c<SIZE;c++)clear.add(`${r},${c}`);}
+ for(let c=0;c<SIZE;c++)if(b.every(line=>line[c])){groups++;columns++;for(let r=0;r<SIZE;r++)clear.add(`${r},${c}`);}
  for(let sr=0;sr<SIZE;sr+=3)for(let sc=0;sc<SIZE;sc+=3){
  let full=true;for(let r=sr;r<sr+3;r++)for(let c=sc;c<sc+3;c++)if(!b[r][c])full=false;
- if(full){groups++;for(let r=sr;r<sr+3;r++)for(let c=sc;c<sc+3;c++)clear.add(`${r},${c}`);}
+ if(full){groups++;squares++;for(let r=sr;r<sr+3;r++)for(let c=sc;c<sc+3;c++)clear.add(`${r},${c}`);}
  }
  for(const key of clear){const [r,c]=key.split(',').map(Number);b[r][c]=0;}
- return {board:b,groups,cleared:clear.size,placed:shape.length};
+ return {board:b,groups,rows,columns,squares,cleared:clear.size,placed:shape.length};
 }
 export function drawTray(rng,board){
  const options=PATTERNS.map(p=>p.map(cell=>[...cell]));
@@ -64,5 +64,5 @@ export function runMove(state,trayIndex,row,col){
  next.tray=tray;
  }
  next.over=!hasMove(next.board,next.tray);
- return {state:next,gained,groups:result.groups,cleared:result.cleared};
+ return {state:next,gained,groups:result.groups,rows:result.rows,columns:result.columns,squares:result.squares,cleared:result.cleared};
 }
