@@ -87,3 +87,7 @@ html.native-ad-layout .galaxy-overlay{bottom:var(--native-ad-reserve,96px)!impor
 .galaxy-node[title*="BOSS"]{border-width:3px;box-shadow:0 0 19px #ee62d4a6}
 html[dir=rtl] .galaxy-sectors{direction:rtl}
 @media(max-height:700px){.sector-card{min-height:65px;flex-basis:90px}.sector-icon{font-size:16px}.galaxy-panel{gap:4px}}
+
+html.native-ad-layout #galaxyOverlay{
+ bottom:calc(var(--native-ad-reserve,96px) + var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px)) + 8px)!important;
+}

@@ -143,3 +143,65 @@ html[data-sector="reactor"] .boardwrap{border-color:#ffe19d;box-shadow:0 0 19px 
 html[data-sector="reactor"] .gamecard{border-color:#aa8561;background:linear-gradient(160deg,#3a253e,#322054 70%,#212448)}
 html[data-sector="void"] .boardwrap{border-color:#fb86b2;box-shadow:0 0 18px #b12589ac,inset 0 0 18px #7538997e}
 html[data-sector="void"] .gamecard{border-color:#ad4c96;background:linear-gradient(155deg,#27133c,#1c1737 60%,#391743)}
+
+/* AdMob safe dock hotfix 2026-10-31.
+   A native AdMob banner is painted above the WebView; % heights on body
+   cannot reliably constrain its content when Android reports insets late.
+   Lock the game viewport above the ad instead, from the very first frame. */
+html.native-ad-layout body{
+ height:100dvh!important;
+ min-height:0!important;
+ padding:0!important;
+ overflow:hidden!important;
+}
+html.native-ad-layout #gameShell{
+ position:fixed!important;
+ top:var(--safe-area-inset-top,env(safe-area-inset-top,0px));
+ right:var(--safe-area-inset-right,env(safe-area-inset-right,0px));
+ bottom:calc(var(--native-ad-reserve,96px) + var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px)) + 8px);
+ left:var(--safe-area-inset-left,env(safe-area-inset-left,0px));
+ width:auto!important;
+ height:auto!important;
+ max-height:none!important;
+ margin:0 auto!important;
+ min-height:0;
+ padding:5px 11px 3px!important;
+ overflow:hidden;
+}
+html.native-ad-layout #gameShell .gamecard{
+ flex:1 1 0;
+ min-height:0;
+ overflow:hidden;
+}
+html.native-ad-layout #gameShell .boardwrap{flex:0 0 auto;min-width:0}
+html.native-ad-layout #gameShell .pieces,
+html.native-ad-layout #gameShell .gametools{
+ flex:0 0 auto;
+ overflow:visible;
+ position:relative;
+ z-index:1;
+}
+html.native-ad-layout .galaxy-overlay{
+ bottom:calc(var(--native-ad-reserve,96px) + var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px)) + 8px)!important;
+}
+html.native-ad-layout .overlay{
+ bottom:calc(var(--native-ad-reserve,96px) + var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px)) + 8px)!important;
+ padding-bottom:14px!important;
+}
+html.native-ad-layout .toast{
+ bottom:calc(var(--native-ad-reserve,96px) + 18px);
+}
+/* Stage HUD + ad dock leave much less vertical space. Shrink decoration and
+   let actual game controls stay fully visible, without vertical scrolling. */
+html.compact-game #gameShell{gap:4px}
+html.compact-game .topbar{height:43px}
+html.compact-game .modes{height:33px}
+html.compact-game .stagehud{min-height:29px;padding:3px 8px}
+html.compact-game .gamecard{gap:4px;padding:6px 8px}
+html.compact-game .scorebar{height:35px}
+html.compact-game .pieces{height:50px}
+html.compact-game .piece{padding:2px}
+html.compact-game .gamehint{height:14px;font-size:9px}
+html.compact-game .gametools{height:34px}
+html.compact-game .utility{padding:2px 5px}
+html.compact-game footer{height:12px;font-size:9px}

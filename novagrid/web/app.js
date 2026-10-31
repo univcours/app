@@ -4,6 +4,7 @@ import {shapeDimensions,projectDragPoint,dragLift} from './drag.js';
 import {createGameAudio} from './audio.js';
 import {stageConfig,startStage,stageWon,stageFailed,rankStage,awardStage,stageObjectiveText,initialProgress,normalizeProgress,isStageUnlocked,applySectorTurn,TOTAL_STAGES,SECTORS} from './stages.js';
 import {createGalaxyUI} from './galaxy-ui.js';
+import {calculateBoardSize} from './layout.js';
 const T={
  en:{tagline:'A universe of puzzles',eyebrow:'YOUR DAILY BRAIN BOOST',hero1:'Think sharp.',hero2:'Glow brighter.',subtitle:'Place blocks. Clear lines. Chase your next high score.',classic:'Classic',stages:'Stages',daily:'Daily challenge',score:'SCORE',best:'BEST',streak:'COMBO',hint:'Select a shape, then tap the grid',selected:'Now tap where the shape should land',invalid:'Not enough space! Try another spot',undo:'Undo once',new:'New game',tipTitle:'Cosmic tip',tip:'Fill a row, column or 3×3 square to clear it.',offline:'Offline & private',playAgain:'Play again',close:'Close',gameOver:'Out of space!',gameOverBody:'Every brilliant run starts with another try.',nice:'Cosmic clear!',dailyDone:'Daily challenge completed',newConfirm:'Start a fresh game? Your current progress will be lost.',share:'NovaGrid score',copy:'Score copied!',undoUsed:'Your one undo has been used',none:'Play a move first',dailyLabel:'Daily · '},
  fr:{tagline:'Un univers de puzzles',eyebrow:'LE DÉFI DE VOTRE CERVEAU',hero1:'Pensez vite.',hero2:'Brillez encore.',subtitle:'Placez des blocs. Effacez des lignes. Battez votre record.',classic:'Classique',stages:'Niveaux',daily:'Défi du jour',score:'SCORE',best:'RECORD',streak:'COMBO',hint:'Choisissez une pièce, puis touchez la grille',selected:'Touchez une case pour placer la pièce',invalid:'Espace insuffisant !',undo:'Annuler une fois',new:'Nouvelle partie',tipTitle:'Astuce cosmique',tip:'Complétez une ligne, colonne ou carré 3×3.',offline:'Hors ligne et privé',playAgain:'Rejouer',close:'Fermer',gameOver:'Plus de place !',gameOverBody:'Chaque superbe partie commence par un nouvel essai.',nice:'Super combo !',dailyDone:'Défi quotidien terminé',newConfirm:'Recommencer ? Votre progression sera perdue.',share:'Score NovaGrid',copy:'Score copié !',undoUsed:'Annulation déjà utilisée',none:'Jouez d’abord',dailyLabel:'Défi · '},
@@ -270,21 +271,40 @@ void initializeAds();
    The real OS status bar is separate, via Capacitor SystemBars and CSS insets. */
 let boardFitFrame=0;
 function fitBoard(){
- const card=document.getElementById('gamecard');if(!card)return;
- const style=getComputedStyle(card);
- const pad=(parseFloat(style.paddingTop)||0)+(parseFloat(style.paddingBottom)||0);
- const side=(parseFloat(style.paddingLeft)||0)+(parseFloat(style.paddingRight)||0);
- const gap=parseFloat(style.rowGap)||0;
- const fixed=['scorebar','message','pieces','gametools'].reduce((sum,id)=>{
-  const el=document.getElementById(id);return sum+(el?el.getBoundingClientRect().height:0);
- },0);
- const room=Math.max(52,card.clientHeight-pad-fixed-gap*4-12);
- const width=Math.max(52,card.clientWidth-side-5);
- const size=Math.floor(Math.min(room,width,475));
+ const card=document.getElementById('gamecard');
+ if(!card)return;
+ const css=getComputedStyle(card);
+ const score=card.querySelector('.scorebar');
+ const hint=document.getElementById('message');
+ const tray=document.getElementById('pieces');
+ const actions=card.querySelector('.gametools');
+ const board=card.querySelector('.boardwrap');
+ if(!score||!hint||!tray||!actions||!board)return;
+ const height=element=>element.getBoundingClientRect().height;
+ const size=calculateBoardSize({
+  cardHeight:card.clientHeight,
+  cardWidth:card.clientWidth,
+  paddingVertical:(parseFloat(css.paddingTop)||0)+(parseFloat(css.paddingBottom)||0),
+  paddingHorizontal:(parseFloat(css.paddingLeft)||0)+(parseFloat(css.paddingRight)||0),
+  gap:parseFloat(css.rowGap)||0,
+  // IMPORTANT: scorebar and gametools have CLASS names, not IDs.
+  fixedHeights:[height(score),height(hint),height(tray),height(actions)],
+  margin:12
+ });
  document.documentElement.style.setProperty('--board-size',size+'px');
+ const shell=document.getElementById('gameShell');
+ if(shell){
+  const available=shell.getBoundingClientRect().height;
+  document.documentElement.classList.toggle('compact-game',available<655);
+ }
 }
 function scheduleBoardFit(){cancelAnimationFrame(boardFitFrame);boardFitFrame=requestAnimationFrame(fitBoard);}
 window.addEventListener('resize',scheduleBoardFit);
 window.visualViewport?.addEventListener('resize',scheduleBoardFit);
-if('ResizeObserver' in window)new ResizeObserver(scheduleBoardFit).observe(document.getElementById('gamecard'));
+if('ResizeObserver' in window){
+ const watcher=new ResizeObserver(scheduleBoardFit);
+ watcher.observe(document.getElementById('gamecard'));
+ watcher.observe(document.getElementById('gameShell'));
+}
+document.addEventListener('nova:ads-layout',scheduleBoardFit);
 scheduleBoardFit();

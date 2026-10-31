@@ -20,6 +20,8 @@ export async function initializeAds(){
  // Reserve a safe ad dock BEFORE showing the native banner: Android ads overlay the WebView.
  document.documentElement.classList.add('native-ad-layout');
  document.documentElement.style.setProperty('--native-ad-reserve','96px');
+ document.dispatchEvent(new Event('nova:ads-layout'));
+ requestAnimationFrame(()=>window.dispatchEvent(new Event('resize')));
  initializing=true;bannerState='starting';publish();
  try{
   const {AdMob,AdmobConsentStatus,BannerAdPluginEvents,BannerAdSize,BannerAdPosition,InterstitialAdPluginEvents}=await import('@capacitor-community/admob');
@@ -38,6 +40,8 @@ export async function initializeAds(){
    const nativeHeight=Math.max(0,Number(info.height ?? info.size?.height)||0);
    const h=Math.max(96,Math.ceil(nativeHeight)+24);
    document.documentElement.style.setProperty('--native-ad-reserve',h+'px');
+   document.dispatchEvent(new Event('nova:ads-layout'));
+   requestAnimationFrame(()=>window.dispatchEvent(new Event('resize')));
    document.documentElement.style.setProperty('--native-ad-height',nativeHeight+'px');
    document.body.classList.toggle('has-native-banner',h>0);
    window.dispatchEvent(new Event('resize'));
