@@ -23,6 +23,11 @@ export function createGalaxyUI({getProgress,setProgress,getState,onStage,getLang
  '<div class="galaxy-scroll"><div class="galaxy-grid" id="galaxyGrid"></div></div>'+
  '<div class="galaxy-diagnostics"><small id="galaxyAds"></small><button id="galaxyTestAd" type="button"></button></div></div>';
  document.body.append(root);
+ // Hide developer-only AdMob diagnostics from the store-facing game UI.
+ // Local testing can explicitly enable them via localStorage.setItem('nova.debug.ads','1').
+ let developerAds=false;
+ try{developerAds=localStorage.getItem('nova.debug.ads')==='1';}catch{}
+ root.querySelector('.galaxy-diagnostics').hidden=!developerAds;
  const at=id=>root.querySelector('#'+id);
  const notify=message=>{
   const toast=document.getElementById('toast');
