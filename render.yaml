@@ -2,7 +2,7 @@ services:
   - type: web
     name: rookvanta-chess
     runtime: node
-    plan: starter
+    plan: free
     branch: rookvanta-mvp
     rootDir: rookvanta
     buildCommand: npm install --no-audit --no-fund
