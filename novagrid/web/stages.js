@@ -44,7 +44,9 @@ export function stageConfig(level){
  if(!Number.isInteger(level)||level<1||level>TOTAL_STAGES)throw new RangeError('Invalid NovaGrid stage');
  const sector=Math.floor((level-1)/SECTOR_SIZE),section=SECTORS[sector],local=(level-1)%SECTOR_SIZE;
  const world=Math.floor((level-1)/WORLD_SIZE);
- const tier=Math.min(11,Math.floor(local/155)),difficulty=tier+sector*2;
+ // Keep the first 2,000 campaign tiers identical to the original release.
+ const tier=sector===0?Math.min(10,Math.floor(local/115)):Math.min(11,Math.floor(local/155));
+ const difficulty=tier+sector*2;
  const kinds=sectorKinds[section.id],kind=kinds[local%kinds.length];
  const objectives={
   score:80+difficulty*28,
