@@ -1,6 +1,6 @@
 # RookVanta ♜ — multiplayer chess
 
-**Independent project** inside the \`rookvanta-mvp\` branch, in \`rookvanta/\`. No code or configurations from NovaGrid are modified.
+**Independent project** inside the `rookvanta-mvp` branch, in `rookvanta/`. No code or configurations from NovaGrid are modified.
 
 ## Features in this MVP
 
@@ -16,22 +16,22 @@
 
 Requires Node.js 20+.
 
-\`\`\`sh
+```sh
 cd rookvanta
 npm install
 npm start
-\`\`\`
+```
 
-Open \`http://localhost:3000\` in **two browser tabs/devices**. Player 1 creates a match and shares the room code or invite link; Player 2 joins. For play across different networks, **deploy the Node server with WebSocket support and HTTPS**; GitHub Pages by itself cannot host this server.
+Open `http://localhost:3000` in **two browser tabs/devices**. Player 1 creates a match and shares the room code or invite link; Player 2 joins. For play across different networks, **deploy the Node server with WebSocket support and HTTPS**; GitHub Pages by itself cannot host this server.
 
 ## Deploy
 
-Deploy the \`rookvanta/\` folder as a Node.js web service on a provider supporting long-lived WebSockets (for example Render or Railway) with:
+Deploy the `rookvanta/` folder as a Node.js web service on a provider supporting long-lived WebSockets (for example Render or Railway) with:
 
-- Install/build: \`npm ci\` (or \`npm install\` when there is no lockfile)
-- Start command: \`npm start\`
-- Environment: \`NODE_ENV=production\`, and the provider-assigned \`PORT\`
-- Health check: \`/health\`
+- Install/build: `npm ci` (or `npm install` when there is no lockfile)
+- Start command: `npm start`
+- Environment: `NODE_ENV=production`, and the provider-assigned `PORT`
+- Health check: `/health`
 
 The client and server run on the **same domain**, so no client API URL or database credentials are needed.
 
@@ -46,3 +46,7 @@ The client and server run on the **same domain**, so no client API URL or databa
 ## Technical choices
 
 Node.js, Socket.IO 4.8.x and chess.js 1.4.x. Only the server decides which moves are legal and when a game ends. A client cannot change the chess board by modifying browser code.
+
+## Publish online with Render
+
+A `render.yaml` blueprint is included at repository root on `rookvanta-mvp`. Connect this branch to Render and deploy the web service. A public HTTPS URL will then serve the UI and the WebSocket backend together. This **has not been deployed yet**; publishing requires a connected hosting account. Do not use GitHub Pages for the live multiplayer backend.

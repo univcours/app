@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: rookvanta-chess
+    runtime: node
+    plan: starter
+    branch: rookvanta-mvp
+    rootDir: rookvanta
+    buildCommand: npm install --no-audit --no-fund
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production

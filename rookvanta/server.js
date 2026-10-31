@@ -9,7 +9,7 @@ import {Chess} from 'chess.js';
 const publicDir=fileURLToPath(new URL('./public/',import.meta.url));
 const alphabet='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const timeOptions=new Map([['3+2',[180000,2000]],['5+0',[300000,0]],['10+0',[600000,0]]]);
-const mime={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.webp':'image/webp','.ico':'image/x-icon'};
+const mime={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.webp':'image/webp','.webmanifest':'application/manifest+json','.json':'application/json','.ico':'image/x-icon'};
 const code=()=>Array.from(randomBytes(6),n=>alphabet[n%alphabet.length]).join('');
 const token=()=>randomBytes(24).toString('hex');
 const name=s=>String(s||'Player').trim().replace(/[<>]/g,'').slice(0,24)||'Player';
