@@ -75,3 +75,11 @@ The repository's `.gitignore` excludes the generated `android/` project by desig
 - **Changes not visible:** always run `npm run android:sync` after updating `web/` files.
 - **Do not use the AAB for local installs:** choose Run in Android Studio or use the debug APK artifact for phone testing.
 - **For Play Store:** debug APK and unsigned release AAB are not publishable releases. Release signing and Play Console policy tasks are still separate.
+
+## Android Gradle Plugin 9: unsupported legacy ProGuard config
+
+If Android Studio reports `getDefaultProguardFile('proguard-android.txt')` is no longer supported (often `android/app/build.gradle` around line 22), the generated Capacitor Android project still uses an old default setting. This is **not** a gameplay issue.
+
+From `novagrid/` run `npm run android:gradle-fix`, or simply `npm run android:sync` after pulling latest GitHub changes; both now automatically migrate the generated Gradle file to `proguard-android-optimize.txt`. The change is idempotent and does not touch other ProGuard rules. Then click **File → Sync Project with Gradle Files**, select the `app` configuration and run the game.
+
+If necessary, you may manually replace the exact string in `android/app/build.gradle`. The Android folder is Git-ignored, so the tracked sync script ensures the correction is re-applied after future project generation.

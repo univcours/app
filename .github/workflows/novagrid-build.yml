@@ -33,6 +33,8 @@ jobs:
         run: npm run android:ads
       - name: Apply NovaGrid cosmic launcher icon
         run: npm run android:brand
+      - name: Fix legacy Gradle ProGuard configuration
+        run: npm run android:gradle-fix
       - name: Build debug APK and unsigned bundle
         run: |
           chmod +x android/gradlew
