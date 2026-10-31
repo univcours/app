@@ -51,3 +51,16 @@
  color:#d6e5ff;border:1px solid #4d639c;background:#213966;font-size:10px}
 .galaxy-diagnostics button[hidden]{display:none}
 @media(max-height:700px){.stagehud{min-height:32px;padding:3px 8px}.galaxy-panel{padding:9px;gap:5px}}
+
+/* Eight mission styles, visible before playing; galaxy cards stay compact. */
+.galaxy-node{position:relative}
+.galaxy-node .mission-mark{position:absolute;top:-6px;right:-4px;width:18px;height:18px;
+ display:grid;place-items:center;font-style:normal;font-size:11px;border-radius:50%;
+ border:1px solid #93a7d3;background:#17234d;color:#eafcff;box-shadow:0 0 5px #101c43}
+.galaxy-node.mission-rows .mission-mark{border-color:#4addfa;color:#68f7fa}
+.galaxy-node.mission-columns .mission-mark{border-color:#a386ff;color:#bb99ff}
+.galaxy-node.mission-squares .mission-mark{border-color:#d980ef;color:#ff9feb}
+.galaxy-node.mission-combo .mission-mark{border-color:#ffbe63;color:#ffcf73}
+.galaxy-node.mission-survival .mission-mark{border-color:#71f1ac;color:#8ff0b3}
+.galaxy-node.mission-clearing .mission-mark{border-color:#f7a39a;color:#ffc1b8}
+.galaxy-node.mission-mastery .mission-mark{border-color:#ffdf73;color:#ffe792}

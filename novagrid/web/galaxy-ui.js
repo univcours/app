@@ -36,19 +36,23 @@ export function createGalaxyUI({getProgress,setProgress,getState,onStage,getLang
   const grid=at('galaxyGrid'),fragment=document.createDocumentFragment();
   grid.replaceChildren();
   for(let j=1;j<=WORLD_SIZE;j++){
-   const level=world*WORLD_SIZE+j,stars=p.completed[level]||0;
+   const level=world*WORLD_SIZE+j,stars=p.completed[level]||0,mission=stageConfig(level);
    const available=level<=p.unlocked;
    const buy=level===p.unlocked+1&&!!p.completed[level-1];
    const button=document.createElement('button');
    button.type='button';
-   button.className='galaxy-node '+(stars?'done':available?'ready':buy?'purchasable':'sealed');
+   button.className='galaxy-node mission-'+mission.kind+' '+(stars?'done':available?'ready':buy?'purchasable':'sealed');
    if(getState()?.mode==='stage'&&getState()?.stageLevel===level)button.classList.add('active');
    const num=document.createElement('strong');
    num.textContent=available?String(level):buy?'✦':'🔒';
+   button.title=mission.kind.toUpperCase()+' · '+mission.goal+(mission.kind==='mastery'?' groups and '+mission.scoreBonus+' score':'');
    const subtitle=document.createElement('small');
    subtitle.textContent=stars?'★'.repeat(stars):available?'· · ·':buy?stageConfig(level).unlockCost+' ✦':'·';
    button.append(num,subtitle);
-   button.setAttribute('aria-label',t.levels+' '+level+(stars?' ★'.repeat(stars):buy?' '+t.next+' '+stageConfig(level).unlockCost:''));
+   const mark=document.createElement('i');mark.className='mission-mark';mark.setAttribute('aria-hidden','true');
+   mark.textContent=({score:'✦',rows:'═',columns:'║',squares:'▦',combo:'⟡',survival:'∞',clearing:'✧',mastery:'✪'})[mission.kind];
+   button.append(mark);
+   button.setAttribute('aria-label',mission.kind+' · '+t.levels+' '+level+(stars?' ★'.repeat(stars):buy?' '+t.next+' '+stageConfig(level).unlockCost:''));
    button.addEventListener('click',()=>{
     onSound?.();
     if(available){close();onStage(level);return;}
