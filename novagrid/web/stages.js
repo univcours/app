@@ -1,106 +1,180 @@
-/* NovaGrid Galaxies: 2,000 deterministic campaigns, eight distinct mission rules.
-   IMPORTANT: a mission is judged only when the player has NO playable shapes.
-   Playing well can fulfil the target early but never ends a run early. */
+/* NovaGrid Galaxies: 12,000 deterministic stages, six genuinely different sectors.
+   All progression stays on device. The first 2,000 levels and historical progress
+   remain compatible with the original NovaGrid campaign. */
 import {makeGame,seededRng,hashDate,hasMove,drawTray} from './engine.js';
 export const WORLD_SIZE=100;
-export const TOTAL_WORLDS=20;
-export const TOTAL_STAGES=WORLD_SIZE*TOTAL_WORLDS;
-export const WORLD_NAMES=[
+export const WORLDS_PER_SECTOR=20;
+export const SECTOR_SIZE=WORLD_SIZE*WORLDS_PER_SECTOR;
+export const SECTORS=[
+ {id:'explorer',icon:'✦',name:{en:'Cosmic Explorer',fr:'Exploration cosmique',ar:'الاستكشاف الكوني'},
+  philosophy:{en:'Classic placement and eight evolving missions',fr:'Placement classique et huit missions',ar:'الوضع الكلاسيكي وثمانية تحديات'}},
+ {id:'meteor',icon:'☄',name:{en:'Meteor Storm',fr:'Tempête de météores',ar:'عاصفة النيازك'},
+  philosophy:{en:'New blocks fall into the grid during play',fr:'Des météores envahissent la grille',ar:'نيازك جديدة كتهبط داخل الشبكة'}},
+ {id:'gravity',icon:'⬇',name:{en:'Gravity Forge',fr:'Forge gravitationnelle',ar:'مصنع الجاذبية'},
+  philosophy:{en:'Every turn pulls the board downward',fr:'La gravité attire les blocs vers le bas',ar:'كل حركة كتهبط القطع للأسفل'}},
+ {id:'prism',icon:'◈',name:{en:'Prism Temple',fr:'Temple des prismes',ar:'معبد الكريستال'},
+  philosophy:{en:'3×3 squares charge the prism and earn bonuses',fr:'Les carrés 3×3 chargent les prismes',ar:'المربعات 3×3 كتشحن البلورات وكتعطي مكافآت'}},
+ {id:'reactor',icon:'⚡',name:{en:'Chain Reactor',fr:'Réacteur des combos',ar:'مفاعل السلاسل'},
+  philosophy:{en:'Chain clears power score boosts and clearing pulses',fr:'Les combos créent des impulsions',ar:'السلاسل كتولد طاقة ومسح إضافي'}},
+ {id:'void',icon:'◉',name:{en:'Void Trials',fr:'Épreuves du vide',ar:'تحديات الفراغ'},
+  philosophy:{en:'Gravity and meteors together, with boss stages',fr:'Gravité et météores avec des boss',ar:'الجاذبية والنيازك مع مراحل الزعماء'}}
+];
+export const TOTAL_WORLDS=SECTORS.length*WORLDS_PER_SECTOR;
+export const TOTAL_STAGES=TOTAL_WORLDS*WORLD_SIZE;
+const baseNames=[
  'Nebula Dawn','Aurora Fields','Comet Trail','Lunar Grove','Starlight Harbor',
  'Crystal Orbit','Violet Rift','Meteor Garden','Solar Temple','Quantum Vale',
  'Titan Rings','Nova Cascade','Celestial Reef','Photon Horizon','Gravity Wells',
  'Cosmic Bloom','Eclipse Passage','Hypernova Path','Infinity Gate','Astral Crown'
 ];
-export const WORLD_SYMBOLS=['✦','☄','✧','☽','✺','◈','✴','❖','☀','◇','♄','✷','✧','✺','◎','✿','☾','★','∞','♛'];
-export const MISSION_TYPES=['score','rows','columns','squares','combo','survival','clearing','mastery'];
+const adjectives=['Blazing','Iron','Falling','Amber','Silent','Electric','Radiant','Twilight','Frozen','Golden','Storm','Orbiting','Ancient','Rising','Shifting','Hidden','Luminous','Eternal','Crimson','Boundless'];
+const themes=['Comet','Gravity','Prism','Reactor','Void'];
+export const WORLD_NAMES=baseNames.concat(themes.flatMap(theme=>adjectives.map(a=>a+' '+theme)));
+export const WORLD_SYMBOLS=Array.from({length:TOTAL_WORLDS},(_,i)=>SECTORS[Math.floor(i/WORLDS_PER_SECTOR)].icon);
+export const MISSION_TYPES=['score','rows','columns','squares','combo','survival','clearing','mastery','charge'];
+const sectorKinds={
+ explorer:MISSION_TYPES.filter(k=>k!=='charge'),
+ meteor:['survival','clearing','rows','mastery','score'],
+ gravity:['columns','clearing','survival','score','mastery'],
+ prism:['squares','charge','clearing','score','mastery'],
+ reactor:['combo','charge','mastery','score','clearing'],
+ void:['survival','mastery','charge','rows','columns','squares']
+};
 export function stageConfig(level){
  if(!Number.isInteger(level)||level<1||level>TOTAL_STAGES)throw new RangeError('Invalid NovaGrid stage');
- const world=Math.floor((level-1)/WORLD_SIZE),tier=Math.min(10,Math.floor((level-1)/115));
- const kind=MISSION_TYPES[(level-1)%MISSION_TYPES.length];
+ const sector=Math.floor((level-1)/SECTOR_SIZE),section=SECTORS[sector],local=(level-1)%SECTOR_SIZE;
+ const world=Math.floor((level-1)/WORLD_SIZE);
+ const tier=Math.min(11,Math.floor(local/155)),difficulty=tier+sector*2;
+ const kinds=sectorKinds[section.id],kind=kinds[local%kinds.length];
  const objectives={
-  score:80+tier*28,
-  rows:1+Math.min(2,Math.floor(tier/3)),
-  columns:1+Math.min(2,Math.floor(tier/3)),
-  squares:1+Math.min(2,Math.floor(tier/3)),
-  combo:2+Math.min(1,Math.floor(tier/5)),
-  survival:8+Math.min(10,tier),
-  clearing:9*(2+Math.min(4,Math.floor(tier/2))),
-  mastery:2+Math.min(2,Math.floor(tier/4))
+  score:80+difficulty*28,
+  rows:1+Math.min(3,Math.floor(difficulty/4)),
+  columns:1+Math.min(3,Math.floor(difficulty/4)),
+  squares:1+Math.min(3,Math.floor(difficulty/4)),
+  combo:2+Math.min(2,Math.floor(difficulty/7)),
+  survival:8+Math.min(15,difficulty),
+  clearing:18+9*Math.min(7,Math.floor(difficulty/3)),
+  mastery:2+Math.min(4,Math.floor(difficulty/5)),
+  charge:2+Math.min(5,Math.floor(difficulty/3))
  };
- return {
-  level,world,ordinal:(level-1)%WORLD_SIZE+1,
-  kind,goal:objectives[kind],
-  minMoves:6+Math.min(5,Math.floor(tier/2)),
-  scoreBonus:kind==='mastery'?100+tier*20:0,
-  // "target" retained for old data compatibility; actual goal differs by kind.
-  target:objectives[kind],
-  unlockCost:level===1?0:100+Math.min(70,Math.floor((level-1)/40)*2),
-  layout:(level-1)%6,
-  tier
+ return {level,world,sector,sectorId:section.id,sectorName:section.name,ordinal:(level-1)%WORLD_SIZE+1,
+  kind,goal:objectives[kind],target:objectives[kind],minMoves:6+Math.min(6,Math.floor(difficulty/3)),
+  scoreBonus:kind==='mastery'?100+difficulty*20:0,
+  unlockCost:local===0?0:100+Math.min(80,Math.floor(local/40)*2),
+  layout:(level-1)%6,tier,sectorDifficulty:difficulty,
+  hazardEvery:section.id==='void'?2:section.id==='meteor'?3:0,
+  gravity:section.id==='gravity'||section.id==='void',
+  boss:section.id==='void'&&(local+1)%25===0
  };
 }
-export function initialProgress(){return {version:2,coins:0,unlocked:1,completed:{},totalEarned:0};}
+export function initialProgress(){return {version:3,coins:0,unlocked:1,unlockedSectors:SECTORS.map((_,i)=>i*SECTOR_SIZE+1),completed:{},totalEarned:0};}
 export function normalizeProgress(value){
  const p=initialProgress();
  if(!value||typeof value!=='object')return p;
  const coins=Number(value.coins),unlocked=Number(value.unlocked);
  p.coins=Number.isSafeInteger(coins)&&coins>=0?Math.min(99999999,coins):0;
- p.unlocked=Number.isInteger(unlocked)?Math.max(1,Math.min(TOTAL_STAGES,unlocked)):1;
+ p.unlocked=Number.isInteger(unlocked)?Math.max(1,Math.min(SECTOR_SIZE,unlocked)):1;
+ if(Array.isArray(value.unlockedSectors)){
+  p.unlockedSectors=p.unlockedSectors.map((first,i)=>{
+   const valueAt=Number(value.unlockedSectors[i]);
+   return Number.isInteger(valueAt)?Math.max(first,Math.min(first+SECTOR_SIZE-1,valueAt)):first;
+  });
+ }
+ p.unlockedSectors[0]=Math.max(p.unlocked,p.unlockedSectors[0]);
+ p.unlocked=p.unlockedSectors[0]; // compatibility for the first 2,000 stage legacy save
  if(value.completed&&typeof value.completed==='object'){
-  for(const [key,v] of Object.entries(value.completed)){
-   const level=Number(key);
-   if(Number.isInteger(level)&&level>=1&&level<=p.unlocked&&String(level)===key)
-    p.completed[key]=Math.min(3,Math.max(0,Math.floor(Number(v)||0)));
+  for(const [key,stars] of Object.entries(value.completed)){
+   const lvl=Number(key);
+   if(Number.isInteger(lvl)&&lvl>0&&lvl<=TOTAL_STAGES&&String(lvl)===key&&isStageUnlocked(p,lvl)){
+    p.completed[key]=Math.min(3,Math.max(0,Math.floor(Number(stars)||0)));
+   }
   }
  }
  p.totalEarned=Number.isSafeInteger(value.totalEarned)&&value.totalEarned>=0?value.totalEarned:0;
  return p;
 }
-/* Each mission's starting geometry differs. These are normal occupied cells, not
-   impossible-to-remove blockers, so any completed row/column/box clears them. */
+export function isStageUnlocked(progress,level){
+ if(!Number.isInteger(level)||level<1||level>TOTAL_STAGES)return false;
+ const sec=Math.floor((level-1)/SECTOR_SIZE);
+ const arr=progress?.unlockedSectors;
+ const ceiling=Array.isArray(arr)?Number(arr[sec]):sec===0?Number(progress?.unlocked):sec*SECTOR_SIZE+1;
+ return level<=ceiling;
+}
 export function stageBoard(level){
- const cfg=stageConfig(level);
- const rng=seededRng(hashDate('nova-galaxy-geometry-'+level));
+ const cfg=stageConfig(level),rng=seededRng(hashDate('nova-galaxy-geometry-'+level));
  const board=Array.from({length:9},()=>Array(9).fill(0));
  const add=(r,c)=>{if(r>=0&&c>=0&&r<9&&c<9)board[r][c]=1;};
- if(level===1)return board; // Gentle onboarding.
- const count=3+cfg.tier+(cfg.layout%3);
- if(cfg.kind==='rows'){
-  const row=Math.floor(rng()*9);
-  for(let i=0;i<Math.min(6,count+2);i++)add(row,(i*2+cfg.layout)%9);
- }else if(cfg.kind==='columns'){
-  const col=Math.floor(rng()*9);
-  for(let i=0;i<Math.min(6,count+2);i++)add((i*2+cfg.layout)%9,col);
- }else if(cfg.kind==='squares'){
+ if(level===1)return board;
+ const count=3+cfg.tier+(cfg.layout%3)+cfg.sector;
+ if(cfg.kind==='rows'){const row=Math.floor(rng()*9);for(let i=0;i<Math.min(7,count+2);i++)add(row,(i*2+cfg.layout)%9);}
+ else if(cfg.kind==='columns'){const col=Math.floor(rng()*9);for(let i=0;i<Math.min(7,count+2);i++)add((i*2+cfg.layout)%9,col);}
+ else if(cfg.kind==='squares'||cfg.sectorId==='prism'){
   const y=Math.floor(rng()*3)*3,x=Math.floor(rng()*3)*3;
-  for(let i=0;i<Math.min(6,count+2);i++)add(y+Math.floor(i/3),x+i%3);
- }else if(cfg.kind==='combo'){
+  for(let i=0;i<Math.min(7,count+2);i++)add(y+Math.floor(i/3),x+i%3);
+ }else if(cfg.kind==='combo'||cfg.sectorId==='reactor'){
   const row=Math.floor(rng()*9),col=Math.floor(rng()*9);
-  for(let i=0;i<4;i++){add(row,(i*2)%9);add((i*2+1)%9,col);}
- }else if(cfg.kind==='survival'){
-  for(let i=0;i<count;i++)add((i*2+cfg.layout)%9,(i*3+cfg.world)%9);
+  for(let i=0;i<5;i++){add(row,(i*2)%9);add((i*2+1)%9,col);}
  }else if(cfg.kind==='clearing'){
-  const row=Math.floor(rng()*9);
-  for(let i=0;i<5;i++)add(row,(i+cfg.layout)%9);
- }else if(cfg.kind==='mastery'){
-  const offset=Math.floor(rng()*3)*3;
-  for(let i=0;i<5;i++)add(offset+Math.floor(i/3),offset+i%3);
+  const row=Math.floor(rng()*9);for(let i=0;i<6;i++)add(row,(i+cfg.layout)%9);
  }else{
   for(let i=0;i<count;i++)add(Math.floor(rng()*9),Math.floor(rng()*9));
  }
- // A few extra deterministic occupied cells give higher worlds distinct board texture.
- for(let i=0;i<Math.floor(cfg.tier/2);i++)add(Math.floor(rng()*9),Math.floor(rng()*9));
+ for(let i=0;i<Math.floor(cfg.tier/2)+((cfg.boss)?5:0);i++)add(Math.floor(rng()*9),Math.floor(rng()*9));
  return board;
 }
 export function startStage(level){
- stageConfig(level);
- const date='nova-stage-'+level,game=makeGame('daily',date);
- const board=stageBoard(level);
- // Ensure starting tray is playable against the actual configured starting board.
- const tray=hasMove(board,game.tray)?game.tray:drawTray(seededRng(hashDate(date+'-tray')),board);
- return {...game,board,tray,mode:'stage',stageLevel:level,clears:0,
-  rows:0,columns:0,squares:0,cellsCleared:0,maxCombo:0,clearingMoves:0,
-  date,won:false,over:false};
+ const cfg=stageConfig(level),date='nova-stage-'+level,game=makeGame('daily',date);
+ const board=stageBoard(level),tray=hasMove(board,game.tray)?game.tray:drawTray(seededRng(hashDate(date+'-tray')),board);
+ return {...game,board,tray,mode:'stage',stageLevel:level,clears:0,rows:0,columns:0,
+  squares:0,cellsCleared:0,maxCombo:0,clearingMoves:0,charge:0,meteorHits:0,
+  date,won:false,over:false,sectorId:cfg.sectorId};
+}
+export function collapseBoard(board){
+ const next=board.map(row=>[...row]);
+ for(let c=0;c<9;c++){const occupied=board.reduce((n,row)=>n+Number(!!row[c]),0);
+  for(let r=0;r<9;r++)next[r][c]=r>=9-occupied?1:0;
+ }
+ return next;
+}
+function meteorStrike(board,seed,moves,n=1){
+ const free=[];
+ for(let r=0;r<9;r++)for(let c=0;c<9;c++)if(!board[r][c])free.push([r,c]);
+ const rng=seededRng(hashDate('nova-meteor-'+seed+'-'+moves));
+ const next=board.map(row=>[...row]);
+ for(let i=0;i<n&&free.length;i++){
+  const j=Math.floor(rng()*free.length),[r,c]=free.splice(j,1)[0];next[r][c]=1;
+ }
+ return next;
+}
+export function applySectorTurn(state,result){
+ if(state.mode!=='stage')return state;
+ const cfg=stageConfig(state.stageLevel);
+ let next={...state};
+ if(cfg.sectorId==='prism'&&result.squares){
+  next.score+=result.squares*25;
+  next.charge=(state.charge||0)+result.squares;
+ }
+ if(cfg.sectorId==='reactor'&&result.groups){
+  next.charge=(state.charge||0)+result.groups;
+  next.score+=result.groups*(12+Math.min(5,next.combo||0)*4);
+  if(next.charge%3===0){
+   // Clearing pulse creates more breathing space, but it cannot complete
+   // objectives automatically: only result.groups counts as a player clear.
+   const board=next.board.map(row=>[...row]);
+   let removed=0;
+   for(let r=0;r<9&&removed<3;r++)for(let c=0;c<9&&removed<3;c++)
+    if(board[r][c]&&(r+c+next.moves)%3===0){board[r][c]=0;removed++;}
+   next.board=board;
+  }
+ }
+ if(cfg.sectorId==='void'&&result.groups)next.charge=(state.charge||0)+result.groups;
+ if(cfg.gravity)next.board=collapseBoard(next.board);
+ if(cfg.hazardEvery&&next.moves%cfg.hazardEvery===0){
+  next.board=meteorStrike(next.board,next.seed,next.moves,cfg.boss?2:1);
+  next.meteorHits=(state.meteorHits||0)+(cfg.boss?2:1);
+ }
+ next.over=!hasMove(next.board,next.tray);
+ return next;
 }
 export function objectiveValue(state,cfg=stageConfig(state.stageLevel)){
  switch(cfg.kind){
@@ -112,24 +186,25 @@ export function objectiveValue(state,cfg=stageConfig(state.stageLevel)){
   case 'survival':return state.moves||0;
   case 'clearing':return state.cellsCleared||0;
   case 'mastery':return state.clears||0;
+  case 'charge':return state.charge||0;
   default:return 0;
  }
 }
-const OBJECTIVE_NAMES={
- en:{score:'Score',rows:'Rows cleared',columns:'Columns cleared',squares:'3×3 cleared',combo:'Best chain',survival:'Placements',clearing:'Blocks removed',mastery:'Groups cleared',finish:'Play until no shapes fit'},
- fr:{score:'Score',rows:'Lignes effacées',columns:'Colonnes effacées',squares:'Carrés 3×3',combo:'Meilleure série',survival:'Pièces posées',clearing:'Blocs effacés',mastery:'Groupes effacés',finish:'Jouez jusqu’à épuisement des coups'},
- ar:{score:'النقاط',rows:'صفوف ممسوحة',columns:'أعمدة ممسوحة',squares:'مربعات 3×3',combo:'أفضل سلسلة',survival:'قطع موضوعة',clearing:'مربعات ممسوحة',mastery:'مجموعات ممسوحة',finish:'كمّل حتى ما يبقى حتى حل'}
+const LABELS={
+ en:{score:'Score',rows:'Rows cleared',columns:'Columns cleared',squares:'3×3 cleared',combo:'Best chain',survival:'Placements',clearing:'Blocks removed',mastery:'Groups cleared',charge:'Energy charged',finish:'Play until no shapes fit'},
+ fr:{score:'Score',rows:'Lignes effacées',columns:'Colonnes effacées',squares:'Carrés 3×3',combo:'Meilleure série',survival:'Pièces posées',clearing:'Blocs effacés',mastery:'Groupes effacés',charge:'Énergie chargée',finish:'Jouez jusqu’à épuisement'},
+ ar:{score:'النقاط',rows:'صفوف ممسوحة',columns:'أعمدة ممسوحة',squares:'مربعات 3×3',combo:'أفضل سلسلة',survival:'قطع موضوعة',clearing:'مربعات ممسوحة',mastery:'مجموعات ممسوحة',charge:'الطاقة المشحونة',finish:'كمّل حتى ما يبقى حتى حل'}
 };
 export function stageObjectiveText(state,lang='en'){
- const cfg=stageConfig(state.stageLevel),t=OBJECTIVE_NAMES[lang]||OBJECTIVE_NAMES.en;
+ const cfg=stageConfig(state.stageLevel),t=LABELS[lang]||LABELS.en;
  const base=t[cfg.kind]+' '+objectiveValue(state,cfg)+'/'+cfg.goal;
  return cfg.kind==='mastery'?base+' · '+t.score+' '+(state.score||0)+'/'+cfg.scoreBonus:base;
 }
 export function stageWon(state){
- if(state.mode!=='stage'||!state.over)return false; // Never finish when only the target has been reached.
+ if(state.mode!=='stage'||!state.over)return false; // only resolve after a real puzzle run
  const cfg=stageConfig(state.stageLevel);
- if((state.moves||0)<cfg.minMoves)return false;
- return objectiveValue(state,cfg)>=cfg.goal && (cfg.kind!=='mastery'||state.score>=cfg.scoreBonus);
+ return (state.moves||0)>=cfg.minMoves&&objectiveValue(state,cfg)>=cfg.goal&&
+  (cfg.kind!=='mastery'||state.score>=cfg.scoreBonus);
 }
 export function stageFailed(state){return state.mode==='stage'&&!!state.over&&!stageWon(state);}
 export function rankStage(state){
@@ -139,11 +214,8 @@ export function rankStage(state){
 }
 export function awardStage(progress,level,finishedState){
  const p=normalizeProgress(progress);
- // Neither reaching a goal early nor passing a number of points is an award.
- // Only a completed, successful, exhausted-board run grants stars and currency.
- if(level>p.unlocked||finishedState?.stageLevel!==level||!stageWon(finishedState))return {progress:p,earned:0};
- const stars=rankStage(finishedState);
- const prev=p.completed[level]||0;
+ if(!isStageUnlocked(p,level)||finishedState?.stageLevel!==level||!stageWon(finishedState))return {progress:p,earned:0};
+ const stars=rankStage(finishedState),prev=p.completed[level]||0;
  if(stars<=prev)return {progress:p,earned:0};
  const earned=prev===0?150+25*stars:15*(stars-prev);
  p.completed[level]=stars;p.coins+=earned;p.totalEarned+=earned;
@@ -152,15 +224,17 @@ export function awardStage(progress,level,finishedState){
 export function purchaseStage(progress,level){
  const p=normalizeProgress(progress);
  if(!Number.isInteger(level)||level<2||level>TOTAL_STAGES)return {progress:p,ok:false,reason:'invalid'};
- if(level<=p.unlocked)return {progress:p,ok:true,cost:0};
- if(level!==p.unlocked+1||!(p.completed[level-1]>0))return {progress:p,ok:false,reason:'progress'};
+ if(isStageUnlocked(p,level))return {progress:p,ok:true,cost:0};
+ const sec=Math.floor((level-1)/SECTOR_SIZE);
+ if(level!==p.unlockedSectors[sec]+1||!(p.completed[level-1]>0))return {progress:p,ok:false,reason:'progress'};
  const cost=stageConfig(level).unlockCost;
  if(p.coins<cost)return {progress:p,ok:false,reason:'coins',cost};
- p.coins-=cost;p.unlocked=level;return {progress:p,ok:true,cost};
+ p.coins-=cost;p.unlockedSectors[sec]=level;p.unlocked=p.unlockedSectors[0];
+ return {progress:p,ok:true,cost};
 }
 export function progressSummary(progress){
  const p=normalizeProgress(progress);
  return {completed:Object.values(p.completed).filter(v=>v>0).length,
   stars:Object.values(p.completed).reduce((a,b)=>a+b,0),
-  coins:p.coins,unlocked:p.unlocked};
+  coins:p.coins,unlocked:p.unlocked,unlockedSectors:p.unlockedSectors};
 }
