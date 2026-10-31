@@ -2,6 +2,7 @@ import test from 'node:test';import assert from 'node:assert/strict';
 import {FALL_WIDTH,FALL_HEIGHT,FALL_TYPES,emptyFallBoard,makeFallingState,canFallAt,rotateShape,
 shuffledBag,pieceAt,tryMoveFalling,tryRotateFalling,clearFallLines,projectedRow,stepFalling,
 hardDropFalling,fallingConfig,fallingWon,fallingStars,renderFallCells} from '../web/falling.js';
+import {initialProgress,awardStage,purchaseStage} from '../web/stages.js';
 test('seven tetrominoes use one of each shape in each repeatable bag',()=>{
  for(let i=0;i<4;i++){const bag=shuffledBag(12001,i);assert.deepEqual([...bag].sort(),[...FALL_TYPES].sort());for(let j=0;j<7;j++)assert.equal(pieceAt(12001,i*7+j),bag[j]);}
 });
@@ -52,4 +53,19 @@ test('stage goals get harder; stage rewards require a real win',()=>{
   assert.equal(fallingWon(winner,c),true);assert.ok(fallingStars(winner,c)>=1);
  }
  assert.throws(()=>fallingConfig(14001),RangeError);
+});
+
+test('completing a real row rewards Nova Points and unlocks the next Blockfall stage',()=>{
+ const first=12001,cfg=fallingConfig(first);
+ const game=makeFallingState(first);
+ const board=emptyFallBoard();
+ for(let c=0;c<6;c++)board[17][c]='J';
+ const scenario={...game,board,active:{type:'I',cells:[[0,0],[0,1],[0,2],[0,3]],row:17,col:6}};
+ const done=hardDropFalling(scenario,cfg);
+ assert.equal(done.won,true);assert.equal(done.over,true);assert.equal(done.lines,1);
+ assert.equal(done.board[17].every(x=>x===null),true);
+ const granted=awardStage(initialProgress(),first,done);
+ assert.ok(granted.earned>=175);
+ assert.equal(purchaseStage(granted.progress,12002).ok,true);
+ assert.equal(awardStage(granted.progress,first,done).earned,0);
 });
