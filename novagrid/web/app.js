@@ -205,7 +205,7 @@ function placeAt(row,col){if(state.over)return;audio.unlock();if(selected<0){not
   // Achieving a score/mission target during play is never enough to advance.
   if(state.over&&stageWon(state)){
    state.won=true;state.over=true;
-   const awarded=awardStage(progress,state.stageLevel,rankStage(state));
+   const awarded=awardStage(progress,state.stageLevel,state);
    progress=awarded.progress;lastEarned=awarded.earned;saveProgress();
   }else if(state.over&&stageFailed(state)){state.won=false;}
  }

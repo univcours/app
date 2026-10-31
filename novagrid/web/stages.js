@@ -137,9 +137,12 @@ export function rankStage(state){
  const cfg=stageConfig(state.stageLevel),ratio=objectiveValue(state,cfg)/cfg.goal;
  return ratio>=2.25&&state.score>=cfg.scoreBonus?3:ratio>=1.45?2:1;
 }
-export function awardStage(progress,level,stars){
+export function awardStage(progress,level,finishedState){
  const p=normalizeProgress(progress);
- if(level>p.unlocked||stars<1||stars>3||!Number.isInteger(stars))return {progress:p,earned:0};
+ // Neither reaching a goal early nor passing a number of points is an award.
+ // Only a completed, successful, exhausted-board run grants stars and currency.
+ if(level>p.unlocked||finishedState?.stageLevel!==level||!stageWon(finishedState))return {progress:p,earned:0};
+ const stars=rankStage(finishedState);
  const prev=p.completed[level]||0;
  if(stars<=prev)return {progress:p,earned:0};
  const earned=prev===0?150+25*stars:15*(stars-prev);
