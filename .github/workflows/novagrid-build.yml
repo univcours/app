@@ -41,3 +41,13 @@ jobs:
         with:
           name: novagrid-unsigned-aab
           path: novagrid/android/app/build/outputs/bundle/release/*.aab
+      - name: Upload Android Studio ready-to-open project
+        uses: actions/upload-artifact@v4
+        with:
+          name: novagrid-android-studio
+          path: |
+            novagrid/android/
+            !novagrid/android/**/build/**
+            !novagrid/android/.gradle/**
+            !novagrid/android/local.properties
+          retention-days: 30
