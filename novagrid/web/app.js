@@ -278,8 +278,8 @@ function fitBoard(){
  const fixed=['scorebar','message','pieces','gametools'].reduce((sum,id)=>{
   const el=document.getElementById(id);return sum+(el?el.getBoundingClientRect().height:0);
  },0);
- const room=Math.max(80,card.clientHeight-pad-fixed-gap*4-12);
- const width=Math.max(80,card.clientWidth-side-5);
+ const room=Math.max(52,card.clientHeight-pad-fixed-gap*4-12);
+ const width=Math.max(52,card.clientWidth-side-5);
  const size=Math.floor(Math.min(room,width,475));
  document.documentElement.style.setProperty('--board-size',size+'px');
 }
