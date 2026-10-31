@@ -1,0 +1,19 @@
+/* NovaGrid fullscreen gameplay: no AdMob banner strip.
+   Capacitor's genuine Android status/navigation bars remain separate. */
+html.no-banner body{height:100dvh!important;min-height:0!important;padding:0!important;overflow:hidden!important}
+html.no-banner #gameShell{
+ position:fixed!important;
+ top:var(--safe-area-inset-top,env(safe-area-inset-top,0px));
+ bottom:calc(var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px)) + 3px);
+ left:var(--safe-area-inset-left,env(safe-area-inset-left,0px));
+ right:var(--safe-area-inset-right,env(safe-area-inset-right,0px));
+ height:auto!important;width:auto!important;max-width:520px;max-height:none!important;
+ margin:0 auto!important;min-height:0;
+ padding:5px 11px 3px!important;overflow:hidden
+}
+html.no-banner #gameShell .gamecard{flex:1 1 0;min-height:0;overflow:hidden}
+html.no-banner #gameShell .boardwrap{flex:0 0 auto}
+html.no-banner #gameShell .pieces,html.no-banner #gameShell .gametools{flex:0 0 auto;position:relative;overflow:visible;z-index:1}
+html.no-banner .galaxy-overlay,html.no-banner #galaxyOverlay{bottom:var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px))!important}
+html.no-banner .overlay{bottom:var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px))!important;padding-bottom:14px!important}
+html.no-banner .toast{bottom:calc(var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px)) + 18px)}
