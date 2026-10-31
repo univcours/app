@@ -1,0 +1,53 @@
+/* NovaGrid: galaxy map appears as a dedicated modal. No scrolling in actual game. */
+.modes{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+.mode{font-size:clamp(9px,2.5vw,12px);padding:5px 2px;gap:3px;min-width:0}
+.mode>span:first-child{font-size:16px}
+.stagehud{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;
+ min-height:38px;gap:8px;border-radius:12px;border:1px solid #5979e2;
+ background:linear-gradient(100deg,#194575,#42237c);padding:5px 10px}
+.stagehud[hidden]{display:none}
+.stage-info{min-width:0;display:flex;flex-direction:column;gap:2px;white-space:nowrap}
+.stage-info strong{font-size:11px;overflow:hidden;text-overflow:ellipsis}
+.stage-info small{font-size:9px;color:#b9d1ff;overflow:hidden;text-overflow:ellipsis}
+.stagemapbtn{flex:0 0 auto;border-radius:10px;border:1px solid #54dde8;background:#122952;
+ color:#e9fcff;font-weight:800;font-size:11px;padding:6px 8px}
+.galaxy-overlay{position:fixed;z-index:28;inset:var(--safe-area-inset-top,env(safe-area-inset-top,0px)) 0
+ calc(var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px)) + var(--native-ad-height,0px)) 0;
+ background:#020613ed;backdrop-filter:blur(8px);padding:7px;display:flex;justify-content:center}
+.galaxy-overlay[hidden]{display:none}
+.galaxy-panel{width:min(100%,540px);min-height:0;height:100%;display:flex;flex-direction:column;
+ background:radial-gradient(ellipse 65% 25% at 90% 15%,#7835b3a3,transparent),
+ radial-gradient(ellipse 65% 65% at 0 90%,#1848a38f,transparent),#101938;
+ border-radius:20px;border:1px solid #6c78d3;box-shadow:0 15px 70px #000a;padding:12px;gap:9px}
+.galaxy-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.galaxy-kicker{color:#96b7ee;font-size:9px;letter-spacing:1px}
+.galaxy-head h2{margin:4px 0;font-size:clamp(20px,5.5vw,27px);color:#bdffff}
+.galaxy-head p{margin:0;color:#9eadde;font-size:11px}
+.galaxy-close{width:39px;height:39px;color:#fff;border-radius:12px;border:1px solid #566bb0;background:#27355f}
+.galaxy-money{display:flex;align-items:center;justify-content:space-between;gap:8px;
+ border-radius:12px;border:1px solid #3c69a6;background:#182d59;padding:10px}
+.galaxy-money strong{font-size:12px;color:#8affeb}
+.galaxy-money span{font-size:11px;color:#ffda83}
+.galaxy-nav{display:flex;align-items:center;justify-content:space-between;font-size:11px;
+ letter-spacing:1.5px;color:#b6baff}
+.galaxy-nav button{height:35px;min-width:43px;border-radius:10px;border:1px solid #477bba;
+ color:#def9ff;background:#19386a;font-size:24px}
+.galaxy-nav button:disabled{opacity:.4}
+.galaxy-scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;padding:4px 5px}
+.galaxy-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:15px 8px;padding:9px 0}
+.galaxy-node{aspect-ratio:1;width:min(100%,62px);justify-self:center;display:flex;align-items:center;
+ justify-content:center;flex-direction:column;gap:1px;border-radius:50%;border:2px solid #99a9e4;
+ background:linear-gradient(145deg,#14346e,#3b266f);color:white;box-shadow:0 0 10px #397afd69}
+.galaxy-node strong{font-size:14px}
+.galaxy-node small{font-size:9px;color:#ffe8b9;white-space:nowrap}
+.galaxy-node.done{border-color:#ffd276;background:linear-gradient(145deg,#b934ae,#ba6c3a)}
+.galaxy-node.ready{border-color:#56ffe9;box-shadow:0 0 14px #24d1d69c}
+.galaxy-node.purchasable{border-color:#e7c66f;box-shadow:0 0 15px #d3a13f8a}
+.galaxy-node.sealed{border-color:#4a5683;opacity:.7;background:#1c2a4c}
+.galaxy-node.active{outline:2px solid #69fce6;outline-offset:3px}
+.galaxy-diagnostics{display:flex;gap:8px;align-items:center;min-height:28px}
+.galaxy-diagnostics small{min-width:0;flex:1;font-size:10px;color:#afc1e4;overflow-wrap:anywhere}
+.galaxy-diagnostics button{flex:0 0 auto;border-radius:9px;padding:6px;
+ color:#d6e5ff;border:1px solid #4d639c;background:#213966;font-size:10px}
+.galaxy-diagnostics button[hidden]{display:none}
+@media(max-height:700px){.stagehud{min-height:32px;padding:3px 8px}.galaxy-panel{padding:9px;gap:5px}}
