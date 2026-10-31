@@ -84,3 +84,19 @@ html[dir=rtl] .brand{letter-spacing:1px}
 @media(max-height:570px){.tagline{display:none}.topbar{height:39px}.brandlogo{height:35px;width:35px}
  .mode{padding:2px}.scorebar{height:33px}.pieces{height:46px}.gametools{height:30px}footer{display:none}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{transition:none!important;animation:none!important}}
+
+/* Phone QA 2026-10-31: native AdMob banner is already reserved by body
+   padding-bottom. Prevent an additional bottom inset on .shell from
+   consuming the space required by Undo / New game / Share. */
+.has-native-banner .shell{padding-bottom:5px}
+:root{--micro-size:clamp(13px,3.6vw,18px)}
+.piecegrid{gap:3px}
+.micro{width:var(--micro-size);height:var(--micro-size);min-width:0;min-height:0}
+.piece{touch-action:manipulation}
+.gametools{display:flex!important;visibility:visible;opacity:1;flex-shrink:0}
+.gametools .utility{min-height:33px}
+@media(max-height:700px){
+ .has-native-banner .shell{padding-bottom:3px}
+ :root{--micro-size:clamp(11px,3vw,15px)}
+ .gametools .utility{min-height:30px}
+}

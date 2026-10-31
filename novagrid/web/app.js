@@ -19,7 +19,7 @@ function saveBest(){if(state.score>best())storage.set(bestKey(),String(state.sco
 function cellClass(r,c){const filled=state.board[r][c];if(filled)return'cell block';const inRegion=(Math.floor(r/3)+Math.floor(c/3))%2===0;let cl='cell'+(inRegion?' region':'');if(selected>=0&&state.tray[selected]&&hover){const shape=state.tray[selected],valid=canPlace(state.board,shape,hover[0],hover[1]);if(shape.some(([dr,dc])=>hover[0]+dr===r&&hover[1]+dc===c))cl+=valid?' preview':' invalid';}return cl;}
 function renderBoard(){const board=$('board');board.textContent='';const frag=document.createDocumentFragment();for(let r=0;r<SIZE;r++)for(let c=0;c<SIZE;c++){const el=document.createElement('button');el.type='button';el.className=cellClass(r,c);el.dataset.r=r;el.dataset.c=c;el.setAttribute('role','gridcell');el.setAttribute('aria-label',`Row ${r+1}, column ${c+1}: ${state.board[r][c]?'filled':'empty'}`);el.addEventListener('click',()=>placeAt(r,c));el.addEventListener('pointerenter',()=>{if(selected>=0){hover=[r,c];updateHighlights();}});frag.append(el);}board.append(frag);}
 function updateHighlights(){const cells=$('board').children;for(let r=0;r<SIZE;r++)for(let c=0;c<SIZE;c++)cells[r*SIZE+c].className=cellClass(r,c);}
-function makePiece(shape){const rows=Math.max(...shape.map(v=>v[0]))+1,cols=Math.max(...shape.map(v=>v[1]))+1;const g=document.createElement('span');g.className='piecegrid';g.style.gridTemplateColumns=`repeat(${cols},12px)`;g.style.gridTemplateRows=`repeat(${rows},12px)`;const occupied=new Set(shape.map(([r,c])=>`${r},${c}`));for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){const b=document.createElement('span');b.className='micro'+(occupied.has(`${r},${c}`)?'':' blank');g.append(b);}return g;}
+function makePiece(shape){const rows=Math.max(...shape.map(v=>v[0]))+1,cols=Math.max(...shape.map(v=>v[1]))+1;const g=document.createElement('span');g.className='piecegrid';g.style.gridTemplateColumns=`repeat(${cols},var(--micro-size,14px))`;g.style.gridTemplateRows=`repeat(${rows},var(--micro-size,14px))`;const occupied=new Set(shape.map(([r,c])=>`${r},${c}`));for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){const b=document.createElement('span');b.className='micro'+(occupied.has(`${r},${c}`)?'':' blank');g.append(b);}return g;}
 function renderPieces(){const area=$('pieces');area.textContent='';state.tray.forEach((shape,i)=>{const el=document.createElement('button');el.type='button';el.className='piece'+(selected===i?' selected':'');el.disabled=!shape||state.over;el.setAttribute('aria-label',`Piece ${i+1}, ${shape?.length??0} blocks`);if(shape)el.append(makePiece(shape));el.addEventListener('click',()=>{selected=i;hover=null;$('message').textContent=tr('selected');renderPieces();updateHighlights();});area.append(el);});}
 function render(){document.documentElement.lang=lang;document.documentElement.dir=lang==='ar'?'rtl':'ltr';document.querySelectorAll('[data-i18n]').forEach(el=>{el.textContent=tr(el.dataset.i18n)});$('languageBtn').textContent=lang.toUpperCase()+'⌄';$('score').textContent=state.score.toLocaleString();$('best').textContent=Math.max(best(),state.score).toLocaleString();$('combo').textContent='×'+state.combo;$('undoBtn').disabled=state.usedUndo||!undoSnapshot||state.over;$('message').textContent=selected>=0?tr('selected'):tr('hint');$('soundBtn').textContent=sound?'♪':'♫';$('dailyDot').style.display=storage.get('nova.daily.completed.'+today())?'none':'block';renderBoard();renderPieces();}
 function notify(text){$('toast').textContent=text;$('toast').classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').classList.remove('show'),1800);}
@@ -51,12 +51,13 @@ function fitBoard(){
  const fixed=['scorebar','message','pieces','gametools'].reduce((sum,id)=>{
   const el=document.getElementById(id);return sum+(el?el.getBoundingClientRect().height:0);
  },0);
- const room=Math.max(80,card.clientHeight-pad-fixed-gap*4-3);
+ const room=Math.max(80,card.clientHeight-pad-fixed-gap*4-12);
  const width=Math.max(80,card.clientWidth-side-5);
  const size=Math.floor(Math.min(room,width,475));
  document.documentElement.style.setProperty('--board-size',size+'px');
 }
 function scheduleBoardFit(){cancelAnimationFrame(boardFitFrame);boardFitFrame=requestAnimationFrame(fitBoard);}
 window.addEventListener('resize',scheduleBoardFit);
+window.visualViewport?.addEventListener('resize',scheduleBoardFit);
 if('ResizeObserver' in window)new ResizeObserver(scheduleBoardFit).observe(document.getElementById('gamecard'));
 scheduleBoardFit();
