@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {calculateBoardSize} from '../web/layout.js';
 test('board size subtracts scorebar and action buttons as well as tray and hint',()=>{
- const props={cardHeight:590,cardWidth:365,paddingVertical:20,paddingHorizontal:20,gap:7,
+ const props={cardHeight:590,cardWidth:450,paddingVertical:20,paddingHorizontal:20,gap:7,
   fixedHeights:[44,21,75,38],margin:10};
  assert.equal(calculateBoardSize(props),590-20-7*4-(44+21+75+38)-10);
 });
