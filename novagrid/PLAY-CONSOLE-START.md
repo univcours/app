@@ -65,3 +65,19 @@ New personal developer accounts created after 13 November 2023 must satisfy Goog
 ## Not completed
 
 No live app creation, policy acceptance, price selection, signing-key creation, secret registration, real screenshot capture, published privacy URL, signed upload, test-track rollout or public production submission has happened yet. These require the publisher's access, secrets and judgment.
+
+## Safe GitHub-to-Play internal publishing (added 31 October 2026)
+
+The CI build can now upload a **SIGNED AAB** to the Google Play **Internal testing** track, but only when the repository owner explicitly starts a **manual workflow_dispatch** and checks the input `publish_internal=true`. Normal GitHub pushes continue to build and test, but **do not upload to Google Play**.
+
+Preconditions (none can be bypassed):
+
+1. Create the Google Play app and carry out the first manual AAB upload in the Play Console. The Android Publisher API cannot create the app or perform its initial upload. Keep package `com.novagrid.cosmicpuzzle` unchanged.
+2. Securely create and back up the app upload keystore. Store four `NOVAGRID_UPLOAD_...` secrets as described above.
+3. Enable Google Play Android Developer API, grant the service-account email app release permissions in Play Console, and save its **entire JSON key** directly as GitHub Actions encrypted secret `NOVAGRID_PLAY_SERVICE_ACCOUNT_JSON`. Never paste the secret into chat, issues or a code file. Prefer workload identity federation when available.
+4. Review legal/privacy/store requirements and test in Internal track first. Public/Production deployment is **not** supported by this workflow.
+5. Open GitHub Actions → NovaGrid Android beta → Run workflow → select `novagrid-mvp`, then check `publish_internal`. The workflow will validate credentials, sign the AAB, and upload to **internal** if Play allows it.
+
+For each CI run, Android's generated `versionCode` is `10000 + GITHUB_RUN_NUMBER` to reduce Play version collisions between builds. If an existing release has a higher code, it must be adjusted before release.
+
+The exact developer-facing console link is https://play.google.com/console . Use ChatGPT Work with its cloud browser for interacting with Play Console UI, if your account supports Work, or use Play Console directly. This chat does not have the Play Console browser/session and cannot attest that an app is already published.

@@ -12,7 +12,7 @@ Seven sectors / 14,000 stages
 - [x] Tests pass for gameplay, progression, and swipe mechanics.
 - [x] Target SDK 36 expected from Capacitor 8; new CI check of generated Android variables.gradle.
 - [x] Four-mode main navigation, title NovaGrid and no native banner.
-- [x] Optional signing step in existing GitHub build workflow using only encrypted Actions secrets. No signing key has been provided or used.
+- [x] Optional signing and **manual, gated INTERNAL testing upload** step in the GitHub workflow using Actions secrets. No key has been provided, and the current AAB is unsigned.
 - [x] Draft English, French and Arabic descriptions in PLAY-STORE-LISTING.md.
 - [x] Draft privacy policy visible from the game at privacy.html; final public policy hosting is not yet arranged.
 - [x] Detailed instructions in PLAY-CONSOLE-START.md.
@@ -21,7 +21,9 @@ Seven sectors / 14,000 stages
 
 - [ ] Play Console app created or selected, and publisher legal/identity requirements completed.
 - [ ] Upload keystore generated and backed up offline; four signing secrets entered in GitHub Actions.
-- [ ] Build and verify artifact novagrid-play-internal-signed-aab, then upload it to the INTERNAL TESTING track.
+- [ ] Complete **first manual** signed AAB upload to Google Play Console. The Android Publisher API cannot create the app or do its first upload.
+- [ ] Provide authorized service-account credential as GitHub Actions encrypted secret NOVAGRID_PLAY_SERVICE_ACCOUNT_JSON.
+- [ ] Build signed artifact novagrid-play-internal-signed-aab; manually trigger workflow_dispatch with publish_internal=true to upload into INTERNAL TESTING. No production upload is configured.
 - [ ] Final external HTTPS privacy policy URL and publisher contact email added to Play Console and policy.
 - [ ] Play icon 512x512, feature graphic 1024x500 and real screenshots captured from a device.
 - [ ] App content surveys completed truthfully: Data safety, Ads YES, Content rating, Target audience, App access, etc.

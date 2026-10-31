@@ -28,3 +28,19 @@ test('Play workflow checks target API and supports signing via encrypted secrets
  assert.match(ci,/novagrid-play-internal-signed-aab/);
  assert.doesNotMatch(ci,/BEGIN PRIVATE KEY/);
 });
+
+test('Play Console upload is never triggered automatically or sent to production',()=>{
+ const ci=read('../../.github/workflows/novagrid-build.yml');
+ assert.match(ci,/publish_internal:/);
+ assert.match(ci,/default: false/);
+ assert.match(ci,/NOVAGRID_PLAY_SERVICE_ACCOUNT_JSON/);
+ assert.match(ci,/github.event_name == 'workflow_dispatch' && inputs.publish_internal == true/);
+ assert.match(ci,/tracks: internal/);
+ assert.match(ci,/status: completed/);
+ assert.doesNotMatch(ci,/tracks: production/);
+});
+test('Google Play version code changes with each Actions build',()=>{
+ const ci=read('../../.github/workflows/novagrid-build.yml');
+ assert.match(ci,/GITHUB_RUN_NUMBER/);
+ assert.match(ci,/versionCode \$code/);
+});
