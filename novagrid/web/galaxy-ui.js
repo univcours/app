@@ -54,7 +54,8 @@ export function createGalaxyUI({getProgress,setProgress,getState,onStage,getLang
  function render(){
   const p=getProgress(),summary=progressSummary(p),t=language(),chapter=SECTORS[sector];
   at('galaxyTitle').textContent=WORLD_SYMBOLS[world]+' '+WORLD_NAMES[world];
-  at('galaxySubtitle').textContent=chapter.name[getLanguage()]||chapter.name.en;
+  at('galaxySubtitle').textContent=(chapter.name[getLanguage()]||chapter.name.en)+ ' · ' +
+   (chapter.philosophy[getLanguage()]||chapter.philosophy.en);
   at('galaxyCoins').textContent='✦ '+p.coins.toLocaleString()+' '+t.points;
   at('galaxyStats').textContent=summary.completed+'/'+TOTAL_STAGES+' ★ '+summary.stars;
   at('galaxyWorld').textContent=t.world+' '+(world-sector*WORLDS_PER_SECTOR+1)+'/'+WORLDS_PER_SECTOR+
