@@ -1,0 +1,42 @@
+/* Blockfall Arena — original mobile falling-block gameplay. Banner-free. */
+.blockfall-overlay{position:fixed;inset:var(--safe-area-inset-top,env(safe-area-inset-top,0px)) 0 var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px)) 0;
+ z-index:45;display:flex;justify-content:center;padding:5px;background:radial-gradient(ellipse at 65% 6%,#5321a5b8,transparent 50%),#080c23}
+.blockfall-overlay[hidden],.fall-result[hidden]{display:none!important}
+.fall-panel{position:relative;display:flex;flex-direction:column;min-width:0;min-height:0;width:min(100%,480px);height:100%;
+ border:1px solid #5f62bc;border-radius:20px;padding:9px 11px 8px;gap:7px;
+ background:linear-gradient(158deg,#121f48,#1c1245 55%,#0b173b);overflow:hidden}
+.fall-header{display:flex;justify-content:space-between;align-items:center;gap:10px;flex:0 0 auto}
+.fall-header h2{margin:1px 0;font-size:clamp(19px,5.3vw,25px);color:#b2f9ff}
+.fall-header small{color:#9aabea;font-size:11px}
+.fall-eyebrow{font-size:9px;letter-spacing:1px;color:#98aef2}
+.fall-header-actions{display:flex;gap:7px}
+.fall-header-actions button{height:36px;width:36px;border:1px solid #6879c7;border-radius:10px;background:#283363;color:#fff}
+.fall-hud{flex:0 0 auto;display:grid;grid-template-columns:.85fr .75fr 1.35fr 52px;align-items:center;gap:4px;
+ background:#1b2954;border:1px solid #4d62a2;border-radius:12px;padding:7px 5px;min-height:56px}
+.fall-hud>div{display:flex;flex-direction:column;gap:2px;align-items:center;min-width:0}
+.fall-hud span{font-size:9px;color:#a7b9ee;font-weight:800}
+.fall-hud strong{font-size:clamp(12px,3.5vw,19px);color:#77ebf3;text-align:center}
+.fall-next #fallNext{display:grid;gap:2px;place-content:center;min-height:29px}
+.fall-mini{display:block;width:9px;height:9px;border-radius:2px;box-shadow:inset 1px 1px 1px #ffffff88}
+.fall-board-holder{flex:1 1 0;min-height:0;width:100%;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.fall-board{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));grid-template-rows:repeat(18,minmax(0,1fr));
+ gap:1px;padding:4px;border:2px solid #4eabef;box-sizing:border-box;border-radius:10px;
+ background:linear-gradient(170deg,#060f2a,#111b43);box-shadow:0 0 17px #1483f58f;touch-action:none}
+.fall-cell{background:#1b2b51;border:1px solid #263d67;border-radius:2px;min-width:0;min-height:0}
+.fall-cell.fall-filled{background:var(--piece-color);border:1px solid #ffffff8c;box-shadow:inset 2px 2px 2px #ffffff63,inset -2px -2px 2px #07164280}
+.fall-cell.fall-ghost{background:#245a8d58;border:1px dashed #65ddec6b}
+.fall-controls{flex:0 0 auto;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px;min-height:53px}
+.fall-controls button{min-width:0;border:1px solid #6775dd;border-radius:14px;background:linear-gradient(155deg,#204879,#442776);
+ box-shadow:inset 0 1px 0 #ffffff29;color:#eefcff;font-size:24px;touch-action:manipulation;min-height:49px}
+.fall-controls button:active{transform:scale(.94);background:#3766a3}
+.fall-controls .fall-drop{border-color:#66e5f2;background:linear-gradient(130deg,#126779,#4c39ad)}
+.fall-tip{flex:0 0 auto;min-height:24px;text-align:center;color:#aeb8ee;font-size:10px}
+.fall-result{position:absolute;inset:0;display:grid;place-items:center;background:#030818d9;z-index:3;padding:20px}
+.fall-result-inner{text-align:center;width:min(100%,320px);background:linear-gradient(140deg,#293777,#251a50);
+ border:1px solid #7abaf0;border-radius:20px;padding:26px 16px;box-shadow:0 0 40px #000a}
+.fall-result strong{font-size:23px;color:#a5fbff}
+.fall-result p{font-size:13px;color:#d5dffd}
+.fall-result button{margin-top:12px;background:linear-gradient(100deg,#35bbdf,#a26ef6);border:none;border-radius:12px;
+ padding:13px 20px;color:#06132c;font-weight:900;width:100%}
+@media(max-height:670px){.fall-panel{gap:3px;padding:5px 7px}.fall-header h2{font-size:18px}.fall-hud{padding:4px;min-height:48px}
+ .fall-controls{min-height:43px;gap:5px}.fall-controls button{min-height:41px}.fall-tip{min-height:14px;font-size:9px}}
