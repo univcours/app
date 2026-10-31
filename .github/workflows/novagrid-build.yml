@@ -1,6 +1,12 @@
 name: NovaGrid Android beta
 on:
   workflow_dispatch:
+    inputs:
+      publish_internal:
+        description: "Upload signed AAB to Google Play INTERNAL TESTING only (requires app created and first upload completed in Play Console)"
+        type: boolean
+        required: true
+        default: false
   push:
     branches: [novagrid-mvp]
     paths:
@@ -43,6 +49,12 @@ jobs:
           grep -Eq 'targetSdkVersion\s*=\s*36' android/variables.gradle
           grep -Fq '"appId": "com.novagrid.cosmicpuzzle"' capacitor.config.json
           grep -Fq '"appName": "NovaGrid"' capacitor.config.json
+      - name: Give each release bundle a unique Play version code
+        run: |
+          code=$((10000 + GITHUB_RUN_NUMBER))
+          sed -i -E "s/versionCode[[:space:]]+[0-9]+/versionCode $code/" android/app/build.gradle
+          grep -Fq "versionCode $code" android/app/build.gradle
+          echo "NovaGrid Android versionCode=$code"
       - name: Check whether a signing key is configured for Internal Testing
         env:
           NOVAGRID_UPLOAD_KEYSTORE_BASE64: ${{ secrets.NOVAGRID_UPLOAD_KEYSTORE_BASE64 }}
@@ -95,6 +107,31 @@ jobs:
           path: novagrid/android/app/build/outputs/bundle/release/novagrid-play-internal-signed.aab
           retention-days: 14
           if-no-files-found: error
+      - name: Validate Play Console credentials before any upload
+        if: github.event_name == 'workflow_dispatch' && inputs.publish_internal == true
+        env:
+          NOVAGRID_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.NOVAGRID_PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [[ "$NOVAGRID_SIGNING_READY" != "true" ]]; then
+            echo "::error::Four signing secrets are required; no signed AAB was generated."
+            exit 1
+          fi
+          if [[ -z "$NOVAGRID_PLAY_SERVICE_ACCOUNT_JSON" ]]; then
+            echo "::error::GitHub Actions secret NOVAGRID_PLAY_SERVICE_ACCOUNT_JSON is missing."
+            exit 1
+          fi
+          test -s android/app/build/outputs/bundle/release/novagrid-play-internal-signed.aab
+          echo "Ready for the INTERNAL test track only (not public production)."
+      - name: Upload signed bundle to Google Play INTERNAL TESTING
+        if: github.event_name == 'workflow_dispatch' && inputs.publish_internal == true
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.NOVAGRID_PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.novagrid.cosmicpuzzle
+          releaseFiles: novagrid/android/app/build/outputs/bundle/release/novagrid-play-internal-signed.aab
+          tracks: internal
+          status: completed
+          changesNotSentForReview: false
       - uses: actions/upload-artifact@v4
         with:
           name: novagrid-debug-apk
