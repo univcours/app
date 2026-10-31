@@ -120,3 +120,13 @@ html[dir=rtl] .brand{letter-spacing:1px}
 .topactions .language{width:35px;font-size:10px}
 .topactions .muted{opacity:.56;border-color:#655880}
 @media(max-width:405px){.identity{gap:8px}.brand{font-size:clamp(19px,5.1vw,27px)}.brandlogo{width:clamp(37px,6.8dvh,50px);height:clamp(37px,6.8dvh,50px)}.topactions{gap:3px}}
+
+/* Android AdMob draws OVER the WebView. Reserve a real bottom dock in the
+   layout before requesting any banner, including devices where SizeChanged
+   never fires. Avoid double-counting native ad height as shell padding. */
+html.native-ad-layout body{height:100%;padding-bottom:var(--native-ad-reserve,96px)!important;overflow:hidden}
+html.native-ad-layout .shell{height:100%;min-height:0;padding-bottom:4px!important}
+html.native-ad-layout .gamecard{min-height:0}
+html.native-ad-layout .gametools{position:relative;z-index:2;flex-shrink:0}
+html.native-ad-layout .galaxy-overlay{bottom:var(--native-ad-reserve,96px)!important}
+html.native-ad-layout .overlay{padding-bottom:calc(var(--native-ad-reserve,96px) + 8px)}

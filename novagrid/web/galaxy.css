@@ -64,3 +64,6 @@
 .galaxy-node.mission-survival .mission-mark{border-color:#71f1ac;color:#8ff0b3}
 .galaxy-node.mission-clearing .mission-mark{border-color:#f7a39a;color:#ffc1b8}
 .galaxy-node.mission-mastery .mission-mark{border-color:#ffdf73;color:#ffe792}
+
+/* The stage map is never covered by an Android native ad. */
+html.native-ad-layout .galaxy-overlay{bottom:var(--native-ad-reserve,96px)!important}
