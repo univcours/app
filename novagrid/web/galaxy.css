@@ -105,3 +105,5 @@ html.native-ad-layout #galaxyOverlay{
 .mode[data-mode="blockfall"].active{background:linear-gradient(118deg,#176078,#4932a2);border-color:#7ceee3}
 .modes .dot{right:5px;top:4px}
 @media(max-width:350px){.modes{gap:3px}.mode>span:nth-child(2){font-size:9px}}
+
+.galaxy-diagnostics[hidden]{display:none!important}
