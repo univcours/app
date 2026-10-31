@@ -1,8 +1,12 @@
-# NovaGrid Privacy Policy (MVP)
+# NovaGrid — Privacy policy (draft for review)
 Last updated: 31 October 2026
 
-NovaGrid is a simple offline block puzzle game. The MVP does not ask for an account, collect personally identifying information, send analytics, use advertising, or contact external servers. Game progress, best scores, settings and a daily challenge state are saved locally on your device using local storage. Removing the app or clearing its storage may erase this data.
+NovaGrid stores game progress, language, daily challenge, and high scores in local device storage. It does not require an account.
 
-NovaGrid currently uses no third-party analytics, advertising networks, social sign-in, or remote storage. The Android application is packaged using Capacitor and runs its local files in an embedded WebView.
+The Android version includes Google AdMob advertising SDK and Google User Messaging Platform (UMP). The SDK may process device identifiers, IP-derived location, ad impressions/interactions, diagnostics and consent preferences for ad delivery, fraud prevention and measurement. AdMob requires a network connection. During internal development, Google demo advertisements are displayed; no live advertising IDs are used.
 
-To request information about this draft privacy notice, use the developer contact address shown on the official Google Play listing when published. This draft must be reviewed and given an accurate developer contact before publishing; update it if any feature or SDK changes the application's data practices.
+Consent may be requested depending on region, and privacy-options access is displayed in-app when required. If consent or the SDK is unavailable, gameplay remains functional with no advertising.
+
+Local gameplay data may be erased by uninstalling or clearing application data. Before public launch, the publisher must review this notice, insert a support contact and publish it at a publicly accessible URL, and match Play Console Data safety disclosures to the actual SDK version.
+
+Google advertising privacy info: https://policies.google.com/technologies/ads

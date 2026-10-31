@@ -1,0 +1,16 @@
+import {readFileSync,writeFileSync,existsSync} from 'node:fs';
+const path='android/app/src/main/AndroidManifest.xml';
+if(!existsSync(path))throw Error('Generate Android first: npx cap add android');
+const demo='ca-app-pub-3940256099942544~3347511713';
+const appId=process.env.ADMOB_ANDROID_APP_ID||demo;
+if(!/^ca-app-pub-[0-9]{16}~[0-9]{10}$/.test(appId))throw Error('Invalid AdMob App ID (~ required).');
+if(process.env.ADMOB_LIVE_ADS==='true'&&appId===demo)throw Error('Live ads must use your real App ID');
+let xml=readFileSync(path,'utf8');
+const marker='com.google.android.gms.ads.APPLICATION_ID';
+const node='<meta-data android:name="'+marker+'" android:value="'+appId+'" />';
+const pattern=/<meta-data[^>]*android:name="com\.google\.android\.gms\.ads\.APPLICATION_ID"[^>]*\/?>/;
+if(pattern.test(xml))xml=xml.replace(pattern,node);
+else if(xml.includes('</application>'))xml=xml.replace('</application>','    '+node+'\n    </application>');
+else throw Error('Missing Android application element');
+writeFileSync(path,xml);
+console.log('AdMob native App ID:',appId===demo?'Google test ID':'supplied App ID');

@@ -1,13 +1,13 @@
 # NovaGrid · Cosmic Puzzle
 
-An original, ad-free MVP of a mobile block puzzle that works offline.
+An original 9×9 block puzzle. Core gameplay works offline; Android test builds now include Google AdMob demo ads and UMP consent.
 
 ## Features
 - 9×9 puzzle grid; clear complete rows, columns, or 3×3 boxes.
 - Three-placeable-piece tray, combos, one undo per game, and high scores.
 - Classic and deterministic UTC daily challenge; saved progress.
 - English, French, Arabic; responsive and keyboard accessible.
-- No accounts, tracking, ads, network calls, or dangerous permissions.
+- No account required; game scores stay on device. Android includes Google advertising SDK with privacy consent checks.
 
 ## Try the game
 Run `python -m http.server 8000 --directory web`, then open `http://localhost:8000`.
@@ -27,3 +27,6 @@ NovaGrid and its logo are original concepts. Check trademark / Play Store name a
 
 ## Future
 Animations, original audio design, accessibility tuning, testers, Play Store assets, publisher credentials via Workload Identity Federation, quality review, release signing and analytics opt-in.
+
+## Advertising
+Google demo ads are used during Android testing, not live IDs. See [ADMOB.md](ADMOB.md) for requirements before activating production advertising and the prepared app-ads.txt line.

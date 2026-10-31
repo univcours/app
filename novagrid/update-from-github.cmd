@@ -44,6 +44,8 @@ if not exist "android\settings.gradle" (
   call npm run android:sync
   if errorlevel 1 exit /b 1
 )
+call npm run android:ads
+if errorlevel 1 exit /b 1
 echo.
 echo SUCCESS: NovaGrid Android project updated from GitHub.
 echo Return to Android Studio, allow Gradle Sync if prompted, and click Run.

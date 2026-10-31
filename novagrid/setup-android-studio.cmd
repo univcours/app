@@ -26,6 +26,8 @@ if exist "android\settings.gradle" (
   call npx cap add android
 )
 if errorlevel 1 exit /b 1
+call npm run android:ads
+if errorlevel 1 exit /b 1
 echo.
 echo [NovaGrid] Android project is ready. Opening Android Studio...
 call npx cap open android

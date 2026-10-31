@@ -29,6 +29,8 @@ jobs:
         run: npm run build
       - name: Create Android project
         run: npx cap add android
+      - name: Configure AdMob Android test App ID
+        run: npm run android:ads
       - name: Build debug APK and unsigned bundle
         run: |
           chmod +x android/gradlew
