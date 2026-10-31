@@ -2,7 +2,7 @@ import {initializeAds,gameFinished,maybeShowInterstitialOnReplay} from './ads.js
 import {SIZE,makeGame,runMove,canPlace,hasMove} from './engine.js';
 import {shapeDimensions,projectDragPoint,dragLift} from './drag.js';
 import {createGameAudio} from './audio.js';
-import {stageConfig,startStage,stageWon,stageFailed,rankStage,awardStage,initialProgress,normalizeProgress} from './stages.js';
+import {stageConfig,startStage,stageWon,stageFailed,rankStage,awardStage,stageObjectiveText,initialProgress,normalizeProgress} from './stages.js';
 import {createGalaxyUI} from './galaxy-ui.js';
 const T={
  en:{tagline:'A universe of puzzles',eyebrow:'YOUR DAILY BRAIN BOOST',hero1:'Think sharp.',hero2:'Glow brighter.',subtitle:'Place blocks. Clear lines. Chase your next high score.',classic:'Classic',stages:'Stages',daily:'Daily challenge',score:'SCORE',best:'BEST',streak:'COMBO',hint:'Select a shape, then tap the grid',selected:'Now tap where the shape should land',invalid:'Not enough space! Try another spot',undo:'Undo once',new:'New game',tipTitle:'Cosmic tip',tip:'Fill a row, column or 3×3 square to clear it.',offline:'Offline & private',playAgain:'Play again',close:'Close',gameOver:'Out of space!',gameOverBody:'Every brilliant run starts with another try.',nice:'Cosmic clear!',dailyDone:'Daily challenge completed',newConfirm:'Start a fresh game? Your current progress will be lost.',share:'NovaGrid score',copy:'Score copied!',undoUsed:'Your one undo has been used',none:'Play a move first',dailyLabel:'Daily · '},
@@ -67,9 +67,7 @@ function updateStageHUD(){
  hud.hidden=false;
  const cfg=stageConfig(state.stageLevel);
  $('stageTitle').textContent='✦ '+state.stageLevel+' / 2000';
- $('stageStats').textContent=(lang==='ar'?'الهدف ':lang==='fr'?'Objectif ':'Goal ')+state.score+'/'+cfg.target+
- '  ·  '+(lang==='ar'?'الحركات ':lang==='fr'?'Coups ':'Moves ')+Math.max(0,cfg.movesLimit-state.moves)+
- (cfg.requiredClears?'  ·  '+(state.clears||0)+'/'+cfg.requiredClears+' ✦':'');
+ $('stageStats').textContent=stageObjectiveText(state,lang)+' · '+(lang==='ar'?'حتى ما يبقاش حل':lang==='fr'?'Jusqu’au dernier coup':'Play until no moves');
  $('stageCoins').textContent='✦ '+progress.coins;
 }
 
@@ -197,11 +195,19 @@ function notify(text){$('toast').textContent=text;$('toast').classList.add('show
 function placeAt(row,col){if(state.over)return;audio.unlock();if(selected<0){notify(tr('hint'));return;}const snapshot=JSON.parse(JSON.stringify(state));const result=runMove(state,selected,row,col);if(!result){notify(tr('invalid'));audio.effect('invalid');return;}if(!state.usedUndo)undoSnapshot=snapshot;state=result.state;selected=-1;hover=null;
  if(state.mode==='stage'){
   state.clears=(snapshot.clears||0)+result.groups;
-  if(stageWon(state)){
+  state.rows=(snapshot.rows||0)+result.rows;
+  state.columns=(snapshot.columns||0)+result.columns;
+  state.squares=(snapshot.squares||0)+result.squares;
+  state.cellsCleared=(snapshot.cellsCleared||0)+result.cleared;
+  state.clearingMoves=(snapshot.clearingMoves||0)+(result.groups>0?1:0);
+  state.maxCombo=Math.max(snapshot.maxCombo||0,state.combo||0);
+  // Stage can finish ONLY when the real puzzle engine reports that no piece fits.
+  // Achieving a score/mission target during play is never enough to advance.
+  if(state.over&&stageWon(state)){
    state.won=true;state.over=true;
    const awarded=awardStage(progress,state.stageLevel,rankStage(state));
    progress=awarded.progress;lastEarned=awarded.earned;saveProgress();
-  }else if(stageFailed(state)){state.won=false;state.over=true;}
+  }else if(state.over&&stageFailed(state)){state.won=false;}
  }
  saveBest();store();if(result.groups){notify(`✦ ${tr('nice')} +${result.gained}`);audio.effect('clear');if(navigator.vibrate)navigator.vibrate([15,28,18]);}else audio.effect('place');render();if(state.over){gameFinished();if(state.mode==='daily')storage.set('nova.daily.completed.'+today(),'1');setTimeout(()=>showEnd(),300);}}
 function showEnd(){
@@ -215,7 +221,7 @@ function showEnd(){
   const [title,earned,points,map,retry]=messages[lang]||messages.en;
   $('dialogTitle').textContent=title;
   $('dialogBody').textContent=win?'★'.repeat(progress.completed[state.stageLevel]||1)+' · '+earned+lastEarned+' '+points:
-   '✦ '+state.score+'/'+stageConfig(state.stageLevel).target;
+   '✦ '+stageObjectiveText(state,lang)+' · '+(lang==='ar'?'نفس المرحلة حتى تنجح':lang==='fr'?'Ce niveau reste verrouillé':'Replay this level to unlock the next');
   $('dialogPlay').textContent=win?map:retry;
  }else{
   $('dialogTitle').textContent=tr('gameOver');$('dialogBody').textContent=tr('gameOverBody');
