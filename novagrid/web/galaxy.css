@@ -67,3 +67,23 @@
 
 /* The stage map is never covered by an Android native ad. */
 html.native-ad-layout .galaxy-overlay{bottom:var(--native-ad-reserve,96px)!important}
+
+/* Game divisions: a distinct compact selector, not just re-labelled stages. */
+.galaxy-panel{gap:6px}
+.galaxy-sectors-label{font-size:10px;font-weight:800;letter-spacing:1.3px;color:#a9bfff}
+.galaxy-sectors{display:flex;gap:7px;overflow-x:auto;overflow-y:hidden;flex:0 0 auto;
+ padding:3px 2px 8px;scroll-snap-type:x proximity;overscroll-behavior-x:contain}
+.sector-card{flex:0 0 105px;min-width:0;min-height:79px;padding:6px 5px;border-radius:13px;
+ display:flex;align-items:center;flex-direction:column;gap:2px;text-align:center;
+ border:1px solid #485fa9;background:linear-gradient(140deg,#182951,#251c56);
+ box-shadow:inset 0 1px 0 #ffffff1b;scroll-snap-align:start}
+.sector-card.selected{border-color:#75f4e6;background:linear-gradient(130deg,#19587a,#56309b);
+ box-shadow:0 0 13px #48a9fa70}
+.sector-icon{font-size:20px;line-height:1;color:#a6f9f5}
+.sector-name{font-size:9px;font-weight:800;line-height:1.2;color:#f5f4ff}
+.sector-card small{font-size:9px;color:#c7c9ff}
+.galaxy-grid{gap:13px 7px}
+.galaxy-node.mission-charge .mission-mark{border-color:#82e4ff;color:#7eeaff}
+.galaxy-node[title*="BOSS"]{border-width:3px;box-shadow:0 0 19px #ee62d4a6}
+html[dir=rtl] .galaxy-sectors{direction:rtl}
+@media(max-height:700px){.sector-card{min-height:65px;flex-basis:90px}.sector-icon{font-size:16px}.galaxy-panel{gap:4px}}
