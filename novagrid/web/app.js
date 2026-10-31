@@ -66,7 +66,7 @@ function updateStageHUD(){
  if(state?.mode!=='stage'){hud.hidden=true;return;}
  hud.hidden=false;
  const cfg=stageConfig(state.stageLevel);
- $('stageTitle').textContent=SECTORS[cfg.sector].icon+' '+state.stageLevel+' / '+TOTAL_STAGES;
+ $('stageTitle').textContent=SECTORS[cfg.sector].icon+' '+state.stageLevel+' · '+(SECTORS[cfg.sector].name[lang]||SECTORS[cfg.sector].name.en);
  $('stageStats').textContent=stageObjectiveText(state,lang)+' · '+(lang==='ar'?'حتى ما يبقاش حل':lang==='fr'?'Jusqu’au dernier coup':'Play until no moves');
  $('stageCoins').textContent='✦ '+progress.coins;
 }
@@ -190,7 +190,7 @@ function cancelDrag(){
  const d=clearDrag();
  if(d){hover=null;if(state)updateHighlights();}
 }
-function render(){document.documentElement.lang=lang;document.documentElement.dir=lang==='ar'?'rtl':'ltr';document.querySelectorAll('[data-i18n]').forEach(el=>{el.textContent=tr(el.dataset.i18n)});$('languageBtn').textContent=lang.toUpperCase()+'⌄';$('score').textContent=state.score.toLocaleString();$('best').textContent=Math.max(best(),state.score).toLocaleString();$('combo').textContent='×'+state.combo;$('undoBtn').disabled=state.usedUndo||!undoSnapshot||state.over;$('message').textContent=selected>=0?tr('selected'):tr('hint');renderAudioButtons();updateStageHUD();$('dailyDot').style.display=storage.get('nova.daily.completed.'+today())?'none':'block';renderBoard();renderPieces();}
+function render(){document.documentElement.dataset.sector=state.mode==='stage'?stageConfig(state.stageLevel).sectorId:'classic';document.documentElement.lang=lang;document.documentElement.dir=lang==='ar'?'rtl':'ltr';document.querySelectorAll('[data-i18n]').forEach(el=>{el.textContent=tr(el.dataset.i18n)});$('languageBtn').textContent=lang.toUpperCase()+'⌄';$('score').textContent=state.score.toLocaleString();$('best').textContent=Math.max(best(),state.score).toLocaleString();$('combo').textContent='×'+state.combo;$('undoBtn').disabled=state.usedUndo||!undoSnapshot||state.over;$('message').textContent=selected>=0?tr('selected'):tr('hint');renderAudioButtons();updateStageHUD();$('dailyDot').style.display=storage.get('nova.daily.completed.'+today())?'none':'block';renderBoard();renderPieces();}
 function notify(text){$('toast').textContent=text;$('toast').classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').classList.remove('show'),1800);}
 function placeAt(row,col){if(state.over)return;audio.unlock();if(selected<0){notify(tr('hint'));return;}const snapshot=JSON.parse(JSON.stringify(state));const result=runMove(state,selected,row,col);if(!result){notify(tr('invalid'));audio.effect('invalid');return;}if(!state.usedUndo)undoSnapshot=snapshot;state=result.state;selected=-1;hover=null;
  if(state.mode==='stage'){

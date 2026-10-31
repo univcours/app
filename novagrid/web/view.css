@@ -130,3 +130,16 @@ html.native-ad-layout .gamecard{min-height:0}
 html.native-ad-layout .gametools{position:relative;z-index:2;flex-shrink:0}
 html.native-ad-layout .galaxy-overlay{bottom:var(--native-ad-reserve,96px)!important}
 html.native-ad-layout .overlay{padding-bottom:calc(var(--native-ad-reserve,96px) + 8px)}
+
+/* Each campaign carries a separate playfield identity while retaining
+   the same touch coordinates and accessible board grid. */
+html[data-sector="meteor"] .boardwrap{border-color:#ffb46f;box-shadow:0 0 17px #ff6e5975,inset 0 0 16px #873d3860}
+html[data-sector="meteor"] .gamecard{border-color:#b96a79;background:linear-gradient(158deg,#23194c,#311d3c 65%,#381b3c)}
+html[data-sector="gravity"] .boardwrap{border-color:#5ce9e4;box-shadow:0 0 18px #27d6ca78,inset 0 0 14px #3278c76b}
+html[data-sector="gravity"] .gamecard{border-color:#5286cf;background:linear-gradient(160deg,#0e324e,#161d4b 65%,#182748)}
+html[data-sector="prism"] .boardwrap{border-color:#f4a8ff;box-shadow:0 0 19px #c159ffa3,inset 0 0 18px #7839e67e}
+html[data-sector="prism"] .gamecard{border-color:#b675e9;background:linear-gradient(160deg,#25164d,#301853 65%,#1c2557)}
+html[data-sector="reactor"] .boardwrap{border-color:#ffe19d;box-shadow:0 0 19px #e9b35d9e,inset 0 0 14px #ef854d78}
+html[data-sector="reactor"] .gamecard{border-color:#aa8561;background:linear-gradient(160deg,#3a253e,#322054 70%,#212448)}
+html[data-sector="void"] .boardwrap{border-color:#fb86b2;box-shadow:0 0 18px #b12589ac,inset 0 0 18px #7538997e}
+html[data-sector="void"] .gamecard{border-color:#ad4c96;background:linear-gradient(155deg,#27133c,#1c1737 60%,#391743)}
