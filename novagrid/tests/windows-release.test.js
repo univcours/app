@@ -26,3 +26,13 @@ test('release signing does not store keys in the repository',()=>{
  assert.match(script,/-storepass:env/);
  assert.match(script,/jarsigner\.exe/);
 });
+
+test('PowerShell release script auto-detects Android Studio bundled Java on Windows',()=>{
+ const script=read('../scripts/update-build-install.ps1');
+ assert.match(script,/function Enable-AndroidStudioJava/);
+ assert.match(script,/Android\\Android Studio\\jbr/);
+ assert.match(script,/bin\\java\.exe/);
+ assert.match(script,/bin\\javac\.exe/);
+ assert.match(script,/\$env:JAVA_HOME =/);
+ assert.match(script,/Enable-AndroidStudioJava\s*\n\s*Write-Host '\[NovaGrid\] Build APK/);
+});
