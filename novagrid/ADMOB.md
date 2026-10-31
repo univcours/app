@@ -1,6 +1,6 @@
 # AdMob for NovaGrid
 
-**Integration status: Google DEMO ads only. NovaGrid's own AdMob App ID, Banner and Interstitial IDs have been recorded; live serving is still disabled.** The Android SDK is integrated through `@capacitor-community/admob@8.2.0`, and Google UMP is consulted before requesting ads. The web preview has no ads. Test banners are native and game-over interstitials are limited to natural replay breaks after at least two completed games and three minutes.
+**Current format: Banner OFF, Google test Interstitial ON.** The previous banner Ad Unit ID is retained for reference but is not requested by the app. Rewarded video / rewarded interstitial will be introduced later as a separate feature, not activated in this version. The Android SDK is `@capacitor-community/admob@8.2.0` with UMP consent and interstitial replay throttling; live advertising is still OFF.
 
 Publisher: `pub-7945572016731367`.
 Previously used ad unit IDs: `ca-app-pub-7945572016731367/7155720038` and `ca-app-pub-7945572016731367/5247968960`. **They are not enabled yet.** Verify which one is a Banner and which one is an Interstitial, and confirm they belong to the AdMob app corresponding to NovaGrid. The first is an **Interstitial** unit and the second a **Banner** unit, verified from the owner's AdMob screenshot. Both are *ad unit IDs* and currently belong to the old AdMob listing. The screenshot also confirms the old *App ID* `ca-app-pub-7945572016731367~8159134969`, tied to `muslim tv` and store package `com.afnn.ayoudatv` (approval status: **Requires review**). **Do not insert this old App ID into NovaGrid's AndroidManifest while the listing is tied to a different package**.
@@ -9,7 +9,7 @@ Previously used ad unit IDs: `ca-app-pub-7945572016731367/7155720038` and `ca-ap
 
 - AdMob App ID: `ca-app-pub-7945572016731367~1688423435`
 - Android package: `com.novagrid.cosmicpuzzle`
-- Banner Ad Unit ID: `ca-app-pub-7945572016731367/3815893327` (confirmed by AdMob 'Ad unit successfully created' screen)
+- Banner Ad Unit ID (not used in this version): `ca-app-pub-7945572016731367/3815893327`
 - Interstitial Ad Unit ID: `ca-app-pub-7945572016731367/2422920606` (confirmed from the AdMob Ad units screen)
 - Live ads: **OFF**. Google demo App ID and demo ad units are deliberately used in APK test builds.
 
@@ -25,7 +25,6 @@ The three app/unit IDs have now been verified. **Do not enable live ads before c
 
 ```
 ADMOB_ANDROID_APP_ID=ca-app-pub-7945572016731367~1688423435
-ADMOB_BANNER_UNIT_ID=ca-app-pub-7945572016731367/3815893327
 ADMOB_INTERSTITIAL_UNIT_ID=ca-app-pub-7945572016731367/2422920606
 ADMOB_LIVE_ADS=true
 ```
@@ -37,3 +36,7 @@ The supplied content is in `novagrid/app-ads.txt` as a prepared copy, **not publ
 
 ## Play requirements
 Update the final privacy policy URL, Data Safety details, audience declaration, "Contains ads" declaration, and AdMob UMP privacy messages before launch.
+
+## Banner-free build (2026-10-31)
+
+The Android game no longer calls `AdMob.showBanner`. A legacy native banner is dismissed using `AdMob.removeBanner` on startup. `web/no-banner.css` restores the whole playable viewport while respecting Android status/navigation insets. The Interstitial remains enabled at natural replay breaks (Google test unit in debug builds). Rewarded video and rewarded interstitial are planned **for a later build**, and no reward-related advertising code is enabled now.

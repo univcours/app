@@ -5,7 +5,7 @@
     "ca-app-pub-7945572016731367/5247968960"
   ],
   "liveEnabled": false,
-  "status": "All NovaGrid ad IDs confirmed. Live ads remain OFF by default; Android builds use Google test ads.",
+  "status": "Banner disabled; Google test Interstitial only. Live disabled; Rewarded/Rewarded Interstitial deferred.",
   "legacyAdMobApp": {
     "appName": "muslim tv",
     "adMobAppId": "ca-app-pub-7945572016731367~8159134969",
@@ -22,6 +22,10 @@
     "appId": "ca-app-pub-7945572016731367~1688423435",
     "bannerAdUnitId": "ca-app-pub-7945572016731367/3815893327",
     "interstitialAdUnitId": "ca-app-pub-7945572016731367/2422920606",
-    "adUnitsStatus": "Verified AdMob App ID, Banner and Interstitial IDs from the NovaGrid AdMob app screen, 2026-10-31"
+    "adUnitsStatus": "Verified AdMob App ID, Banner and Interstitial IDs from the NovaGrid AdMob app screen, 2026-10-31",
+    "bannerEnabled": false,
+    "interstitialEnabled": true,
+    "rewardedEnabled": false,
+    "rewardedInterstitialEnabled": false
   }
 }
