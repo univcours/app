@@ -1,1 +1,18 @@
-{"appId":"com.novagrid.cosmicpuzzle","appName":"NovaGrid: Cosmic Puzzle","webDir":"dist","server":{"androidScheme":"https"},"android":{"backgroundColor":"#080c20"}}
+{
+  "appId": "com.novagrid.cosmicpuzzle",
+  "appName": "NovaGrid: Cosmic Puzzle",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "backgroundColor": "#080c20"
+  },
+  "plugins": {
+    "SystemBars": {
+      "insetsHandling": "css",
+      "style": "DARK",
+      "hidden": false
+    }
+  }
+}

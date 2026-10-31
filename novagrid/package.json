@@ -8,9 +8,10 @@
     "test": "node --test tests/*.test.js",
     "build": "node scripts/build.mjs",
     "android:init": "npx cap add android",
-    "android:sync": "npm run build && npx cap sync android && npm run android:ads",
+    "android:sync": "npm run build && npx cap sync android && npm run android:ads && npm run android:brand",
     "android:open": "npx cap open android",
-    "android:ads": "node scripts/configure-android-ads.mjs"
+    "android:ads": "node scripts/configure-android-ads.mjs",
+    "android:brand": "node scripts/apply-android-brand.mjs"
   },
   "dependencies": {
     "@capacitor/core": "8.5.3",
@@ -19,6 +20,7 @@
   },
   "devDependencies": {
     "@capacitor/cli": "8.5.3",
-    "esbuild": "0.25.12"
+    "esbuild": "0.25.12",
+    "sharp": "0.34.3"
   }
 }

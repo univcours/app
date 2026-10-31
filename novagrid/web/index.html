@@ -1,18 +1,20 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"><meta name="theme-color" content="#090d21"><meta name="description" content="NovaGrid — the original daily cosmic block puzzle. Play offline."><title>NovaGrid • Cosmic Puzzle</title><link rel="icon" href="icon.svg" type="image/svg+xml"><link rel="stylesheet" href="style.css"></head>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"><meta name="theme-color" content="#090d21"><meta name="description" content="NovaGrid — the original daily cosmic block puzzle. Play offline."><title>NovaGrid • Cosmic Puzzle</title><link rel="icon" href="logo.webp" type="image/webp"><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="view.css"></head>
 <body>
-<main class="shell">
- <header class="topbar"><div class="identity"><div class="mark" aria-hidden="true"><span></span><span></span><span></span><span></span></div><div><div class="brand">NOVA<span>GRID</span></div><div class="tagline" data-i18n="tagline">A universe of puzzles</div></div></div><div class="topactions"><button class="iconbtn" id="soundBtn" aria-label="Toggle sound" title="Sound">♫</button><button class="language" id="languageBtn" aria-label="Change language">EN⌄</button></div></header>
- <section class="hero"><div class="eyebrow"><span class="sparkle">✦</span> <span data-i18n="eyebrow">YOUR DAILY BRAIN BOOST</span></div><h1><span data-i18n="hero1">Think sharp.</span><br><em data-i18n="hero2">Glow brighter.</em></h1><p data-i18n="subtitle">Place blocks. Clear lines. Chase your next high score.</p></section>
- <nav class="modes" aria-label="Game modes"><button class="mode active" data-mode="classic"><span>∞</span><span data-i18n="classic">Classic</span></button><button class="mode" data-mode="daily"><span>◈</span><span data-i18n="daily">Daily challenge</span><b id="dailyDot" class="dot"></b></button></nav>
- <section class="gamecard"><div class="scorebar"><div class="scorebox"><span data-i18n="score">SCORE</span><strong id="score">0</strong></div><div class="scoreline"></div><div class="scorebox"><span data-i18n="best">BEST</span><strong id="best">0</strong></div><div class="scoreline"></div><div class="scorebox"><span data-i18n="streak">COMBO</span><strong id="combo">×0</strong></div></div>
- <div class="boardwrap"><div id="board" class="board" role="grid" aria-label="9 by 9 puzzle board"></div><div class="boardshade" aria-hidden="true"></div></div>
- <div class="gamehint" id="message" aria-live="polite" data-i18n="hint">Select a shape, then tap the grid</div>
- <div class="pieces" id="pieces" aria-label="Choose a puzzle piece"></div>
- <div class="gametools"><button id="undoBtn" class="utility"><span>↶</span> <span data-i18n="undo">Undo once</span></button><button id="newBtn" class="utility"><span>↻</span> <span data-i18n="new">New game</span></button></div>
+<main class="shell" id="gameShell">
+ <header class="topbar">
+  <div class="identity"><img class="brandlogo" src="logo.webp" alt="NovaGrid logo"/><div class="brandgroup"><div class="brand">NOVA<span>GRID</span></div><div class="tagline">COSMIC PUZZLE</div></div></div>
+  <div class="topactions"><button class="iconbtn" id="soundBtn" aria-label="Toggle sound" title="Sound">♫</button><button class="language" id="languageBtn" aria-label="Change language">EN⌄</button></div>
+ </header>
+ <nav class="modes" aria-label="Game modes"><button class="mode active" data-mode="classic"><span>∞</span><span data-i18n="classic">Classic</span></button><button class="mode" data-mode="daily"><span>✦</span><span data-i18n="daily">Daily challenge</span><b id="dailyDot" class="dot"></b></button></nav>
+ <section class="gamecard" id="gamecard">
+  <div class="scorebar"><div class="scorebox"><span data-i18n="score">SCORE</span><strong id="score">0</strong></div><div class="scoreline"></div><div class="scorebox"><span data-i18n="best">BEST</span><strong id="best">0</strong></div><div class="scoreline"></div><div class="scorebox"><span data-i18n="streak">COMBO</span><strong id="combo">×0</strong></div></div>
+  <div class="boardwrap"><div id="board" class="board" role="grid" aria-label="9 by 9 puzzle board"></div><div class="boardshade" aria-hidden="true"></div></div>
+  <div class="gamehint" id="message" aria-live="polite" data-i18n="hint">Select a shape, then tap the grid</div>
+  <div class="pieces" id="pieces" aria-label="Choose a puzzle piece"></div>
+  <div class="gametools"><button id="undoBtn" class="utility"><span>↶</span> <span data-i18n="undo">Undo once</span></button><button id="newBtn" class="utility"><span>↻</span> <span data-i18n="new">New game</span></button><button class="utility share" id="shareBtn" aria-label="Share score" title="Share results">↗</button></div>
  </section>
- <section class="minirow"><div class="insight"><span class="insighticon">✧</span><div><b data-i18n="tipTitle">Cosmic tip</b><p data-i18n="tip">Fill a row, column or 3×3 square to clear it.</p></div></div><button class="share" id="shareBtn" title="Share results">↗</button></section>
- <footer><span>© NovaGrid 2026</span><span><span class="offline">●</span> <span data-i18n="offline">Scores saved on your device</span></span><button id="privacyBtn" class="privacybtn" type="button" hidden>Privacy options</button></footer>
+ <footer><span>✦ NOVAGRID</span><button id="privacyBtn" class="privacybtn" type="button" hidden>Privacy options</button><span>© 2026</span></footer>
 </main>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <div class="overlay" id="dialog" hidden><div class="modal" role="dialog" aria-modal="true" aria-labelledby="dialogTitle"><div class="modalicon">✦</div><h2 id="dialogTitle"></h2><p id="dialogBody"></p><div class="finalscore" id="dialogScore"></div><button class="primary" id="dialogPlay" data-i18n="playAgain">Play again</button><button class="ghost" id="dialogClose" data-i18n="close">Close</button></div></div>

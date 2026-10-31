@@ -1,0 +1,86 @@
+/* NovaGrid cosmic native-game layout — approved logo and theme.
+   Never simulate Android status icons: OS draws the real status bar. */
+:root{--native-ad-height:0px;--board-size:240px;--bg:#050a1e;--aqua:#42dfff;--violet:#ac6dff;--pink:#f365f8;--light:#f7f5ff;color-scheme:dark}
+html{height:100%;height:100dvh;background:#060b1c;
+ padding-top:var(--safe-area-inset-top,env(safe-area-inset-top,0px));
+ padding-bottom:var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px));
+ padding-left:var(--safe-area-inset-left,env(safe-area-inset-left,0px));
+ padding-right:var(--safe-area-inset-right,env(safe-area-inset-right,0px));
+ overflow:hidden;overscroll-behavior:none}
+body{height:100%;overflow:hidden;overscroll-behavior:none;touch-action:pan-x pan-y;margin:0;
+ padding-bottom:var(--native-ad-height,0px);
+ background:
+ radial-gradient(ellipse 45% 33% at 100% 17%,#76159a85,transparent 75%),
+ radial-gradient(ellipse 55% 32% at 0% 55%,#124d9a7a,transparent 82%),
+ radial-gradient(ellipse 48% 19% at 50% 100%,#532d97a2,transparent 78%),
+ radial-gradient(circle at 16% 25%,#7eaaff 0 1px,transparent 2px),
+ radial-gradient(circle at 78% 53%,#dbafff 0 1px,transparent 2px),
+ radial-gradient(circle at 39% 74%,#adf1ff 0 1px,transparent 2px),
+ #060b1e}
+.shell{width:100%;height:100%;max-width:520px;min-height:0;margin:auto;padding:7px 11px 5px;
+ display:flex;flex-direction:column;gap:7px;overflow:hidden}
+.topbar{height:clamp(50px,8.4dvh,69px);flex:0 0 auto;padding:0 3px;position:relative}
+.topbar:before{content:"";position:absolute;inset:-8px -11px auto;height:1px;background:linear-gradient(90deg,transparent,#4073fa9c,transparent)}
+.brandlogo{display:block;width:clamp(43px,7.6dvh,58px);height:clamp(43px,7.6dvh,58px);
+ border-radius:14px;object-fit:cover;box-shadow:0 0 16px #28b7ff69;border:1px solid #479aff88}
+.identity{gap:11px;min-width:0}.brandgroup{min-width:0}
+.brand{font-size:clamp(23px,5.8vw,33px);font-weight:950;line-height:1;letter-spacing:1.1px;
+ color:#76eaff;text-shadow:0 0 13px #2689ffb2}
+.brand span{color:#f58bff;text-shadow:0 0 12px #b743ffc0}
+.tagline{font-size:9px;letter-spacing:3px;margin-top:6px;color:#afbcff}
+.topactions{gap:6px}.iconbtn,.language{height:36px;min-width:36px;border:1px solid #5864d5;background:linear-gradient(135deg,#1d315c,#28174d);
+ color:#e9e9ff;box-shadow:0 0 8px #6c6aff51;border-radius:11px}
+.language{font-size:11px;padding:0 6px}.hero,.minirow{display:none!important}
+.modes{height:clamp(36px,5.7dvh,45px);min-height:0;flex:0 0 auto;gap:8px;margin:0}
+.mode{border-radius:13px;padding:4px 7px;font-size:clamp(11px,2.8vw,13px);min-height:0;border-color:#5267da70;
+ background:linear-gradient(145deg,#12284a,#211348);box-shadow:inset 0 1px 0 #ffffff1e}
+.mode.active{background:linear-gradient(120deg,#104d81,#56238a);border-color:#57aaff;box-shadow:0 0 15px #327dff58}
+.mode>span:first-child{font-size:17px}.dot{background:#fa6ee6;right:9px;top:8px}
+.gamecard{display:flex;flex-direction:column;flex:1 1 0;min-height:0;gap:7px;padding:10px 11px;
+ border-radius:20px;border:1px solid #6267e6ab;
+ background:linear-gradient(160deg,#101c44ee,#151439e8 53%,#151039ee);
+ box-shadow:0 5px 24px #1517a666,inset 0 0 25px #31216b3a;overflow:hidden}
+.scorebar{height:clamp(42px,6.1dvh,57px);flex:0 0 auto;align-items:center;margin:0;gap:5px}
+.scorebox{min-width:50px;gap:2px}
+.scorebox span{color:#a8c8ff;font-size:clamp(9px,2vw,11px);font-weight:800;letter-spacing:1px}
+.scorebox strong{font-size:clamp(18px,4.7vw,26px);color:#61e8ff;text-shadow:0 0 10px #2795fa}
+.scorebox:last-child strong{color:#ed9bff}.scoreline{height:30px;background:#755cf077}
+.boardwrap{box-sizing:border-box;width:min(var(--board-size),100%);height:var(--board-size);min-height:0;
+ flex:0 0 auto;aspect-ratio:1;margin:0 auto;padding:5px;position:relative;border-radius:13px;
+ background:linear-gradient(135deg,#06345a,#100c35);
+ border:2px solid #6faaff;box-shadow:0 0 15px #178dff91,inset 0 0 14px #733af17d}
+.board{--gap:2px;width:100%;height:100%;aspect-ratio:1;display:grid;grid-template-columns:repeat(9,minmax(0,1fr));
+ grid-template-rows:repeat(9,minmax(0,1fr));gap:var(--gap);touch-action:manipulation}
+.cell{border:1px solid #366dd18a;background:linear-gradient(145deg,#0a1536,#111c3d);
+ border-radius:3px;touch-action:manipulation}
+.cell.region{background:linear-gradient(130deg,#122354,#0e1538)}
+.cell.block{background:radial-gradient(circle at 28% 22%,#d8ffffb0 0 3%,transparent 15%),linear-gradient(145deg,#28deff,#2379eb 52%,#5135cc);
+ border:1px solid #7ef7ff;box-shadow:inset 1px 2px 3px #ffffffab,inset -1px -2px 4px #28108ed0,0 0 6px #328affaa}
+.cell.block:nth-child(3n){background:radial-gradient(circle at 30% 24%,#ffcfffc4 0 4%,transparent 17%),linear-gradient(145deg,#ed7bff,#a343e9 55%,#6521b7);border-color:#f4a9ff}
+.cell.preview{background:linear-gradient(145deg,#62ffe7,#247adf)!important}
+.boardshade{inset:4px;border-radius:9px}
+.gamehint{height:clamp(17px,3dvh,23px);margin:0;flex:0 0 auto;font-size:clamp(9px,2.4vw,11px);color:#b6c9ff;text-align:center}
+.pieces{height:clamp(55px,10dvh,82px);flex:0 0 auto;min-height:0;gap:8px}
+.piece{height:100%;min-height:0;border:1px solid #536be6a6;border-radius:12px;background:linear-gradient(150deg,#192c59e8,#2c1c65a8);
+ padding:2px;box-shadow:inset 0 0 12px #3d5df82b}
+.piece.selected{border-color:#7cfff1;box-shadow:0 0 13px #4ae1f189, inset 0 0 10px #6dcbf24f}
+.piecegrid{gap:2px}
+.micro{width:clamp(9px,2.55vw,14px);height:clamp(9px,2.55vw,14px);background:linear-gradient(145deg,#67faff,#3c77ff 60%,#ad46f7);box-shadow:0 0 5px #50aaffaa}
+.micro.blank{background:transparent;box-shadow:none}
+.gametools{display:flex;flex:0 0 auto;height:clamp(33px,5.4dvh,44px);margin:0;gap:7px}
+.utility{min-height:0;min-width:0;flex:1;padding:3px 5px;font-size:clamp(10px,2.4vw,12px);
+ color:#e6edff;border-color:#5b77db;background:linear-gradient(135deg,#184570,#3f257b);
+ box-shadow:0 0 7px #4259d34d}
+.utility span:first-child{font-size:16px}
+.utility.share{flex:0 0 42px;display:grid;place-items:center;font-size:22px;border-radius:12px}
+footer{padding:0 5px;height:14px;flex:0 0 auto;display:flex;justify-content:space-between;align-items:center;
+ font-size:9px;letter-spacing:1px;color:#aab4e3}
+.privacybtn{font-size:10px;border:1px solid #6378b6;border-radius:7px;padding:2px 8px;background:#0b1a37;color:#ebeeff}
+.overlay{padding:calc(18px + var(--safe-area-inset-top,env(safe-area-inset-top,0px))) 20px 20px}
+html[dir=rtl] .brand{letter-spacing:1px}
+@media(max-height:700px){.shell{gap:5px;padding-top:4px;padding-bottom:3px}.gamecard{gap:4px;padding:6px 8px}.topbar{height:45px}
+ .brandlogo{width:40px;height:40px}.scorebar{height:38px}.pieces{height:54px}.gamehint{height:16px;font-size:9px}
+ .gametools{height:32px}.modes{height:35px}footer{height:12px}}
+@media(max-height:570px){.tagline{display:none}.topbar{height:39px}.brandlogo{height:35px;width:35px}
+ .mode{padding:2px}.scorebar{height:33px}.pieces{height:46px}.gametools{height:30px}footer{display:none}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{transition:none!important;animation:none!important}}

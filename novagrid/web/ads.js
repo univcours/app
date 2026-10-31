@@ -21,6 +21,7 @@ export async function initializeAds(){
    const h=Math.max(0,Number(info.height)||0);
    document.documentElement.style.setProperty('--native-ad-height',h+'px');
    document.body.classList.toggle('has-native-banner',h>0);
+   window.dispatchEvent(new Event('resize'));
   });
   await AdMob.showBanner({adId:cfg.bannerId,adSize:BannerAdSize.ADAPTIVE_BANNER,
    position:BannerAdPosition.BOTTOM_CENTER,margin:0,isTesting:!cfg.live});

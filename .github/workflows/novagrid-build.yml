@@ -31,6 +31,8 @@ jobs:
         run: npx cap add android
       - name: Configure AdMob Android test App ID
         run: npm run android:ads
+      - name: Apply NovaGrid cosmic launcher icon
+        run: npm run android:brand
       - name: Build debug APK and unsigned bundle
         run: |
           chmod +x android/gradlew

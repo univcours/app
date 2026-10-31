@@ -38,3 +38,25 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){$('dialog').hidden=
 state=readGame('classic');setMode('classic');
 
 void initializeAds();
+
+/* Keep 9x9 board fully visible without page scrolling.
+   The real OS status bar is separate, via Capacitor SystemBars and CSS insets. */
+let boardFitFrame=0;
+function fitBoard(){
+ const card=document.getElementById('gamecard');if(!card)return;
+ const style=getComputedStyle(card);
+ const pad=(parseFloat(style.paddingTop)||0)+(parseFloat(style.paddingBottom)||0);
+ const side=(parseFloat(style.paddingLeft)||0)+(parseFloat(style.paddingRight)||0);
+ const gap=parseFloat(style.rowGap)||0;
+ const fixed=['scorebar','message','pieces','gametools'].reduce((sum,id)=>{
+  const el=document.getElementById(id);return sum+(el?el.getBoundingClientRect().height:0);
+ },0);
+ const room=Math.max(80,card.clientHeight-pad-fixed-gap*4-3);
+ const width=Math.max(80,card.clientWidth-side-5);
+ const size=Math.floor(Math.min(room,width,475));
+ document.documentElement.style.setProperty('--board-size',size+'px');
+}
+function scheduleBoardFit(){cancelAnimationFrame(boardFitFrame);boardFitFrame=requestAnimationFrame(fitBoard);}
+window.addEventListener('resize',scheduleBoardFit);
+if('ResizeObserver' in window)new ResizeObserver(scheduleBoardFit).observe(document.getElementById('gamecard'));
+scheduleBoardFit();
