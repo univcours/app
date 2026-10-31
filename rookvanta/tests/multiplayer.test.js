@@ -1,0 +1,91 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {io as client} from 'socket.io-client';
+import {createGameServer} from '../server.js';
+const connect=url=>new Promise((resolve,reject)=>{
+ const s=client(url,{transports:['websocket'],reconnection:false});
+ const fail=e=>{s.disconnect();reject(e);};
+ s.once('connect_error',fail);
+ s.once('connect',()=>{s.off('connect_error',fail);resolve(s);});
+});
+const send=(socket,name,payload)=>new Promise((resolve,reject)=>{
+ socket.timeout(4000).emit(name,payload,(e,result)=>e?reject(e):resolve(result));
+});
+test('two human clients can play a validated, timed, online chess match',async t=>{
+ const server=await createGameServer({host:'127.0.0.1',port:0});
+ t.after(()=>server.close());
+ const url='http://127.0.0.1:'+server.port;
+ const white=await connect(url),black=await connect(url),intruder=await connect(url);
+ t.after(()=>{white.disconnect();black.disconnect();intruder.disconnect();});
+ const created=await send(white,'room:create',{name:'White Player',time:'3+2'});
+ assert.equal(created.ok,true);assert.match(created.code,/^[A-Z0-9]{6}$/);
+ const join=await send(black,'room:join',{code:created.code,name:'Black Player'});
+ assert.equal(join.ok,true);assert.equal(join.color,'b');
+ assert.equal((await send(intruder,'room:join',{code:created.code,name:'Third'})).ok,false);
+ assert.equal((await send(black,'room:move',{from:'e7',to:'e5'})).ok,false,'Black cannot move first');
+ assert.equal((await send(white,'room:move',{from:'e2',to:'e5'})).ok,false,'Illegal pawn teleport');
+ assert.equal((await send(white,'room:move',{from:'e2',to:'e4'})).ok,true);
+ assert.equal((await send(black,'room:move',{from:'e7',to:'e5'})).ok,true);
+ assert.equal((await send(white,'room:move',{from:'g1',to:'f3'})).ok,true);
+ assert.equal(server.rooms.get(created.code).chess.fen().split(' ')[1],'b');
+ assert.equal(server.rooms.get(created.code).chess.history().length,3);
+ assert.equal((await send(black,'room:resign',{})).ok,true);
+ assert.equal(server.rooms.get(created.code).result.winner,'w');
+ assert.equal((await send(black,'room:move',{from:'b8',to:'c6'})).ok,false);
+ assert.equal((await send(white,'room:rematch',{})).ok,true);
+ assert.ok(server.rooms.get(created.code).result,'one rematch request insufficient');
+ assert.equal((await send(black,'room:rematch',{})).ok,true);
+ assert.equal(server.rooms.get(created.code).result,null);
+ assert.equal(server.rooms.get(created.code).chess.history().length,0);
+});
+test('seat tokens permit reconnect but reject impersonation and bad rooms',async t=>{
+ const server=await createGameServer({host:'127.0.0.1',port:0});
+ t.after(()=>server.close());
+ const url='http://127.0.0.1:'+server.port;
+ const a=await connect(url),b=await connect(url);
+ t.after(()=>{a.disconnect();b.disconnect();});
+ const created=await send(a,'room:create',{name:'Host'});
+ assert.equal((await send(b,'room:join',{code:created.code,token:'bad-token',name:'Guest'})).ok,true);
+ const stranger=await connect(url);t.after(()=>stranger.disconnect());
+ assert.equal((await send(stranger,'room:join',{code:created.code,name:'Hacker',token:'bad-token'})).ok,false);
+ assert.equal((await send(stranger,'room:join',{code:'ZZZ999',name:'Hacker'})).ok,false);
+ a.disconnect();
+ const restored=await connect(url);t.after(()=>restored.disconnect());
+ const resumed=await send(restored,'room:join',{code:created.code,token:created.token});
+ assert.equal(resumed.ok,true);assert.equal(resumed.color,'w');
+ assert.equal((await send(restored,'room:move',{from:'e2',to:'e4'})).ok,true);
+});
+test('server clocks and draw agreement are authoritative',async t=>{
+ const server=await createGameServer({host:'127.0.0.1',port:0});
+ t.after(()=>server.close());
+ const url='http://127.0.0.1:'+server.port;
+ const a=await connect(url),b=await connect(url);
+ t.after(()=>{a.disconnect();b.disconnect();});
+ const room=await send(a,'room:create',{name:'A',time:'5+0'});
+ await send(b,'room:join',{code:room.code,name:'B'});
+ assert.equal((await send(a,'room:draw',{action:'offer'})).ok,true);
+ assert.equal((await send(a,'room:draw',{action:'accept'})).ok,false);
+ assert.equal((await send(b,'room:draw',{action:'accept'})).ok,true);
+ assert.equal(server.rooms.get(room.code).result.reason,'agreement');
+ await send(a,'room:rematch',{});await send(b,'room:rematch',{});
+ const state=server.rooms.get(room.code);
+ state.timeLeft.w=10;state.activeSince=Date.now()-500;
+ assert.equal((await send(a,'room:move',{from:'e2',to:'e4'})).ok,false);
+ assert.equal(state.result.reason,'timeout');
+ assert.equal(state.result.winner,'b');
+});
+test('legal engine enforces checkmate without client authority',async t=>{
+ const server=await createGameServer({host:'127.0.0.1',port:0});
+ t.after(()=>server.close());
+ const url='http://127.0.0.1:'+server.port;
+ const a=await connect(url),b=await connect(url);
+ t.after(()=>{a.disconnect();b.disconnect();});
+ const match=await send(a,'room:create',{name:'W'});
+ await send(b,'room:join',{code:match.code,name:'B'});
+ for(const [socket,from,to] of [[a,'f2','f3'],[b,'e7','e5'],[a,'g2','g4'],[b,'d8','h4']]){
+  assert.equal((await send(socket,'room:move',{from,to})).ok,true);
+ }
+ const room=server.rooms.get(match.code);
+ assert.equal(room.result.winner,'b');assert.equal(room.result.reason,'checkmate');
+ assert.equal(room.chess.isCheckmate(),true);
+});
