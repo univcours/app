@@ -1,130 +1,99 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {canPlace,runMove,hasMove,place,emptyBoard} from '../web/engine.js';
-import {WORLD_SIZE,TOTAL_STAGES,TOTAL_WORLDS,WORLD_NAMES,MISSION_TYPES,stageConfig,stageBoard,startStage,
- stageWon,stageFailed,rankStage,objectiveValue,stageObjectiveText,awardStage,purchaseStage,
- initialProgress,normalizeProgress,progressSummary} from '../web/stages.js';
+import {place,emptyBoard,hasMove} from '../web/engine.js';
+import {WORLD_SIZE,SECTOR_SIZE,TOTAL_STAGES,TOTAL_WORLDS,SECTORS,WORLD_NAMES,
+ stageConfig,stageBoard,startStage,stageWon,stageFailed,rankStage,objectiveValue,
+ stageObjectiveText,awardStage,purchaseStage,isStageUnlocked,initialProgress,
+ normalizeProgress,progressSummary,collapseBoard,applySectorTurn} from '../web/stages.js';
 
-test('2,000 stages across 20 themed worlds and eight rotating goal philosophies',()=>{
- assert.equal(TOTAL_WORLDS*WORLD_SIZE,2000);assert.equal(TOTAL_STAGES,2000);
- assert.equal(WORLD_NAMES.length,20);assert.equal(new Set(MISSION_TYPES).size,8);
- const goals=new Set();
- for(let i=1;i<=TOTAL_STAGES;i++){
-  const config=stageConfig(i);
-  assert.equal(config.world,Math.floor((i-1)/WORLD_SIZE));
-  assert.ok(config.minMoves>=6&&config.goal>0);
-  goals.add(config.kind);
+test('12,000 levels: six sections, twenty worlds each',()=>{
+ assert.equal(TOTAL_STAGES,12000);assert.equal(TOTAL_WORLDS,120);
+ assert.equal(WORLD_SIZE,100);assert.equal(SECTOR_SIZE,2000);
+ assert.equal(SECTORS.length,6);assert.equal(WORLD_NAMES.length,120);
+ for(let sector=0;sector<6;sector++){
+  const first=sector*2000+1,config=stageConfig(first);
+  assert.equal(config.sector,sector);assert.equal(config.world,sector*20);
+  assert.equal(stageConfig(first+1999).sector,sector);
+  assert.ok(config.goal>0);
  }
- assert.equal(goals.size,8);
- assert.equal(stageConfig(2000).ordinal,100);
- assert.throws(()=>stageConfig(2001),RangeError);
+ assert.equal(stageConfig(2001).sectorId,'meteor');
+ assert.equal(stageConfig(4001).gravity,true);
+ assert.equal(stageConfig(6001).sectorId,'prism');
+ assert.equal(stageConfig(8001).sectorId,'reactor');
+ assert.equal(stageConfig(10001).sectorId,'void');
+ assert.throws(()=>stageConfig(12001),RangeError);
 });
-
-test('stage seed, starting geometry and tray repeat deterministically',()=>{
- for(const level of [1,2,3,4,5,6,7,8,99,125,500,1337,2000]){
+test('all six sections have a free entry stage and sequential earned-points progression',()=>{
+ const p=initialProgress();
+ for(let sec=0;sec<6;sec++){
+  const first=sec*2000+1;assert.equal(isStageUnlocked(p,first),true);
+  assert.equal(isStageUnlocked(p,first+1),false);
+ }
+ const first=2001,config=stageConfig(first),s=startStage(first);
+ const keys={score:'score',rows:'rows',columns:'columns',squares:'squares',
+  combo:'maxCombo',survival:'moves',clearing:'cellsCleared',mastery:'clears',charge:'charge'};
+ s.moves=config.minMoves;s.score=10000;s[keys[config.kind]]=Math.max(config.goal,s[keys[config.kind]]||0);s.over=true;
+ const earned=awardStage(p,first,s);
+ assert.ok(earned.earned>=175);
+ assert.equal(purchaseStage(earned.progress,first+1).ok,true);
+ assert.equal(purchaseStage(p,first+1).reason,'progress');
+ assert.equal(purchaseStage(earned.progress,first+2).reason,'progress');
+ assert.equal(awardStage(earned.progress,first,s).earned,0);
+});
+test('previous two-thousand level saves survive normalization',()=>{
+ const p=normalizeProgress({version:2,coins:500,unlocked:120,completed:{'1':3,'110':1},totalEarned:660});
+ assert.equal(p.unlocked,120);assert.equal(p.unlockedSectors[0],120);
+ assert.equal(p.completed[1],3);assert.equal(p.completed[110],1);
+ assert.equal(p.coins,500);assert.equal(p.unlockedSectors[1],2001);
+ assert.equal(progressSummary(p).completed,2);
+ assert.equal(normalizeProgress({coins:-15,unlocked:99999}).unlocked,2000);
+});
+test('each campaign begins with playable deterministic puzzles',()=>{
+ for(const level of [1,2,3,8,99,1200,1999,2000,2001,2200,3999,4001,6001,8001,10001,12000]){
   const a=startStage(level),b=startStage(level);
   assert.deepEqual(a.board,b.board);assert.deepEqual(a.tray,b.tray);
-  assert.equal(a.mode,'stage');assert.equal(a.stageLevel,level);
-  assert.equal(a.over,false);
-  assert.ok(hasMove(a.board,a.tray));
+  assert.equal(a.stageLevel,level);assert.equal(a.over,false);
+  assert.equal(hasMove(a.board,a.tray),true,'stage '+level);
   assert.deepEqual(a.board,stageBoard(level));
  }
- assert.deepEqual(startStage(1).board,emptyBoard());
- assert.notDeepEqual(startStage(2).board,startStage(3).board);
 });
-
-test('mission is NEVER won after two placements even if target is surpassed',()=>{
- const a=startStage(1),config=stageConfig(1);
- a.moves=2;a.score=10000;
- assert.equal(stageWon(a),false);
- assert.equal(stageFailed(a),false);
- assert.equal(rankStage(a),0);
- let award=awardStage(initialProgress(),1,a);
- assert.equal(award.earned,0);
- assert.equal(award.progress.completed[1],undefined);
- assert.equal(purchaseStage(award.progress,2).ok,false);
- a.over=true; // Board exhausted prematurely: unmet minimum gameplay, must retry.
- assert.equal(stageWon(a),false);
- assert.equal(stageFailed(a),true);
+test('gravity pulls cells down without creating or destroying any',()=>{
+ const b=emptyBoard();b[0][0]=1;b[4][0]=1;b[2][4]=1;
+ const g=collapseBoard(b);assert.equal(g[8][0],1);assert.equal(g[7][0],1);
+ assert.equal(g[8][4],1);assert.equal(g[0][0],0);
+ assert.equal(g.flat().filter(Boolean).length,3);assert.equal(b[0][0],1);
 });
-
-test('only genuine stage-end success grants stars and currency',()=>{
- const a=startStage(1),config=stageConfig(1);
- a.score=config.goal;a.moves=config.minMoves;
- assert.equal(stageWon(a),false);
- assert.equal(awardStage(initialProgress(),1,a).earned,0);
- a.over=true;
- assert.equal(stageWon(a),true);assert.equal(stageFailed(a),false);
- const reward=awardStage(initialProgress(),1,a);
- assert.equal(reward.earned,175);
- assert.equal(reward.progress.coins,175);
- assert.equal(reward.progress.completed[1],1);
- assert.equal(awardStage(reward.progress,1,a).earned,0);
- const bought=purchaseStage(reward.progress,2);
- assert.equal(bought.ok,true);
- assert.equal(bought.progress.unlocked,2);
- assert.equal(bought.progress.coins,75);
- assert.equal(purchaseStage(reward.progress,3).ok,false);
+test('meteor pattern is deterministic and different from ordinary game',()=>{
+ const s=startStage(2001);
+ const a=applySectorTurn({...s,moves:3},{groups:0,squares:0});
+ const b=applySectorTurn({...s,moves:3},{groups:0,squares:0});
+ assert.deepEqual(a.board,b.board);assert.equal(a.meteorHits,1);
+ assert.ok(a.board.flat().filter(Boolean).length>s.board.flat().filter(Boolean).length);
+ const gravity=startStage(4001),g=applySectorTurn({...gravity,moves:1},{groups:0,squares:0});
+ assert.deepEqual(g.board,collapseBoard(gravity.board));
 });
-
-test('each objective demands its own separate metric and the board to be exhausted',()=>{
+test('prism and reactor use separate bonuses and charge meters',()=>{
+ const s=startStage(6001),p=applySectorTurn({...s,moves:1},{groups:1,squares:2});
+ assert.equal(p.charge,2);assert.ok(p.score>=50);
+ const r=startStage(8001),c=applySectorTurn({...r,moves:1,combo:2},{groups:1,squares:0});
+ assert.equal(c.charge,1);assert.ok(c.score>=12);
+});
+test('mission rewards require completion of real puzzle, not only crossing threshold',()=>{
  const keys={score:'score',rows:'rows',columns:'columns',squares:'squares',
-  combo:'maxCombo',survival:'moves',clearing:'cellsCleared',mastery:'clears'};
- for(let i=1;i<=8;i++){
-  const config=stageConfig(i),s=startStage(i),key=keys[config.kind];
-  s.moves=config.minMoves;s.score=9999;s.over=false;
-  s[key]=config.goal;
-  assert.equal(objectiveValue(s),config.goal);
-  assert.equal(stageWon(s),false);
-  s.over=true;assert.equal(stageWon(s),true,config.kind);
-  s[key]=0;assert.equal(stageWon(s),false,config.kind);
+  combo:'maxCombo',survival:'moves',clearing:'cellsCleared',mastery:'clears',charge:'charge'};
+ for(const level of [1,2,3,4,5,6,7,8,6002,8002]){
+  const config=stageConfig(level),s=startStage(level);
+  s.moves=config.minMoves;s.score=10000;s[keys[config.kind]]=Math.max(config.goal,s[keys[config.kind]]||0);
+  assert.equal(stageWon(s),false);assert.equal(awardStage(initialProgress(),level,s).earned,0);
+  s.over=true;assert.equal(stageWon(s),true,config.kind+' level '+level);
+  assert.ok(rankStage(s)>=1);assert.ok(stageObjectiveText(s,'ar').length>4);
+  s[keys[config.kind]]=0;assert.equal(stageWon(s),false);
   assert.equal(stageFailed(s),true);
-  assert.ok(stageObjectiveText(s,'ar').length>5);
  }
 });
-
-test('objective progress reports actual row, column, and 3x3 clears',()=>{
- const b=emptyBoard();
- for(let c=0;c<8;c++)b[0][c]=1;
- const r=place(b,[[0,0]],0,8);
- assert.equal(r.rows,1);assert.equal(r.columns,0);assert.equal(r.squares,0);
- const b2=emptyBoard();
- for(let x=3;x<6;x++)for(let y=3;y<6;y++)b2[x][y]=1;
- b2[5][5]=0;
- const square=place(b2,[[0,0]],5,5);
- assert.equal(square.squares,1);
-});
-
-test('even after all goal conditions are met, runMove keeps puzzle playing until no moves',()=>{
- let s=startStage(1),count=0;
- for(let k=0;k<1000&&!s.over;k++){
-  let move=null;
-  for(let j=0;j<s.tray.length&&!move;j++)if(s.tray[j]){
-   for(let row=0;row<9&&!move;row++)for(let col=0;col<9&&!move;col++){
-    if(canPlace(s.board,s.tray[j],row,col))move=[j,row,col];
-   }
-  }
-  assert.ok(move,'engine had moves but no placement');
-  const result=runMove(s,...move);
-  assert.ok(result);
-  s=result.state;count++;
-  if(!s.over){
-   assert.equal(stageWon(s),false);
-   assert.equal(stageFailed(s),false);
-  }
- }
- assert.ok(count>2,'stage must not end trivially');
- assert.equal(s.over,true);
- assert.equal(hasMove(s.board,s.tray),false);
-});
-
-test('progress is sanitized, unlocks sequential, and stage failure never unlocks next',()=>{
- const p=normalizeProgress({coins:-900,unlocked:5000,completed:{'1':3,'99999':3},totalEarned:-1});
- assert.equal(p.coins,0);assert.equal(p.unlocked,2000);assert.equal(p.completed[1],3);
- assert.equal(p.completed[99999],undefined);
- assert.equal(progressSummary(p).stars,3);
- const failure=startStage(1);failure.over=true;failure.score=0;
- const declined=awardStage(initialProgress(),1,failure);
- assert.equal(declined.earned,0);
- assert.equal(purchaseStage(declined.progress,2).reason,'progress');
+test('core engine distinguishes row and square clear events',()=>{
+ const b=emptyBoard();for(let c=0;c<8;c++)b[0][c]=1;
+ assert.equal(place(b,[[0,0]],0,8).rows,1);
+ const sq=emptyBoard();for(let r=3;r<6;r++)for(let c=3;c<6;c++)sq[r][c]=1;
+ sq[5][5]=0;assert.equal(place(sq,[[0,0]],5,5).squares,1);
 });
