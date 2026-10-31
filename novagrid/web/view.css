@@ -100,3 +100,23 @@ html[dir=rtl] .brand{letter-spacing:1px}
  :root{--micro-size:clamp(11px,3vw,15px)}
  .gametools .utility{min-height:30px}
 }
+
+/* Touch-first block dragging: original game pieces remain real interactive controls. */
+.piece,.piecegrid,.micro{touch-action:none!important;user-select:none;-webkit-user-select:none}
+.piece{cursor:grab}
+.pieces.drag-active .piece.selected{opacity:.63;transform:scale(.96)}
+.dragghost{position:fixed;z-index:40;display:grid;gap:2px;transform:translate(-50%,-50%);
+ pointer-events:none;will-change:left,top;opacity:.92;filter:drop-shadow(0 4px 13px #121d7d9c)}
+.dragcell{display:block;border:1px solid #95f6ff;border-radius:4px;
+ background:linear-gradient(140deg,#82ffff,#2185eb 65%,#855cf0);
+ box-shadow:0 0 8px #62ddffb9,inset 1px 1px 3px #ffffff9a}
+.dragcell.empty{visibility:hidden}
+.dragghost.invalid .dragcell:not(.empty){background:linear-gradient(135deg,#ff799c,#bf337b);border-color:#ff9cbb;box-shadow:0 0 7px #ff54758c}
+.dragghost.valid .dragcell:not(.empty){background:linear-gradient(135deg,#86ffe2,#2cdaab);border-color:#b9ffe8;box-shadow:0 0 9px #26e5b9bb}
+.board .cell.preview{background:linear-gradient(145deg,#3cffe3,#188fa9)!important;box-shadow:inset 1px 1px 4px #c4fff7,0 0 8px #30ffdc!important;border:1px solid #a2ffef}
+.board .cell.invalid,.board .cell.block.blocked{background:linear-gradient(145deg,#f05b93,#962e70)!important;border:1px solid #ffc2d9!important;box-shadow:0 0 8px #e64e9a!important}
+.topactions{gap:5px}
+.topactions .iconbtn,.topactions .language{min-width:32px;width:32px;height:34px;padding:0;font-size:15px}
+.topactions .language{width:35px;font-size:10px}
+.topactions .muted{opacity:.56;border-color:#655880}
+@media(max-width:405px){.identity{gap:8px}.brand{font-size:clamp(19px,5.1vw,27px)}.brandlogo{width:clamp(37px,6.8dvh,50px);height:clamp(37px,6.8dvh,50px)}.topactions{gap:3px}}
