@@ -5,7 +5,7 @@
     "ca-app-pub-7945572016731367/5247968960"
   ],
   "liveEnabled": false,
-  "status": "LEGACY APP - currently linked to muslim tv; do not use for NovaGrid until AdMob entry is reconfigured or separate NovaGrid entry created",
+  "status": "NovaGrid new AdMob App ID and Banner verified; production ads disabled; interstitial pending",
   "legacyAdMobApp": {
     "appName": "muslim tv",
     "adMobAppId": "ca-app-pub-7945572016731367~8159134969",
@@ -15,5 +15,13 @@
   "previousAdUnits": {
     "interstitial": "ca-app-pub-7945572016731367/7155720038",
     "banner": "ca-app-pub-7945572016731367/5247968960"
+  },
+  "novaGrid": {
+    "appName": "NovaGrid: Cosmic Puzzle",
+    "androidPackage": "com.novagrid.cosmicpuzzle",
+    "appId": "ca-app-pub-7945572016731367~1688423435",
+    "bannerAdUnitId": "ca-app-pub-7945572016731367/3815893327",
+    "interstitialAdUnitId": null,
+    "adUnitsStatus": "Banner confirmed from AdMob creation screen; new Interstitial ID not yet verified"
   }
 }
