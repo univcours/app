@@ -2,7 +2,7 @@ import {initializeAds,gameFinished,maybeShowInterstitialOnReplay} from './ads.js
 import {SIZE,makeGame,runMove,canPlace,hasMove} from './engine.js';
 import {shapeDimensions,projectDragPoint,dragLift} from './drag.js';
 import {createGameAudio} from './audio.js';
-import {stageConfig,startStage,stageWon,stageFailed,rankStage,awardStage,stageObjectiveText,initialProgress,normalizeProgress} from './stages.js';
+import {stageConfig,startStage,stageWon,stageFailed,rankStage,awardStage,stageObjectiveText,initialProgress,normalizeProgress,isStageUnlocked,applySectorTurn,TOTAL_STAGES,SECTORS} from './stages.js';
 import {createGalaxyUI} from './galaxy-ui.js';
 const T={
  en:{tagline:'A universe of puzzles',eyebrow:'YOUR DAILY BRAIN BOOST',hero1:'Think sharp.',hero2:'Glow brighter.',subtitle:'Place blocks. Clear lines. Chase your next high score.',classic:'Classic',stages:'Stages',daily:'Daily challenge',score:'SCORE',best:'BEST',streak:'COMBO',hint:'Select a shape, then tap the grid',selected:'Now tap where the shape should land',invalid:'Not enough space! Try another spot',undo:'Undo once',new:'New game',tipTitle:'Cosmic tip',tip:'Fill a row, column or 3×3 square to clear it.',offline:'Offline & private',playAgain:'Play again',close:'Close',gameOver:'Out of space!',gameOverBody:'Every brilliant run starts with another try.',nice:'Cosmic clear!',dailyDone:'Daily challenge completed',newConfirm:'Start a fresh game? Your current progress will be lost.',share:'NovaGrid score',copy:'Score copied!',undoUsed:'Your one undo has been used',none:'Play a move first',dailyLabel:'Daily · '},
@@ -46,14 +46,14 @@ function setMode(mode){
  cancelDrag();
  if(mode==='stage'){
   let saved=null;try{saved=JSON.parse(storage.get('nova.stage.current'));}catch{}
-  state=saved?.mode==='stage'&&saved.stageLevel<=progress.unlocked&&saved.board?.length===9&&saved.tray?.length===3&&!saved.over?saved:startStage(progress.unlocked);
+  state=saved?.mode==='stage'&&isStageUnlocked(progress,saved.stageLevel)&&saved.board?.length===9&&saved.tray?.length===3&&!saved.over?saved:startStage(progress.unlocked);
  }else state=readGame(mode);
  selected=-1;undoSnapshot=null;
  document.querySelectorAll('[data-mode]').forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));
  render();
 }
 function launchStage(level){
- if(level<1||level>progress.unlocked)return;
+ if(!isStageUnlocked(progress,level))return;
  cancelDrag();lastEarned=0;
  let saved=null;try{saved=JSON.parse(storage.get('nova.stage.current'));}catch{}
  state=saved?.mode==='stage'&&saved.stageLevel===level&&!saved.over&&saved.board?.length===9&&saved.tray?.length===3?saved:startStage(level);
@@ -66,7 +66,7 @@ function updateStageHUD(){
  if(state?.mode!=='stage'){hud.hidden=true;return;}
  hud.hidden=false;
  const cfg=stageConfig(state.stageLevel);
- $('stageTitle').textContent='✦ '+state.stageLevel+' / 2000';
+ $('stageTitle').textContent=SECTORS[cfg.sector].icon+' '+state.stageLevel+' / '+TOTAL_STAGES;
  $('stageStats').textContent=stageObjectiveText(state,lang)+' · '+(lang==='ar'?'حتى ما يبقاش حل':lang==='fr'?'Jusqu’au dernier coup':'Play until no moves');
  $('stageCoins').textContent='✦ '+progress.coins;
 }
@@ -203,6 +203,7 @@ function placeAt(row,col){if(state.over)return;audio.unlock();if(selected<0){not
   state.maxCombo=Math.max(snapshot.maxCombo||0,state.combo||0);
   // Stage can finish ONLY when the real puzzle engine reports that no piece fits.
   // Achieving a score/mission target during play is never enough to advance.
+  state=applySectorTurn(state,result);
   if(state.over&&stageWon(state)){
    state.won=true;state.over=true;
    const awarded=awardStage(progress,state.stageLevel,state);
