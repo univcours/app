@@ -5,6 +5,7 @@ import {createGameAudio} from './audio.js';
 import {stageConfig,startStage,stageWon,stageFailed,rankStage,awardStage,stageObjectiveText,initialProgress,normalizeProgress,isStageUnlocked,applySectorTurn,TOTAL_STAGES,SECTORS} from './stages.js';
 import {createGalaxyUI} from './galaxy-ui.js';
 import {calculateBoardSize} from './layout.js';
+import {createBlockfallUI} from './falling-ui.js';
 const T={
  en:{tagline:'A universe of puzzles',eyebrow:'YOUR DAILY BRAIN BOOST',hero1:'Think sharp.',hero2:'Glow brighter.',subtitle:'Place blocks. Clear lines. Chase your next high score.',classic:'Classic',stages:'Stages',daily:'Daily challenge',score:'SCORE',best:'BEST',streak:'COMBO',hint:'Select a shape, then tap the grid',selected:'Now tap where the shape should land',invalid:'Not enough space! Try another spot',undo:'Undo once',new:'New game',tipTitle:'Cosmic tip',tip:'Fill a row, column or 3×3 square to clear it.',offline:'Offline & private',playAgain:'Play again',close:'Close',gameOver:'Out of space!',gameOverBody:'Every brilliant run starts with another try.',nice:'Cosmic clear!',dailyDone:'Daily challenge completed',newConfirm:'Start a fresh game? Your current progress will be lost.',share:'NovaGrid score',copy:'Score copied!',undoUsed:'Your one undo has been used',none:'Play a move first',dailyLabel:'Daily · '},
  fr:{tagline:'Un univers de puzzles',eyebrow:'LE DÉFI DE VOTRE CERVEAU',hero1:'Pensez vite.',hero2:'Brillez encore.',subtitle:'Placez des blocs. Effacez des lignes. Battez votre record.',classic:'Classique',stages:'Niveaux',daily:'Défi du jour',score:'SCORE',best:'RECORD',streak:'COMBO',hint:'Choisissez une pièce, puis touchez la grille',selected:'Touchez une case pour placer la pièce',invalid:'Espace insuffisant !',undo:'Annuler une fois',new:'Nouvelle partie',tipTitle:'Astuce cosmique',tip:'Complétez une ligne, colonne ou carré 3×3.',offline:'Hors ligne et privé',playAgain:'Rejouer',close:'Fermer',gameOver:'Plus de place !',gameOverBody:'Chaque superbe partie commence par un nouvel essai.',nice:'Super combo !',dailyDone:'Défi quotidien terminé',newConfirm:'Recommencer ? Votre progression sera perdue.',share:'Score NovaGrid',copy:'Score copié !',undoUsed:'Annulation déjà utilisée',none:'Jouez d’abord',dailyLabel:'Défi · '},
@@ -13,7 +14,7 @@ const T={
 const $=id=>document.getElementById(id);const today=()=>new Date().toLocaleDateString('en-CA',{timeZone:'UTC'});
 let lang='en';try{lang=localStorage.getItem('nova.lang')||((navigator.language||'en').slice(0,2));}catch{}if(!T[lang])lang='en';
 let state,selected=-1,hover=null,undoSnapshot=null,toastTimer=0,drag=null;
-let progress=initialProgress(),galaxy=null,lastEarned=0;
+let progress=initialProgress(),galaxy=null,falling=null,lastEarned=0;
 try{progress=normalizeProgress(JSON.parse(localStorage.getItem('nova.galaxies')||'null'));}catch{}
 const tr=k=>T[lang][k]||T.en[k]||k;
 const storage={get(k){try{return localStorage.getItem(k)}catch{return null}},set(k,v){try{localStorage.setItem(k,v)}catch{}}};
@@ -56,6 +57,10 @@ function setMode(mode){
 function launchStage(level){
  if(!isStageUnlocked(progress,level))return;
  cancelDrag();lastEarned=0;
+ if(stageConfig(level).sectorId==='blockfall'){
+  falling?.open(level);
+  return;
+ }
  let saved=null;try{saved=JSON.parse(storage.get('nova.stage.current'));}catch{}
  state=saved?.mode==='stage'&&saved.stageLevel===level&&!saved.over&&saved.board?.length===9&&saved.tray?.length===3?saved:startStage(level);
  selected=-1;undoSnapshot=null;
@@ -247,14 +252,25 @@ $('musicBtn').addEventListener('click',()=>{
  storage.set('nova.music',audio.musicEnabled?'on':'off');
  renderAudioButtons();
 });
-$('languageBtn').addEventListener('click',()=>{lang=['en','fr','ar'][(['en','fr','ar'].indexOf(lang)+1)%3];storage.set('nova.lang',lang);render();});
+$('languageBtn').addEventListener('click',()=>{lang=['en','fr','ar'][(['en','fr','ar'].indexOf(lang)+1)%3];storage.set('nova.lang',lang);render();if(falling?.visible)falling.render();});
 $('shareBtn').addEventListener('click',async()=>{const text=`✦ NovaGrid ${state.mode==='daily'?today():''} — ${state.score} points!`;try{if(navigator.share)await navigator.share({text});else if(navigator.clipboard){await navigator.clipboard.writeText(text);notify(tr('copy'));}else notify(text);}catch{}});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){cancelDrag();galaxy?.close();$('dialog').hidden=true;selected=-1;hover=null;render();}if(/^[1-3]$/.test(e.key)&&state.tray[Number(e.key)-1]){selected=Number(e.key)-1;render();}});
 state=readGame('classic');
+falling=createBlockfallUI({
+ onFinish:finished=>{
+  const awarded=awardStage(progress,finished.stageLevel,finished);
+  progress=awarded.progress;saveProgress();gameFinished();
+  return awarded.earned;
+ },
+ onExit:level=>galaxy?.open(level),
+ getLanguage:()=>lang,
+ onSound:kind=>{audio.unlock();audio.effect(kind||'pick');},
+ onAdBreak:maybeShowInterstitialOnReplay
+});
 galaxy=createGalaxyUI({
  getProgress:()=>progress,
  setProgress:p=>{progress=p;saveProgress();updateStageHUD();},
- getState:()=>state,
+ getState:()=>falling?.visible?falling.state:state,
  onStage:launchStage,
  getLanguage:()=>lang,
  onSound:()=>{audio.unlock();audio.effect('pick');}

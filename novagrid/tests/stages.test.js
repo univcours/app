@@ -6,11 +6,11 @@ import {WORLD_SIZE,SECTOR_SIZE,TOTAL_STAGES,TOTAL_WORLDS,SECTORS,WORLD_NAMES,
  stageObjectiveText,awardStage,purchaseStage,isStageUnlocked,initialProgress,
  normalizeProgress,progressSummary,collapseBoard,applySectorTurn,drawSectorTray} from '../web/stages.js';
 
-test('12,000 levels: six sections, twenty worlds each',()=>{
- assert.equal(TOTAL_STAGES,12000);assert.equal(TOTAL_WORLDS,120);
+test('14,000 levels: seven sections, twenty worlds each',()=>{
+ assert.equal(TOTAL_STAGES,14000);assert.equal(TOTAL_WORLDS,140);
  assert.equal(WORLD_SIZE,100);assert.equal(SECTOR_SIZE,2000);
- assert.equal(SECTORS.length,6);assert.equal(WORLD_NAMES.length,120);
- for(let sector=0;sector<6;sector++){
+ assert.equal(SECTORS.length,7);assert.equal(WORLD_NAMES.length,140);
+ for(let sector=0;sector<7;sector++){
   const first=sector*2000+1,config=stageConfig(first);
   assert.equal(config.sector,sector);assert.equal(config.world,sector*20);
   assert.equal(stageConfig(first+1999).sector,sector);
@@ -21,11 +21,13 @@ test('12,000 levels: six sections, twenty worlds each',()=>{
  assert.equal(stageConfig(6001).sectorId,'prism');
  assert.equal(stageConfig(8001).sectorId,'reactor');
  assert.equal(stageConfig(10001).sectorId,'void');
- assert.throws(()=>stageConfig(12001),RangeError);
+ assert.equal(stageConfig(12001).sectorId,'blockfall');
+ assert.equal(stageConfig(14000).sectorId,'blockfall');
+ assert.throws(()=>stageConfig(14001),RangeError);
 });
-test('all six sections have a free entry stage and sequential earned-points progression',()=>{
+test('all seven sections have a free entry stage and sequential earned-points progression',()=>{
  const p=initialProgress();
- for(let sec=0;sec<6;sec++){
+ for(let sec=0;sec<7;sec++){
   const first=sec*2000+1;assert.equal(isStageUnlocked(p,first),true);
   assert.equal(isStageUnlocked(p,first+1),false);
  }
@@ -110,20 +112,20 @@ test('sector shape selection is reproducible and always playable',()=>{
   assert.ok(newTray.every(piece=>piece.length>=1));
  }
 });
-test('all twelve thousand stage configurations remain valid and every hundredth starts playable',()=>{
+test('all fourteen thousand stage configurations remain valid and every hundredth starts playable',()=>{
  const types=new Set(),sections=new Set();
  for(let level=1;level<=TOTAL_STAGES;level++){
   const cfg=stageConfig(level);
   assert.equal(cfg.level,level);assert.ok(Number.isFinite(cfg.goal)&&cfg.goal>0);
-  assert.ok(cfg.sector>=0&&cfg.sector<6);
-  assert.ok(cfg.world>=0&&cfg.world<120);
-  assert.ok(cfg.minMoves>=6&&cfg.unlockCost>=0);
+  assert.ok(cfg.sector>=0&&cfg.sector<7);
+  assert.ok(cfg.world>=0&&cfg.world<140);
+  assert.ok(cfg.unlockCost>=0);if(cfg.sectorId!=='blockfall')assert.ok(cfg.minMoves>=6);
   types.add(cfg.kind);sections.add(cfg.sectorId);
-  if(level===1||level%100===0){
+  if((level===1||level%100===0)&&cfg.sectorId!=='blockfall'){
    const s=startStage(level);
    assert.equal(s.board.length,9);assert.equal(s.tray.length,3);
    assert.equal(hasMove(s.board,s.tray),true,'stage '+level+' must have a move');
   }
  }
- assert.ok(types.size>=9);assert.equal(sections.size,6);
+ assert.ok(types.size>=9);assert.equal(sections.size,7);
 });

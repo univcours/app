@@ -1,8 +1,8 @@
-# NovaGrid Galaxies — 12,000 Stages
+# NovaGrid Galaxies — 14,000 Stages
 
-Release target: native Android. Source: `novagrid/web/`. All 12,000 stages are deterministic, procedurally configured, **not** hand-authored. No account required.
+Release target: native Android. Source: `novagrid/web/`. All 14,000 stages are deterministic, procedurally configured, **not** hand-authored. No account required.
 
-## Six sections, six gameplay rules
+## Seven sections, seven gameplay rules
 
 Each section has **20 worlds × 100 stages = 2,000** stage IDs and an independently unlocked first level.
 
@@ -13,7 +13,7 @@ Each section has **20 worlds × 100 stages = 2,000** stage IDs and an independen
 | Gravity Forge | 4,001–6,000 | Blocks settle downward after every placement, fundamentally changing future positioning. Vertical shapes are favored. |
 | Prism Temple | 6,001–8,000 | 3×3 square clears add prism energy and extra score; special objectives ask for energy. Square-compatible shapes are favored. |
 | Chain Reactor | 8,001–10,000 | Multiple simultaneous clears build reactor charge, earn extra score, and occasionally remove occupied cells through a clearing pulse. |
-| Void Trials | 10,001–12,000 | Meteor strikes and gravity simultaneously. Every 25th stage adds a harder boss starting geometry and two-block meteor strikes. |
+| Void Trials | 10,001–14,000 | Meteor strikes and gravity simultaneously. Every 25th stage adds a harder boss starting geometry and two-block meteor strikes. |
 
 The game UI shows localized section names and philosophies in Arabic/French/English. Difficulty ramps inside each section with stage-specific seeds, starting board arrangements, goals, and puzzle-tray pattern choices.
 
@@ -39,3 +39,7 @@ Google test banner and test interstitial IDs remain the default in GitHub Action
 ## Remaining live-device QA
 
 Test small devices (320–360dp), larger devices, gesture/three-button system navigation, Arabic RTL, and AdMob banner loading. Check each section's new stage conditions, browser and native audio mutes, and resume/restart persistence. Build/test success alone does not prove the physical app UI has been fully verified.
+
+## Blockfall controls
+
+Tap the Blockfall section in the Galaxy map and start stage 12,001 (free). Use ◀ / ▶ to move, ⟳ to rotate, ▼ for soft drop, ⤓ for hard drop. Swipe across the board to steer, swipe down to drop, tap to rotate. Keyboard arrows and Space also work. A pause control stops automatic gravity; leaving the game saves the unfinished stage to the device. Completed stages award the same one-time Nova Points/stars as other sections. Banner is still OFF and only test Interstitial can appear at natural replay breaks.

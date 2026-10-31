@@ -16,7 +16,7 @@ export function createGalaxyUI({getProgress,setProgress,getState,onStage,getLang
  const root=document.createElement('div');
  root.id='galaxyOverlay';root.className='galaxy-overlay';root.hidden=true;
  root.innerHTML='<div class="galaxy-panel" role="dialog" aria-modal="true" aria-labelledby="galaxyTitle">'+
- '<div class="galaxy-head"><div><div class="galaxy-kicker">✦ NOVAGRID · 12,000 STAGES</div><h2 id="galaxyTitle"></h2><p id="galaxySubtitle"></p></div><button class="galaxy-close" type="button" aria-label="Close">✕</button></div>'+
+ '<div class="galaxy-head"><div><div class="galaxy-kicker">✦ NOVAGRID · 14,000 STAGES</div><h2 id="galaxyTitle"></h2><p id="galaxySubtitle"></p></div><button class="galaxy-close" type="button" aria-label="Close">✕</button></div>'+
  '<div class="galaxy-money"><strong id="galaxyCoins"></strong><span id="galaxyStats"></span></div>'+
  '<div class="galaxy-sectors-label" id="galaxySectorsLabel"></div><div class="galaxy-sectors" id="galaxySectors"></div>'+
  '<div class="galaxy-nav"><button id="galaxyPrevious" type="button">‹</button><span id="galaxyWorld"></span><button id="galaxyNext" type="button">›</button></div>'+
@@ -69,14 +69,14 @@ export function createGalaxyUI({getProgress,setProgress,getState,onStage,getLang
    const available=isStageUnlocked(p,level),buy=level===p.unlockedSectors[sector]+1&&!!p.completed[level-1];
    const b=document.createElement('button');b.type='button';
    b.className='galaxy-node mission-'+mission.kind+' '+(stars?'done':available?'ready':buy?'purchasable':'sealed');
-   if(getState()?.mode==='stage'&&getState()?.stageLevel===level)b.classList.add('active');
+   if(['stage','falling'].includes(getState()?.mode)&&getState()?.stageLevel===level)b.classList.add('active');
    const num=document.createElement('strong');num.textContent=available?String(level):buy?'✦':'🔒';
    const subtitle=document.createElement('small');
    subtitle.textContent=stars?'★'.repeat(stars):available?'· · ·':buy?mission.unlockCost+' ✦':'·';
    b.append(num,subtitle);
    const mark=document.createElement('i');mark.className='mission-mark';mark.setAttribute('aria-hidden','true');
    mark.textContent=({score:'✦',rows:'═',columns:'║',squares:'▦',combo:'⟡',
-    survival:'∞',clearing:'✧',mastery:'✪',charge:'⚡'})[mission.kind];
+    survival:'∞',clearing:'✧',mastery:'✪',charge:'⚡','falling-lines':'═','falling-score':'★','falling-drops':'⤓','falling-combos':'✦'})[mission.kind];
    b.append(mark);
    b.title=mission.kind+' · '+mission.goal+(mission.boss?' · BOSS':'');
    b.setAttribute('aria-label',t.levels+' '+level+' '+mission.kind+(buy?' '+t.next+' '+mission.unlockCost:''));
