@@ -33,14 +33,16 @@ export function createGalaxyUI({getProgress,setProgress,getState,onStage,getLang
   const t=language(),p=getProgress(),list=at('galaxySectors');
   at('galaxySectorsLabel').textContent=t.sections;
   const fragment=document.createDocumentFragment();
-  for(let i=0;i<SECTORS.length;i++){
+  // Make the newest falling-block section easy to discover without horizontal scrolling.
+  const order=[SECTORS.length-1,...Array.from({length:SECTORS.length-1},(_,i)=>i)];
+  for(const i of order){
    const item=SECTORS[i],start=i*SECTOR_SIZE+1,done=Object.keys(p.completed).filter(k=>Number(k)>=start&&Number(k)<start+SECTOR_SIZE&&p.completed[k]>0).length;
    const b=document.createElement('button');b.type='button';
-   b.className='sector-card'+(i===sector?' selected':'');
+   b.className='sector-card'+(i===sector?' selected':'')+(item.id==='blockfall'?' blockfall-featured':'');
    b.setAttribute('aria-pressed',String(i===sector));
    const icon=document.createElement('strong');icon.className='sector-icon';icon.textContent=item.icon;
    const name=document.createElement('span');name.className='sector-name';name.textContent=item.name[getLanguage()]||item.name.en;
-   const count=document.createElement('small');count.textContent=done+'/'+SECTOR_SIZE;
+   const count=document.createElement('small');count.textContent=done+'/'+SECTOR_SIZE+(item.id==='blockfall'?' · NEW':'');
    b.append(icon,name,count);b.title=item.philosophy[getLanguage()]||item.philosophy.en;
    b.addEventListener('click',()=>{
     onSound?.();sector=i;world=i*WORLDS_PER_SECTOR;
