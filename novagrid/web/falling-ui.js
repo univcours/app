@@ -1,5 +1,6 @@
 import {FALL_WIDTH,FALL_HEIGHT,FALL_PALETTE,fallingConfig,fallingObjective,makeFallingState,
  tryMoveFalling,tryRotateFalling,stepFalling,hardDropFalling,renderFallCells,shapeFor} from './falling.js';
+import {createSwipeTracker} from './swipe.js';
 
 export function createBlockfallUI({onFinish,onExit,getLanguage,onSound,onAdBreak}){
  let game=null,config=null,interval=null,paused=false,reported=false,active=false,gesture=null,earned=0;
@@ -13,20 +14,15 @@ export function createBlockfallUI({onFinish,onExit,getLanguage,onSound,onAdBreak
  '<div><span id="fallGoalLabel"></span><strong id="fallGoal"></strong></div>'+
  '<div class="fall-next"><span id="fallNextLabel"></span><div id="fallNext"></div></div></div>'+
  '<div class="fall-board-holder"><div id="fallBoard" class="fall-board" role="grid" aria-label="10 by 18 falling blocks"></div></div>'+
- '<div class="fall-controls">'+
- '<button type="button" data-fall="left" aria-label="Left">◀</button>'+
- '<button type="button" data-fall="rotate" aria-label="Rotate">⟳</button>'+
- '<button type="button" data-fall="right" aria-label="Right">▶</button>'+
- '<button type="button" data-fall="down" aria-label="Down">▼</button>'+
- '<button type="button" data-fall="drop" class="fall-drop" aria-label="Drop">⤓</button></div>'+
+ 
  '<div class="fall-tip" id="fallTip"></div>'+
  '<div class="fall-result" id="fallResult" hidden><div class="fall-result-inner"><strong id="fallResultTitle"></strong><p id="fallResultDetails"></p><button id="fallResultAction" type="button"></button></div></div></div>';
  document.body.append(el);
  const get=id=>el.querySelector('#'+id);
  const labels={
-  en:{title:'Blockfall Arena',stage:'Stage',score:'SCORE',lines:'LINES',goal:'GOAL',next:'NEXT',win:'Stage complete!',lose:'Try again!',back:'Back to galaxy',retry:'Retry stage',tip:'Tap to rotate · Swipe to move · Swipe down to drop',kinds:{lines:'lines',score:'points',drops:'pieces',combos:'chains'}},
-  fr:{title:'Arène des blocs',stage:'Niveau',score:'SCORE',lines:'LIGNES',goal:'OBJECTIF',next:'SUIVANT',win:'Niveau réussi !',lose:'Réessayez !',back:'Retour à la galaxie',retry:'Réessayer',tip:'Touchez pour tourner · Glissez pour déplacer · Glissez vers le bas',kinds:{lines:'lignes',score:'points',drops:'pièces',combos:'chaînes'}},
-  ar:{title:'ساحة القطع الهابطة',stage:'مرحلة',score:'النقاط',lines:'الصفوف',goal:'الهدف',next:'التالية',win:'كملتي المرحلة!',lose:'عاود المحاولة!',back:'رجوع للمجرات',retry:'إعادة المحاولة',tip:'ضغط للتدوير · سحب للجوانب · سحب للتحت للإسقاط',kinds:{lines:'صفوف',score:'نقاط',drops:'قطع',combos:'سلاسل'}}
+  en:{title:'Blockfall Arena',stage:'Stage',score:'SCORE',lines:'LINES',goal:'GOAL',next:'NEXT',win:'Stage complete!',lose:'Try again!',back:'Back to galaxy',retry:'Retry stage',tip:'Drag sideways to steer · Drag down to descend · Tap to rotate',kinds:{lines:'lines',score:'points',drops:'pieces',combos:'chains'}},
+  fr:{title:'Arène des blocs',stage:'Niveau',score:'SCORE',lines:'LIGNES',goal:'OBJECTIF',next:'SUIVANT',win:'Niveau réussi !',lose:'Réessayez !',back:'Retour à la galaxie',retry:'Réessayer',tip:'Glissez à gauche/droite pour bouger · Vers le bas pour descendre · Touchez pour tourner',kinds:{lines:'lignes',score:'points',drops:'pièces',combos:'chaînes'}},
+  ar:{title:'ساحة القطع الهابطة',stage:'مرحلة',score:'النقاط',lines:'الصفوف',goal:'الهدف',next:'التالية',win:'كملتي المرحلة!',lose:'عاود المحاولة!',back:'رجوع للمجرات',retry:'إعادة المحاولة',tip:'سحب يمين ويسار للتحريك · سحب لتحت للنزول · ضغطة خفيفة للتدوير',kinds:{lines:'صفوف',score:'نقاط',drops:'قطع',combos:'سلاسل'}}
  };
  const t=()=>labels[getLanguage()]||labels.en;
  function key(){return 'nova.blockfall.stage.'+game.stageLevel;}
@@ -106,11 +102,11 @@ export function createBlockfallUI({onFinish,onExit,getLanguage,onSound,onAdBreak
    persist();render();
   }
  }
- function pause(){if(!active||game.over)return;paused=!paused;syncTimer();render();}
+ function pause(){if(!active||game.over)return;paused=!paused;gesture=null;syncTimer();render();}
  function exit(withNavigation=true){
   if(!active)return;
   const level=game.stageLevel;
-  persist();active=false;clearTimer();el.hidden=true;get('fallResult').hidden=true;
+  persist();active=false;gesture=null;clearTimer();el.hidden=true;get('fallResult').hidden=true;
   if(withNavigation)onExit?.(level);
  }
  function open(level){
@@ -120,11 +116,11 @@ export function createBlockfallUI({onFinish,onExit,getLanguage,onSound,onAdBreak
   if(saved?.mode==='falling'&&saved.stageLevel===level&&!saved.over&&saved.board?.length===FALL_HEIGHT&&
    saved.board.every(row=>Array.isArray(row)&&row.length===FALL_WIDTH)&&saved.active?.cells?.length===4)game=saved;
   else game=makeFallingState(level);
-  active=true;paused=false;reported=false;earned=0;el.hidden=false;get('fallResult').hidden=true;
+  active=true;paused=false;reported=false;earned=0;gesture=null;el.hidden=false;get('fallResult').hidden=true;
   render();requestAnimationFrame(fitBoard);syncTimer();
  }
  function reset(){
-  if(!game)return;game=makeFallingState(game.stageLevel);reported=false;paused=false;earned=0;get('fallResult').hidden=true;
+  if(!game)return;game=makeFallingState(game.stageLevel);reported=false;paused=false;earned=0;gesture=null;get('fallResult').hidden=true;
   persist();render();syncTimer();
  }
  get('fallClose').addEventListener('click',()=>exit());
@@ -132,14 +128,55 @@ export function createBlockfallUI({onFinish,onExit,getLanguage,onSound,onAdBreak
  get('fallResultAction').addEventListener('click',async()=>{
   if(game.won){await onAdBreak?.();exit();}else reset();
  });
- el.querySelectorAll('[data-fall]').forEach(b=>b.addEventListener('click',()=>perform(b.dataset.fall)));
- get('fallBoard').addEventListener('pointerdown',e=>{if(active&&!paused&&!game.over)gesture={x:e.clientX,y:e.clientY,id:e.pointerId};});
- get('fallBoard').addEventListener('pointerup',e=>{
-  if(!gesture||gesture.id!==e.pointerId)return;
-  const dx=e.clientX-gesture.x,dy=e.clientY-gesture.y;gesture=null;
-  if(dy>60)perform('drop');else if(Math.abs(dx)>25)perform(dx>0?'right':'left');else perform('rotate');
+ // Move the live piece while the finger moves, not only on pointer release.
+ // Pixel-to-cell thresholds adapt to any phone size and preserve fractional drag.
+ const boardNode=get('fallBoard');
+ function onSwipeMove(e){
+  if(!gesture||gesture.id!==e.pointerId||!active||paused||game.over)return;
+  e.preventDefault();
+  if(game.drops!==gesture.drops){gesture.locked=true;return;}
+  const {horizontal,down}=gesture.tracker.update(e.clientX,e.clientY);
+  if(gesture.locked||(!horizontal&&!down))return;
+  const before=game;
+  let next=game;
+  const sign=Math.sign(horizontal);
+  for(let i=0;i<Math.abs(horizontal);i++){
+   const step=tryMoveFalling(next,sign);
+   if(step===next)break;
+   next=step;
+  }
+  for(let i=0;i<down;i++){
+   const oldDrops=next.drops;
+   next=stepFalling(next,config,true);
+   if(next.drops!==oldDrops){gesture.locked=true;break;}
+  }
+  if(next===before)return;
+  game=next;
+  persist();
+  render();
+  if(game.drops!==before.drops)onSound?.(game.lastClear?'clear':'place');
+  else if(horizontal&&Date.now()-gesture.lastAudio>110){
+   onSound?.('pick');gesture.lastAudio=Date.now();
+  }
+ }
+ boardNode.addEventListener('pointerdown',e=>{
+  if(!active||paused||game.over||gesture||e.isPrimary===false||e.button!==0)return;
+  e.preventDefault();
+  const rect=boardNode.getBoundingClientRect();
+  gesture={id:e.pointerId,tracker:createSwipeTracker(e.clientX,e.clientY,
+   rect.width/FALL_WIDTH,rect.height/FALL_HEIGHT),drops:game.drops,locked:false,lastAudio:0};
+  try{boardNode.setPointerCapture(e.pointerId);}catch{}
  });
- get('fallBoard').addEventListener('pointercancel',()=>{gesture=null;});
+ boardNode.addEventListener('pointermove',onSwipeMove);
+ boardNode.addEventListener('pointerup',e=>{
+  if(!gesture||gesture.id!==e.pointerId)return;
+  onSwipeMove(e); // capture the final movement, even when no last move event fired
+  const current=gesture;gesture=null;
+  if(!current.tracker.moved&&!current.locked&&active&&!paused&&!game.over&&game.drops===current.drops)
+   perform('rotate');
+ });
+ boardNode.addEventListener('pointercancel',e=>{if(gesture?.id===e.pointerId)gesture=null;});
+ boardNode.addEventListener('lostpointercapture',e=>{if(gesture?.id===e.pointerId)gesture=null;});
  document.addEventListener('keydown',e=>{
   if(!active||el.hidden)return;
   if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown',' ','Escape','p','P'].includes(e.key)){
@@ -148,7 +185,7 @@ export function createBlockfallUI({onFinish,onExit,getLanguage,onSound,onAdBreak
    if(e.key==='Escape')exit();else if(e.key==='p'||e.key==='P')pause();else perform(actions[e.key]);
   }
  },true);
- document.addEventListener('visibilitychange',()=>{if(!active)return;if(document.hidden){paused=true;clearTimer();}else render();});
+ document.addEventListener('visibilitychange',()=>{if(!active)return;if(document.hidden){paused=true;gesture=null;clearTimer();}else render();});
  window.addEventListener('resize',()=>{if(active)requestAnimationFrame(fitBoard);});
  if('ResizeObserver' in window)new ResizeObserver(()=>{if(active)fitBoard();}).observe(get('fallBoard').parentElement);
  return {open,close:()=>exit(),get visible(){return active&&!el.hidden;},get state(){return game;},render};

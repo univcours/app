@@ -43,3 +43,7 @@ Test small devices (320–360dp), larger devices, gesture/three-button system na
 ## Blockfall controls
 
 Tap the Blockfall section in the Galaxy map and start stage 12,001 (free). Use ◀ / ▶ to move, ⟳ to rotate, ▼ for soft drop, ⤓ for hard drop. Swipe across the board to steer, swipe down to drop, tap to rotate. Keyboard arrows and Space also work. A pause control stops automatic gravity; leaving the game saves the unfinished stage to the device. Completed stages award the same one-time Nova Points/stars as other sections. Banner is still OFF and only test Interstitial can appear at natural replay breaks.
+
+## Smooth, gesture-only Blockfall controls
+
+The falling piece follows the finger while it moves on the 10×18 board: drag horizontally to steer continuously cell by cell, and drag down for incremental soft drops. Small fractional gestures accumulate smoothly, with collisions respected, rather than jumping on release. A light tap rotates. The old on-screen left/right/down/drop buttons are removed, freeing space for a larger board. Keyboard arrows and Space remain available for desktop and accessibility. Pausing, leaving and canceling a pointer safely stop the gesture. The game never hard-drops on a normal downward swipe.

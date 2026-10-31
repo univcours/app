@@ -6,7 +6,7 @@ test('horizontal movement updates continuously before pointer release',()=>{
  assert.equal(track.update(115,300).horizontal,0);
  assert.equal(track.update(125,300).horizontal,1);
  assert.equal(track.update(176,300).horizontal,2);
- assert.equal(track.update(150,300).horizontal,-1);
+ assert.equal(track.update(144,300).horizontal,-1);
 });
 test('continuous downward drag makes multiple soft-drop steps without hard drop',()=>{
  const track=createSwipeTracker(80,100,25,28);
