@@ -1,0 +1,22 @@
+{
+  "name": "rookvanta",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "RookVanta multiplayer chess: legal moves, online rooms and server clocks",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node --test tests/*.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "chess.js": "^1.4.0",
+    "socket.io": "^4.8.4"
+  },
+  "devDependencies": {
+    "socket.io-client": "^4.8.4"
+  }
+}
