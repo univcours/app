@@ -4,7 +4,7 @@ import {place,emptyBoard,hasMove} from '../web/engine.js';
 import {WORLD_SIZE,SECTOR_SIZE,TOTAL_STAGES,TOTAL_WORLDS,SECTORS,WORLD_NAMES,
  stageConfig,stageBoard,startStage,stageWon,stageFailed,rankStage,objectiveValue,
  stageObjectiveText,awardStage,purchaseStage,isStageUnlocked,initialProgress,
- normalizeProgress,progressSummary,collapseBoard,applySectorTurn} from '../web/stages.js';
+ normalizeProgress,progressSummary,collapseBoard,applySectorTurn,drawSectorTray} from '../web/stages.js';
 
 test('12,000 levels: six sections, twenty worlds each',()=>{
  assert.equal(TOTAL_STAGES,12000);assert.equal(TOTAL_WORLDS,120);
@@ -96,4 +96,17 @@ test('core engine distinguishes row and square clear events',()=>{
  assert.equal(place(b,[[0,0]],0,8).rows,1);
  const sq=emptyBoard();for(let r=3;r<6;r++)for(let c=3;c<6;c++)sq[r][c]=1;
  sq[5][5]=0;assert.equal(place(sq,[[0,0]],5,5).squares,1);
+});
+
+test('sector shape selection is reproducible and always playable',()=>{
+ for(const level of [2001,4001,6001,8001,10001,12000]){
+  const state=startStage(level);
+  const first=drawSectorTray(level,state.board,0);
+  const again=drawSectorTray(level,state.board,0);
+  assert.deepEqual(first,again);
+  assert.equal(hasMove(state.board,first),true);
+  const newTray=drawSectorTray(level,state.board,1);
+  assert.equal(newTray.length,3);
+  assert.ok(newTray.every(piece=>piece.length>=1));
+ }
 });
