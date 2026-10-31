@@ -13,7 +13,7 @@ test('multi-cell pieces are centered at target without losing their top-left anc
 });
 test('drag projection rejects a pointer outside board and invalid edge shapes',()=>{
  const p=[[0,0],[0,1],[0,2]];
- assert.equal(projectDragPoint(20,490,rect,p,70),null);
+ assert.equal(projectDragPoint(20,600,rect,p,70),null);
  const edge=projectDragPoint(374,240,rect,p,70);
  assert.ok(edge);assert.equal(canPlace(emptyBoard(),p,edge.row,edge.col),false);
 });
