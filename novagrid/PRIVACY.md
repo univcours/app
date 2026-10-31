@@ -1,12 +1,18 @@
-# NovaGrid — Privacy policy (draft for review)
-Last updated: 31 October 2026
+# NovaGrid — privacy policy working draft
 
-NovaGrid stores game progress, language, daily challenge, and high scores in local device storage. It does not require an account.
+Last reviewed: 31 October 2026
+This is preparatory text. Verify with the shipped SDK and add an actual developer support email and public HTTPS page before public Play launch.
 
-The Android version includes Google AdMob advertising SDK and Google User Messaging Platform (UMP). The SDK may process device identifiers, IP-derived location, ad impressions/interactions, diagnostics and consent preferences for ad delivery, fraud prevention and measurement. AdMob requires a network connection. During internal development, Google demo advertisements are displayed; no live advertising IDs are used.
+NovaGrid provides offline block puzzles: Classic, Daily Challenge, Galaxy Stages, and Blockfall. No account is required.
 
-Consent may be requested depending on region, and privacy-options access is displayed in-app when required. If consent or the SDK is unavailable, gameplay remains functional with no advertising.
+Game progress, completed stages, in-game points, language, audio settings and high scores are stored locally in the device's application storage. The puzzle engine does not upload this game information to a NovaGrid account or game server.
 
-Local gameplay data may be erased by uninstalling or clearing application data. Before public launch, the publisher must review this notice, insert a support contact and publish it at a publicly accessible URL, and match Play Console Data safety disclosures to the actual SDK version.
+The Android app integrates Google AdMob and Google User Messaging Platform (UMP). Banner advertising is disabled. Occasional interstitial ads can show between completed runs. AdMob / its partners may collect or process advertising identifiers, device data, approximate location inferred from IP address, ad interactions, technical diagnostics and consent preferences for advertising, measurement, security and fraud prevention. Verify the actual SDK data collection and sharing for Play Console Data safety declarations.
 
-Google advertising privacy info: https://policies.google.com/technologies/ads
+Core gameplay works offline; ad and consent services may require network access. The app provides consent and privacy choices where required. The puzzle remains playable when ads cannot be requested.
+
+Players can clear locally stored game data from Android app settings or by uninstalling the app. For privacy questions, the publisher must provide a real support email in the final notice.
+
+Google advertising privacy information: https://policies.google.com/technologies/ads
+
+In-app privacy page: novagrid/web/privacy.html. This local page does NOT replace a public, accessible HTTPS privacy policy URL required in Play Console.

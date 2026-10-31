@@ -206,3 +206,6 @@ html.compact-game .gamehint{height:14px;font-size:9px}
 html.compact-game .gametools{height:34px}
 html.compact-game .utility{padding:2px 5px}
 html.compact-game footer{height:12px;font-size:9px}
+
+/* Play review: policy link remains available even where UMP options are hidden. */
+footer .privacybtn{font-size:9px;padding:2px 5px;white-space:nowrap;text-decoration:none;flex:0 0 auto}
