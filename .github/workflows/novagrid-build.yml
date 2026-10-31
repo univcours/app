@@ -37,10 +37,64 @@ jobs:
         run: npm run android:name
       - name: Fix legacy Gradle ProGuard configuration
         run: npm run android:gradle-fix
+
+      - name: Verify Play target API and app ID
+        run: |
+          grep -Eq 'targetSdkVersion\s*=\s*36' android/variables.gradle
+          grep -Fq '"appId": "com.novagrid.cosmicpuzzle"' capacitor.config.json
+          grep -Fq '"appName": "NovaGrid"' capacitor.config.json
+      - name: Check whether a signing key is configured for Internal Testing
+        env:
+          NOVAGRID_UPLOAD_KEYSTORE_BASE64: ${{ secrets.NOVAGRID_UPLOAD_KEYSTORE_BASE64 }}
+          NOVAGRID_UPLOAD_KEYSTORE_PASSWORD: ${{ secrets.NOVAGRID_UPLOAD_KEYSTORE_PASSWORD }}
+          NOVAGRID_UPLOAD_KEY_ALIAS: ${{ secrets.NOVAGRID_UPLOAD_KEY_ALIAS }}
+          NOVAGRID_UPLOAD_KEY_PASSWORD: ${{ secrets.NOVAGRID_UPLOAD_KEY_PASSWORD }}
+        run: |
+          if [[ -n "$NOVAGRID_UPLOAD_KEYSTORE_BASE64" && -n "$NOVAGRID_UPLOAD_KEYSTORE_PASSWORD" && -n "$NOVAGRID_UPLOAD_KEY_ALIAS" && -n "$NOVAGRID_UPLOAD_KEY_PASSWORD" ]]; then
+            echo "NOVAGRID_SIGNING_READY=true" >> "$GITHUB_ENV"
+            echo "Secure signing key available. A signed INTERNAL TESTING AAB will be created."
+          else
+            echo "NOVAGRID_SIGNING_READY=false" >> "$GITHUB_ENV"
+            echo "No complete upload key secrets. Only debug APK and UNSIGNED AAB will be created."
+          fi
       - name: Build debug APK and unsigned bundle
         run: |
           chmod +x android/gradlew
           cd android && ./gradlew :app:bundleRelease :app:assembleDebug --no-daemon
+
+      - name: Sign the AAB for Play Internal Testing
+        if: env.NOVAGRID_SIGNING_READY == 'true'
+        env:
+          NOVAGRID_UPLOAD_KEYSTORE_BASE64: ${{ secrets.NOVAGRID_UPLOAD_KEYSTORE_BASE64 }}
+          NOVAGRID_UPLOAD_KEYSTORE_PASSWORD: ${{ secrets.NOVAGRID_UPLOAD_KEYSTORE_PASSWORD }}
+          NOVAGRID_UPLOAD_KEY_ALIAS: ${{ secrets.NOVAGRID_UPLOAD_KEY_ALIAS }}
+          NOVAGRID_UPLOAD_KEY_PASSWORD: ${{ secrets.NOVAGRID_UPLOAD_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          keyfile="$RUNNER_TEMP/novagrid-upload.jks"
+          printf '%s' "$NOVAGRID_UPLOAD_KEYSTORE_BASE64" | base64 --decode > "$keyfile"
+          chmod 600 "$keyfile"
+          input="android/app/build/outputs/bundle/release/app-release.aab"
+          output="android/app/build/outputs/bundle/release/novagrid-play-internal-signed.aab"
+          test -s "$input"
+          jarsigner -keystore "$keyfile" \
+            -storepass:env NOVAGRID_UPLOAD_KEYSTORE_PASSWORD \
+            -keypass:env NOVAGRID_UPLOAD_KEY_PASSWORD \
+            -signedjar "$output" "$input" "$NOVAGRID_UPLOAD_KEY_ALIAS"
+          jarsigner -verify -verbose "$output" | grep -Fq "jar verified."
+          rm -f "$keyfile"
+          echo "Signed AAB verified. Restricted to Play INTERNAL TESTING until all launch conditions are met."
+      - name: Remove temporary keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/novagrid-upload.jks"
+      - name: Upload Play Internal signed AAB
+        if: env.NOVAGRID_SIGNING_READY == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: novagrid-play-internal-signed-aab
+          path: novagrid/android/app/build/outputs/bundle/release/novagrid-play-internal-signed.aab
+          retention-days: 14
+          if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
           name: novagrid-debug-apk
