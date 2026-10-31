@@ -47,3 +47,7 @@ Tap the Blockfall section in the Galaxy map and start stage 12,001 (free). Use �
 ## Smooth, gesture-only Blockfall controls
 
 The falling piece follows the finger while it moves on the 10×18 board: drag horizontally to steer continuously cell by cell, and drag down for incremental soft drops. Small fractional gestures accumulate smoothly, with collisions respected, rather than jumping on release. A light tap rotates. The old on-screen left/right/down/drop buttons are removed, freeing space for a larger board. Keyboard arrows and Space remain available for desktop and accessibility. Pausing, leaving and canceling a pointer safely stop the gesture. The game never hard-drops on a normal downward swipe.
+
+## Direct home navigation for Blockfall
+
+The main navigation has four tabs, **Classic · Daily Challenge · Blockfall · Stages**. Blockfall launches the last played unlocked Blockfall level (or the highest unlocked, initially 12,001) immediately; there is no need to enter the galaxy stage map first. Closing Blockfall returns to its stage map. Saves, Nova Points, and all 14,000 stages are preserved.

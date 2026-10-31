@@ -91,3 +91,17 @@ html[dir=rtl] .galaxy-sectors{direction:rtl}
 html.native-ad-layout #galaxyOverlay{
  bottom:calc(var(--native-ad-reserve,96px) + var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px)) + 8px)!important;
 }
+
+/* Four top-level modes fit across narrow phones in one row, with no extra
+   vertical height taken from the 9×9 board. */
+.modes{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}
+.mode{min-width:0;min-height:0;flex-direction:column;justify-content:center;align-items:center;gap:1px;
+ padding:2px 1px;line-height:1.05;overflow:hidden}
+.mode>span:first-child{flex:0 0 auto;font-size:16px;line-height:1}
+.mode>span:nth-child(2){display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;
+ overflow:hidden;max-width:100%;overflow-wrap:anywhere;text-align:center;font-size:clamp(9px,2.5vw,11px);
+ line-height:1.12;font-weight:800}
+.mode[data-mode="blockfall"]>span:first-child{color:#82f5e9}
+.mode[data-mode="blockfall"].active{background:linear-gradient(118deg,#176078,#4932a2);border-color:#7ceee3}
+.modes .dot{right:5px;top:4px}
+@media(max-width:350px){.modes{gap:3px}.mode>span:nth-child(2){font-size:9px}}

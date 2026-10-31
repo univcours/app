@@ -7,9 +7,9 @@ import {createGalaxyUI} from './galaxy-ui.js';
 import {calculateBoardSize} from './layout.js';
 import {createBlockfallUI} from './falling-ui.js';
 const T={
- en:{tagline:'A universe of puzzles',eyebrow:'YOUR DAILY BRAIN BOOST',hero1:'Think sharp.',hero2:'Glow brighter.',subtitle:'Place blocks. Clear lines. Chase your next high score.',classic:'Classic',stages:'Stages',daily:'Daily challenge',score:'SCORE',best:'BEST',streak:'COMBO',hint:'Select a shape, then tap the grid',selected:'Now tap where the shape should land',invalid:'Not enough space! Try another spot',undo:'Undo once',new:'New game',tipTitle:'Cosmic tip',tip:'Fill a row, column or 3×3 square to clear it.',offline:'Offline & private',playAgain:'Play again',close:'Close',gameOver:'Out of space!',gameOverBody:'Every brilliant run starts with another try.',nice:'Cosmic clear!',dailyDone:'Daily challenge completed',newConfirm:'Start a fresh game? Your current progress will be lost.',share:'NovaGrid score',copy:'Score copied!',undoUsed:'Your one undo has been used',none:'Play a move first',dailyLabel:'Daily · '},
- fr:{tagline:'Un univers de puzzles',eyebrow:'LE DÉFI DE VOTRE CERVEAU',hero1:'Pensez vite.',hero2:'Brillez encore.',subtitle:'Placez des blocs. Effacez des lignes. Battez votre record.',classic:'Classique',stages:'Niveaux',daily:'Défi du jour',score:'SCORE',best:'RECORD',streak:'COMBO',hint:'Choisissez une pièce, puis touchez la grille',selected:'Touchez une case pour placer la pièce',invalid:'Espace insuffisant !',undo:'Annuler une fois',new:'Nouvelle partie',tipTitle:'Astuce cosmique',tip:'Complétez une ligne, colonne ou carré 3×3.',offline:'Hors ligne et privé',playAgain:'Rejouer',close:'Fermer',gameOver:'Plus de place !',gameOverBody:'Chaque superbe partie commence par un nouvel essai.',nice:'Super combo !',dailyDone:'Défi quotidien terminé',newConfirm:'Recommencer ? Votre progression sera perdue.',share:'Score NovaGrid',copy:'Score copié !',undoUsed:'Annulation déjà utilisée',none:'Jouez d’abord',dailyLabel:'Défi · '},
- ar:{tagline:'عالم من الألغاز',eyebrow:'تحديك الذهني اليومي',hero1:'فكّر بذكاء.',hero2:'وتألّق أكثر.',subtitle:'ضع القطع. امسح الصفوف. حطّم رقمك القياسي.',classic:'الكلاسيكي',stages:'المراحل',daily:'تحدي اليوم',score:'النقاط',best:'الأفضل',streak:'السلسلة',hint:'اختر قطعة ثم اضغط على الشبكة',selected:'اضغط على مكان وضع القطعة',invalid:'لا توجد مساحة كافية!',undo:'تراجع واحد',new:'لعبة جديدة',tipTitle:'نصيحة ذكية',tip:'أكمل صفاً أو عموداً أو مربعاً 3×3 لمسحه.',offline:'دون إنترنت وخصوصي',playAgain:'العب مجدداً',close:'إغلاق',gameOver:'انتهت المساحة!',gameOverBody:'كل محاولة جديدة فرصة لتحطيم الرقم القياسي.',nice:'ممتاز!',dailyDone:'اكتمل تحدي اليوم',newConfirm:'بدء لعبة جديدة؟ سيضيع تقدمك الحالي.',share:'نقاط NovaGrid',copy:'تم نسخ النقاط!',undoUsed:'استخدمت التراجع',none:'العب أولاً',dailyLabel:'يومي · '}
+ en:{tagline:'A universe of puzzles',eyebrow:'YOUR DAILY BRAIN BOOST',hero1:'Think sharp.',hero2:'Glow brighter.',subtitle:'Place blocks. Clear lines. Chase your next high score.',classic:'Classic',stages:'Stages',daily:'Daily challenge',blockfall:'Blockfall',score:'SCORE',best:'BEST',streak:'COMBO',hint:'Select a shape, then tap the grid',selected:'Now tap where the shape should land',invalid:'Not enough space! Try another spot',undo:'Undo once',new:'New game',tipTitle:'Cosmic tip',tip:'Fill a row, column or 3×3 square to clear it.',offline:'Offline & private',playAgain:'Play again',close:'Close',gameOver:'Out of space!',gameOverBody:'Every brilliant run starts with another try.',nice:'Cosmic clear!',dailyDone:'Daily challenge completed',newConfirm:'Start a fresh game? Your current progress will be lost.',share:'NovaGrid score',copy:'Score copied!',undoUsed:'Your one undo has been used',none:'Play a move first',dailyLabel:'Daily · '},
+ fr:{tagline:'Un univers de puzzles',eyebrow:'LE DÉFI DE VOTRE CERVEAU',hero1:'Pensez vite.',hero2:'Brillez encore.',subtitle:'Placez des blocs. Effacez des lignes. Battez votre record.',classic:'Classique',stages:'Niveaux',daily:'Défi du jour',blockfall:'Blockfall',score:'SCORE',best:'RECORD',streak:'COMBO',hint:'Choisissez une pièce, puis touchez la grille',selected:'Touchez une case pour placer la pièce',invalid:'Espace insuffisant !',undo:'Annuler une fois',new:'Nouvelle partie',tipTitle:'Astuce cosmique',tip:'Complétez une ligne, colonne ou carré 3×3.',offline:'Hors ligne et privé',playAgain:'Rejouer',close:'Fermer',gameOver:'Plus de place !',gameOverBody:'Chaque superbe partie commence par un nouvel essai.',nice:'Super combo !',dailyDone:'Défi quotidien terminé',newConfirm:'Recommencer ? Votre progression sera perdue.',share:'Score NovaGrid',copy:'Score copié !',undoUsed:'Annulation déjà utilisée',none:'Jouez d’abord',dailyLabel:'Défi · '},
+ ar:{tagline:'عالم من الألغاز',eyebrow:'تحديك الذهني اليومي',hero1:'فكّر بذكاء.',hero2:'وتألّق أكثر.',subtitle:'ضع القطع. امسح الصفوف. حطّم رقمك القياسي.',classic:'الكلاسيكي',stages:'المراحل',daily:'تحدي اليوم',blockfall:'بلوك فول',score:'النقاط',best:'الأفضل',streak:'السلسلة',hint:'اختر قطعة ثم اضغط على الشبكة',selected:'اضغط على مكان وضع القطعة',invalid:'لا توجد مساحة كافية!',undo:'تراجع واحد',new:'لعبة جديدة',tipTitle:'نصيحة ذكية',tip:'أكمل صفاً أو عموداً أو مربعاً 3×3 لمسحه.',offline:'دون إنترنت وخصوصي',playAgain:'العب مجدداً',close:'إغلاق',gameOver:'انتهت المساحة!',gameOverBody:'كل محاولة جديدة فرصة لتحطيم الرقم القياسي.',nice:'ممتاز!',dailyDone:'اكتمل تحدي اليوم',newConfirm:'بدء لعبة جديدة؟ سيضيع تقدمك الحالي.',share:'نقاط NovaGrid',copy:'تم نسخ النقاط!',undoUsed:'استخدمت التراجع',none:'العب أولاً',dailyLabel:'يومي · '}
 };
 const $=id=>document.getElementById(id);const today=()=>new Date().toLocaleDateString('en-CA',{timeZone:'UTC'});
 let lang='en';try{lang=localStorage.getItem('nova.lang')||((navigator.language||'en').slice(0,2));}catch{}if(!T[lang])lang='en';
@@ -58,6 +58,8 @@ function launchStage(level){
  if(!isStageUnlocked(progress,level))return;
  cancelDrag();lastEarned=0;
  if(stageConfig(level).sectorId==='blockfall'){
+  storage.set('nova.blockfall.lastLevel',String(level));
+  document.querySelectorAll('[data-mode]').forEach(b=>b.classList.toggle('active',b.dataset.mode==='blockfall'));
   falling?.open(level);
   return;
  }
@@ -240,7 +242,17 @@ function restart(){cancelDrag();audio.effect('new');state=state.mode==='stage'?s
 $('undoBtn').addEventListener('click',()=>{if(!undoSnapshot||state.usedUndo)return;state={...undoSnapshot,usedUndo:true};undoSnapshot=null;audio.unlock();audio.effect('undo');selected=-1;hover=null;store();render();notify(tr('undoUsed'));});
 $('newBtn').addEventListener('click',()=>{if(state.moves>0&&!window.confirm(tr('newConfirm')))return;restart();});
 $('dialogPlay').addEventListener('click',async()=>{const btn=$('dialogPlay');btn.disabled=true;try{await maybeShowInterstitialOnReplay();}finally{btn.disabled=false;if(state.mode==='stage'&&state.won){$('dialog').hidden=true;galaxy?.open(state.stageLevel+1);}else restart();}});$('dialogClose').addEventListener('click',()=>$('dialog').hidden=true);
-document.querySelectorAll('[data-mode]').forEach(btn=>btn.addEventListener('click',()=>{setMode(btn.dataset.mode);if(btn.dataset.mode==='stage')galaxy?.open(state.stageLevel);}));
+document.querySelectorAll('[data-mode]').forEach(btn=>btn.addEventListener('click',()=>{
+ if(btn.dataset.mode==='blockfall'){
+  const first=12001,last=Number(storage.get('nova.blockfall.lastLevel'));
+  const unlocked=progress.unlockedSectors[6]||first;
+  const level=Number.isInteger(last)&&last>=first&&last<=unlocked?last:unlocked;
+  launchStage(level);
+  return;
+ }
+ setMode(btn.dataset.mode);
+ if(btn.dataset.mode==='stage')galaxy?.open(state.stageLevel);
+}));
 $('stageMapButton').addEventListener('click',()=>galaxy?.open(state.stageLevel));
 $('soundBtn').addEventListener('click',()=>{
  audio.unlock();audio.setEffects(!audio.effectsEnabled);
@@ -262,7 +274,7 @@ falling=createBlockfallUI({
   progress=awarded.progress;saveProgress();gameFinished();
   return awarded.earned;
  },
- onExit:level=>galaxy?.open(level),
+ onExit:level=>{setMode('stage');galaxy?.open(level);},
  getLanguage:()=>lang,
  onSound:kind=>{audio.unlock();audio.effect(kind||'pick');},
  onAdBreak:maybeShowInterstitialOnReplay
