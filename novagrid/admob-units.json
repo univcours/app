@@ -5,5 +5,15 @@
     "ca-app-pub-7945572016731367/5247968960"
   ],
   "liveEnabled": false,
-  "status": "App ID and unit formats not verified"
+  "status": "LEGACY APP - currently linked to muslim tv; do not use for NovaGrid until AdMob entry is reconfigured or separate NovaGrid entry created",
+  "legacyAdMobApp": {
+    "appName": "muslim tv",
+    "adMobAppId": "ca-app-pub-7945572016731367~8159134969",
+    "packageName": "com.afnn.ayoudatv",
+    "approvalStatus": "Requires review"
+  },
+  "previousAdUnits": {
+    "interstitial": "ca-app-pub-7945572016731367/7155720038",
+    "banner": "ca-app-pub-7945572016731367/5247968960"
+  }
 }
