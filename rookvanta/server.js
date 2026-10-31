@@ -61,8 +61,8 @@ export function createGameServer({port=Number(process.env.PORT)||3000,host='0.0.
    players:room.players.map(p=>p?{color:p.color,name:p.name,online:!!p.socket,readyRematch:!!p.rematch}:null),
    drawOffer:room.drawOffer};
  }
- function broadcast(room){
-  room.updated=Date.now();
+ function broadcast(room,{touch=true}={}){
+  if(touch)room.updated=Date.now();
   for(const p of room.players){if(p?.socket){const s=io.sockets.sockets.get(p.socket);if(s)s.emit('room:state',state(room,s));}}
  }
  function joinSocket(socket,room,player){
@@ -104,7 +104,7 @@ export function createGameServer({port=Number(process.env.PORT)||3000,host='0.0.
     const room=rooms.get(id);
     if(!room)throw Error('Room not found or expired');
     let p=room.players.find(x=>x&&x.token===payload.token&&typeof payload.token==='string');
-    if(!p){if(room.players[1])throw Error('Room full — two players already joined');
+    if(!p){if(getSeat(room,socket))throw Error('Already seated in this room');if(room.players[1])throw Error('Room full — two players already joined');
      p={name:name(payload.name),color:'b',token:token(),socket:null,rematch:false};room.players[1]=p;
     }
     joinSocket(socket,room,p);
@@ -168,7 +168,7 @@ export function createGameServer({port=Number(process.env.PORT)||3000,host='0.0.
   const now=Date.now();
   for(const room of rooms.values()){
    if(now-room.updated>2*60*60*1000){rooms.delete(room.id);continue;}
-   if(room.started&&!room.result){refreshClock(room);broadcast(room);}
+   if(room.started&&!room.result){refreshClock(room);broadcast(room,{touch:false});}
   }
  },1000);
  ticker.unref?.();

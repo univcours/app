@@ -15,3 +15,8 @@ body{background:radial-gradient(ellipse 60% 50% at 85% 3%,#29325155,transparent)
 @media(max-width:900px){.arena-content{grid-template-columns:minmax(0,1fr)}.match-sidebar{min-height:0}.move-list{min-height:100px;max-height:180px}.lobby{padding-top:40px}}
 @media(max-width:650px){#app{padding:0 11px}.topbar{height:70px}.identity strong{font-size:18px}.identity small{font-size:7px;letter-spacing:1.2px}.brandmark{width:40px;height:40px;font-size:28px}.live-pill{padding:8px;font-size:9px}.language{width:39px}.header-actions{gap:6px}.hero h1{letter-spacing:-2px}.hero-badges{margin-top:17px}.hero-badges span{font-size:10px}.lobby-columns{grid-template-columns:1fr;gap:13px}.panel{padding:20px}.hero{margin-bottom:27px}.lobby-foot{margin-top:23px}.arena{padding-top:10px}.board-frame{border-width:5px}.square{font-size:clamp(25px,10.2vw,46px)}.match-sidebar{padding:16px}.playercard{padding:6px 9px}.player-details strong{font-size:12px}.clock{font-size:19px;min-width:88px;padding:7px}.arena-header{margin-bottom:8px}.arena-header button{padding:8px}.lobby-foot{font-size:9px}}
 @media(max-width:365px){.square{font-size:25px}.time-select{gap:5px}.panel{padding:15px}.identity small{display:none}}
+
+/* Chess coordinates must never mirror with Arabic RTL text. */
+.board-grid{direction:ltr;unicode-bidi:isolate}
+.board-grid .square{direction:ltr}
+@media(hover:none){.square{touch-action:manipulation}}
