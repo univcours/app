@@ -2,7 +2,7 @@ import {FALL_WIDTH,FALL_HEIGHT,FALL_PALETTE,fallingConfig,fallingObjective,makeF
  tryMoveFalling,tryRotateFalling,stepFalling,hardDropFalling,renderFallCells,shapeFor} from './falling.js';
 
 export function createBlockfallUI({onFinish,onExit,getLanguage,onSound,onAdBreak}){
- let game=null,config=null,interval=null,paused=false,reported=false,active=false,gesture=null;
+ let game=null,config=null,interval=null,paused=false,reported=false,active=false,gesture=null,earned=0;
  const el=document.createElement('section');
  el.id='blockfallOverlay';el.className='blockfall-overlay';el.hidden=true;
  el.innerHTML='<div class="fall-panel" role="dialog" aria-modal="true" aria-labelledby="fallTitle">'+
@@ -63,7 +63,7 @@ export function createBlockfallUI({onFinish,onExit,getLanguage,onSound,onAdBreak
   get('fallScore').textContent=game.score.toLocaleString();
   get('fallLines').textContent=game.lines.toLocaleString();
   get('fallGoal').textContent=fallingObjective(game,config)+'/'+config.goal+' '+words.kinds[config.kind];
-  get('fallTip').textContent=words.tip;
+  get('fallTip').textContent=paused?(getLanguage()==='ar'?'⏸ اللعب متوقف':getLanguage()==='fr'?'⏸ Jeu en pause':'⏸ Paused'):words.tip;
   get('fallPause').textContent=paused?'▶':'Ⅱ';
   drawNext();
   const board=get('fallBoard'),all=renderFallCells(game);
@@ -84,10 +84,10 @@ export function createBlockfallUI({onFinish,onExit,getLanguage,onSound,onAdBreak
  }
  function showResult(){
   clearTimer();
-  if(!reported){reported=true;persist();onFinish?.(game);}
+  if(!reported){reported=true;persist();earned=Number(onFinish?.(game)||0);}
   const words=t();get('fallResult').hidden=false;
   get('fallResultTitle').textContent=game.won?words.win:words.lose;
-  get('fallResultDetails').textContent=words.score+': '+game.score+' · '+words.lines+': '+game.lines+' · '+words.goal+': '+fallingObjective(game,config)+'/'+config.goal;
+  get('fallResultDetails').textContent=words.score+': '+game.score+' · '+words.lines+': '+game.lines+' · '+words.goal+': '+fallingObjective(game,config)+'/'+config.goal+(game.won?' · ✦ +'+earned+' Nova Points':'');
   get('fallResultAction').textContent=game.won?words.back:words.retry;
  }
  function perform(action){
@@ -120,11 +120,11 @@ export function createBlockfallUI({onFinish,onExit,getLanguage,onSound,onAdBreak
   if(saved?.mode==='falling'&&saved.stageLevel===level&&!saved.over&&saved.board?.length===FALL_HEIGHT&&
    saved.board.every(row=>Array.isArray(row)&&row.length===FALL_WIDTH)&&saved.active?.cells?.length===4)game=saved;
   else game=makeFallingState(level);
-  active=true;paused=false;reported=false;el.hidden=false;get('fallResult').hidden=true;
+  active=true;paused=false;reported=false;earned=0;el.hidden=false;get('fallResult').hidden=true;
   render();requestAnimationFrame(fitBoard);syncTimer();
  }
  function reset(){
-  if(!game)return;game=makeFallingState(game.stageLevel);reported=false;paused=false;get('fallResult').hidden=true;
+  if(!game)return;game=makeFallingState(game.stageLevel);reported=false;paused=false;earned=0;get('fallResult').hidden=true;
   persist();render();syncTimer();
  }
  get('fallClose').addEventListener('click',()=>exit());
