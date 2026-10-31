@@ -1,7 +1,7 @@
 /* NovaGrid Galaxies: 12,000 deterministic stages, six genuinely different sectors.
    All progression stays on device. The first 2,000 levels and historical progress
    remain compatible with the original NovaGrid campaign. */
-import {makeGame,seededRng,hashDate,hasMove,drawTray} from './engine.js';
+import {makeGame,seededRng,hashDate,hasMove,drawTray,PATTERNS,anyPlacement} from './engine.js';
 export const WORLD_SIZE=100;
 export const WORLDS_PER_SECTOR=20;
 export const SECTOR_SIZE=WORLD_SIZE*WORLDS_PER_SECTOR;
@@ -124,9 +124,33 @@ export function stageBoard(level){
  for(let i=0;i<Math.floor(cfg.tier/2)+((cfg.boss)?5:0);i++)add(Math.floor(rng()*9),Math.floor(rng()*9));
  return board;
 }
+/* Distinct shape economies: all sections still guarantee one playable piece. */
+export function drawSectorTray(level,board,round=0){
+ const cfg=stageConfig(level);
+ if(cfg.sectorId==='explorer')return drawTray(seededRng(hashDate('nova-stage-'+level+'-'+round)),board);
+ const rng=seededRng(hashDate('nova-sector-tray-'+level+'-'+round));
+ const dims=p=>({h:Math.max(...p.map(c=>c[0]))+1,w:Math.max(...p.map(c=>c[1]))+1});
+ const filters={
+  meteor:p=>p.length>=3&&p.length<=6,
+  gravity:p=>p.length>=2&&dims(p).h>=dims(p).w,
+  prism:p=>p.length>=3&&dims(p).h<=3&&dims(p).w<=3,
+  reactor:p=>p.length>=3&&p.length<=6,
+  void:p=>p.length>=4
+ };
+ const choices=PATTERNS.filter(filters[cfg.sectorId]||(()=>true));
+ const pool=choices.length?choices:PATTERNS;
+ const tray=Array.from({length:3},()=>pool[Math.floor(rng()*pool.length)].map(c=>[...c]));
+ if(!hasMove(board,tray)){
+  const playable=PATTERNS.filter(p=>anyPlacement(board,p));
+  if(playable.length)tray[Math.floor(rng()*3)]=playable[Math.floor(rng()*playable.length)].map(c=>[...c]);
+ }
+ return tray;
+}
 export function startStage(level){
  const cfg=stageConfig(level),date='nova-stage-'+level,game=makeGame('daily',date);
- const board=stageBoard(level),tray=hasMove(board,game.tray)?game.tray:drawTray(seededRng(hashDate(date+'-tray')),board);
+ const board=stageBoard(level);
+ const specialized=cfg.sectorId==='explorer'?game.tray:drawSectorTray(level,board,0);
+ const tray=hasMove(board,specialized)?specialized:drawTray(seededRng(hashDate(date+'-tray')),board);
  return {...game,board,tray,mode:'stage',stageLevel:level,clears:0,rows:0,columns:0,
   squares:0,cellsCleared:0,maxCombo:0,clearingMoves:0,charge:0,meteorHits:0,
   date,won:false,over:false,sectorId:cfg.sectorId};
@@ -152,6 +176,9 @@ export function applySectorTurn(state,result){
  if(state.mode!=='stage')return state;
  const cfg=stageConfig(state.stageLevel);
  let next={...state};
+ // Refill the tray using this division's shape strategy on each new round.
+ if(cfg.sectorId!=='explorer'&&next.moves>0&&next.moves%3===0&&next.tray.every(Boolean))
+  next.tray=drawSectorTray(next.stageLevel,next.board,next.moves/3);
  if(cfg.sectorId==='prism'&&result.squares){
   next.score+=result.squares*25;
   next.charge=(state.charge||0)+result.squares;
