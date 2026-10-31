@@ -199,7 +199,8 @@ html.compact-game .modes{height:33px}
 html.compact-game .stagehud{min-height:29px;padding:3px 8px}
 html.compact-game .gamecard{gap:4px;padding:6px 8px}
 html.compact-game .scorebar{height:35px}
-html.compact-game .pieces{height:50px}
+html.compact-game .pieces{height:62px;--micro-size:clamp(9px,2.8vw,12px)}
+html.compact-game .piecegrid{gap:2px}
 html.compact-game .piece{padding:2px}
 html.compact-game .gamehint{height:14px;font-size:9px}
 html.compact-game .gametools{height:34px}
