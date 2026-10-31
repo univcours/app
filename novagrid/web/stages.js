@@ -1,7 +1,8 @@
-/* NovaGrid Galaxies: 12,000 deterministic stages, six genuinely different sectors.
+/* NovaGrid Galaxies: 14,000 deterministic stages, seven distinct sectors.
    All progression stays on device. The first 2,000 levels and historical progress
    remain compatible with the original NovaGrid campaign. */
 import {makeGame,seededRng,hashDate,hasMove,drawTray,PATTERNS,anyPlacement} from './engine.js';
+import {fallingConfig,fallingWon,fallingStars} from './falling.js';
 export const WORLD_SIZE=100;
 export const WORLDS_PER_SECTOR=20;
 export const SECTOR_SIZE=WORLD_SIZE*WORLDS_PER_SECTOR;
@@ -17,7 +18,9 @@ export const SECTORS=[
  {id:'reactor',icon:'⚡',name:{en:'Chain Reactor',fr:'Réacteur des combos',ar:'مفاعل السلاسل'},
   philosophy:{en:'Chain clears power score boosts and clearing pulses',fr:'Les combos créent des impulsions',ar:'السلاسل كتولد طاقة ومسح إضافي'}},
  {id:'void',icon:'◉',name:{en:'Void Trials',fr:'Épreuves du vide',ar:'تحديات الفراغ'},
-  philosophy:{en:'Gravity and meteors together, with boss stages',fr:'Gravité et météores avec des boss',ar:'الجاذبية والنيازك مع مراحل الزعماء'}}
+  philosophy:{en:'Gravity and meteors together, with boss stages',fr:'Gravité et météores avec des boss',ar:'الجاذبية والنيازك مع مراحل الزعماء'}},
+ {id:'blockfall',icon:'▥',name:{en:'Blockfall Arena',fr:'Arène des blocs',ar:'ساحة القطع الهابطة'},
+  philosophy:{en:'Falling pieces, rotation and line-clearing missions',fr:'Blocs tombants, rotation et lignes complètes',ar:'قطع كتهبط، دوران، ومسح الصفوف'}}
 ];
 export const TOTAL_WORLDS=SECTORS.length*WORLDS_PER_SECTOR;
 export const TOTAL_STAGES=TOTAL_WORLDS*WORLD_SIZE;
@@ -28,7 +31,7 @@ const baseNames=[
  'Cosmic Bloom','Eclipse Passage','Hypernova Path','Infinity Gate','Astral Crown'
 ];
 const adjectives=['Blazing','Iron','Falling','Amber','Silent','Electric','Radiant','Twilight','Frozen','Golden','Storm','Orbiting','Ancient','Rising','Shifting','Hidden','Luminous','Eternal','Crimson','Boundless'];
-const themes=['Comet','Gravity','Prism','Reactor','Void'];
+const themes=['Comet','Gravity','Prism','Reactor','Void','Blockfall'];
 export const WORLD_NAMES=baseNames.concat(themes.flatMap(theme=>adjectives.map(a=>a+' '+theme)));
 export const WORLD_SYMBOLS=Array.from({length:TOTAL_WORLDS},(_,i)=>SECTORS[Math.floor(i/WORLDS_PER_SECTOR)].icon);
 export const MISSION_TYPES=['score','rows','columns','squares','combo','survival','clearing','mastery','charge'];
@@ -38,7 +41,8 @@ const sectorKinds={
  gravity:['columns','clearing','survival','score','mastery'],
  prism:['squares','charge','clearing','score','mastery'],
  reactor:['combo','charge','mastery','score','clearing'],
- void:['survival','mastery','charge','rows','columns','squares']
+ void:['survival','mastery','charge','rows','columns','squares'],
+ blockfall:['falling-lines','falling-score','falling-drops','falling-combos']
 };
 export function stageConfig(level){
  if(!Number.isInteger(level)||level<1||level>TOTAL_STAGES)throw new RangeError('Invalid NovaGrid stage');
@@ -46,6 +50,13 @@ export function stageConfig(level){
  const world=Math.floor((level-1)/WORLD_SIZE);
  // Keep the first 2,000 campaign tiers identical to the original release.
  const tier=sector===0?Math.min(10,Math.floor(local/115)):Math.min(11,Math.floor(local/155));
+ if(section.id==='blockfall'){
+  const falling=fallingConfig(level,SECTOR_SIZE*6+1);
+  return {level,world,sector,sectorId:section.id,sectorName:section.name,ordinal:local%WORLD_SIZE+1,
+   kind:'falling-'+falling.kind,goal:falling.goal,target:falling.goal,interval:falling.interval,
+   unlockCost:local===0?0:100+Math.min(80,Math.floor(local/40)*2),
+   minMoves:0,tier:falling.tier,boss:(local+1)%25===0,gravity:true,hazardEvery:0};
+ }
  const difficulty=tier+sector*2;
  const kinds=sectorKinds[section.id],kind=kinds[local%kinds.length];
  const objectives={
@@ -148,6 +159,7 @@ export function drawSectorTray(level,board,round=0){
 }
 export function startStage(level){
  const cfg=stageConfig(level),date='nova-stage-'+level,game=makeGame('daily',date);
+ if(cfg.sectorId==='blockfall')throw Error('Blockfall stages must start via makeFallingState');
  const board=stageBoard(level);
  const specialized=cfg.sectorId==='explorer'?game.tray:drawSectorTray(level,board,0);
  const tray=hasMove(board,specialized)?specialized:drawTray(seededRng(hashDate(date+'-tray')),board);
@@ -243,8 +255,13 @@ export function rankStage(state){
 }
 export function awardStage(progress,level,finishedState){
  const p=normalizeProgress(progress);
- if(!isStageUnlocked(p,level)||finishedState?.stageLevel!==level||!stageWon(finishedState))return {progress:p,earned:0};
- const stars=rankStage(finishedState),prev=p.completed[level]||0;
+ if(!isStageUnlocked(p,level)||finishedState?.stageLevel!==level)return {progress:p,earned:0};
+ const cfg=stageConfig(level);
+ const verified=cfg.sectorId==='blockfall'?
+  (finishedState?.mode==='falling'&&fallingWon(finishedState,fallingConfig(level))):stageWon(finishedState);
+ if(!verified)return {progress:p,earned:0};
+ const stars=cfg.sectorId==='blockfall'?fallingStars(finishedState,fallingConfig(level)):rankStage(finishedState);
+ const prev=p.completed[level]||0;
  if(stars<=prev)return {progress:p,earned:0};
  const earned=prev===0?150+25*stars:15*(stars-prev);
  p.completed[level]=stars;p.coins+=earned;p.totalEarned+=earned;
