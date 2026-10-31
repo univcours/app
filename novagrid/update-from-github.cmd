@@ -48,6 +48,8 @@ call npm run android:ads
 if errorlevel 1 exit /b 1
 call npm run android:brand
 if errorlevel 1 exit /b 1
+call npm run android:name
+if errorlevel 1 exit /b 1
 call npm run android:gradle-fix
 if errorlevel 1 exit /b 1
 echo.

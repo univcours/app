@@ -12,6 +12,7 @@
     "android:open": "npx cap open android",
     "android:ads": "node scripts/configure-android-ads.mjs",
     "android:brand": "node scripts/apply-android-brand.mjs",
+    "android:name": "node scripts/set-android-app-name.mjs",
     "android:gradle-fix": "node scripts/fix-android-gradle.mjs"
   },
   "dependencies": {

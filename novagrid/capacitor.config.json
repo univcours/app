@@ -1,6 +1,6 @@
 {
   "appId": "com.novagrid.cosmicpuzzle",
-  "appName": "NovaGrid: Cosmic Puzzle",
+  "appName": "NovaGrid",
   "webDir": "dist",
   "server": {
     "androidScheme": "https"

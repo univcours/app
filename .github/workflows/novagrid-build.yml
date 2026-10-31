@@ -33,6 +33,8 @@ jobs:
         run: npm run android:ads
       - name: Apply NovaGrid cosmic launcher icon
         run: npm run android:brand
+      - name: Set Android app display name to NovaGrid
+        run: npm run android:name
       - name: Fix legacy Gradle ProGuard configuration
         run: npm run android:gradle-fix
       - name: Build debug APK and unsigned bundle
