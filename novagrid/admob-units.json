@@ -5,7 +5,7 @@
     "ca-app-pub-7945572016731367/5247968960"
   ],
   "liveEnabled": false,
-  "status": "NovaGrid new AdMob App ID and Banner verified; production ads disabled; interstitial pending",
+  "status": "All NovaGrid ad IDs confirmed. Live ads remain OFF by default; Android builds use Google test ads.",
   "legacyAdMobApp": {
     "appName": "muslim tv",
     "adMobAppId": "ca-app-pub-7945572016731367~8159134969",
@@ -21,7 +21,7 @@
     "androidPackage": "com.novagrid.cosmicpuzzle",
     "appId": "ca-app-pub-7945572016731367~1688423435",
     "bannerAdUnitId": "ca-app-pub-7945572016731367/3815893327",
-    "interstitialAdUnitId": null,
-    "adUnitsStatus": "Banner confirmed from AdMob creation screen; new Interstitial ID not yet verified"
+    "interstitialAdUnitId": "ca-app-pub-7945572016731367/2422920606",
+    "adUnitsStatus": "Verified AdMob App ID, Banner and Interstitial IDs from the NovaGrid AdMob app screen, 2026-10-31"
   }
 }
