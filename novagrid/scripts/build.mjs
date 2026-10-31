@@ -1,8 +1,8 @@
 import {cpSync,rmSync,mkdirSync} from 'node:fs';
 import {build} from 'esbuild';
 const real=process.env.ADMOB_LIVE_ADS==='true';
-const appId=process.env.ADMOB_ANDROID_APP_ID||'';
-const banner=process.env.ADMOB_BANNER_UNIT_ID||'';
+const appId=process.env.ADMOB_ANDROID_APP_ID||'ca-app-pub-7945572016731367~1688423435';
+const banner=process.env.ADMOB_BANNER_UNIT_ID||'ca-app-pub-7945572016731367/3815893327';
 const interstitial=process.env.ADMOB_INTERSTITIAL_UNIT_ID||'';
 const appValid=/^ca-app-pub-[0-9]{16}~[0-9]{10}$/;
 const unitValid=/^ca-app-pub-[0-9]{16}\/[0-9]{10}$/;
