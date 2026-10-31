@@ -28,6 +28,59 @@ $manifest = Get-Content 'android\app\src\main\AndroidManifest.xml' -Raw
 if ($manifest -notmatch 'android:label="@string/app_name"') {
     throw 'AndroidManifest uses a different label. Installation cancelled.'
 }
+# Gradle launched from PowerShell may not inherit the JDK bundled with Android Studio.
+# Detect it locally; do not alter machine-wide environment variables.
+function Enable-AndroidStudioJava {
+    $candidates = @()
+    if ($env:JAVA_HOME) { $candidates += $env:JAVA_HOME }
+    if ($env:STUDIO_JDK) { $candidates += $env:STUDIO_JDK }
+    if ($env:JDK_HOME) { $candidates += $env:JDK_HOME }
+    if ($env:ProgramFiles) {
+        $candidates += (Join-Path $env:ProgramFiles 'Android\Android Studio\jbr')
+        $candidates += (Join-Path $env:ProgramFiles 'Android\Android Studio\jre')
+    }
+    if (${env:ProgramFiles(x86)}) {
+        $candidates += (Join-Path ${env:ProgramFiles(x86)} 'Android\Android Studio\jbr')
+    }
+    if ($env:LOCALAPPDATA) {
+        $candidates += (Join-Path $env:LOCALAPPDATA 'Programs\Android Studio\jbr')
+        $candidates += (Join-Path $env:LOCALAPPDATA 'Android\Android Studio\jbr')
+    }
+    # Also support Android Studio installed on a custom drive through its shortcut.
+    $links = @(
+        (Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Android Studio.lnk'),
+        (Join-Path $env:ProgramData 'Microsoft\Windows\Start Menu\Programs\Android Studio.lnk')
+    )
+    foreach ($link in $links) {
+        if (-not (Test-Path -LiteralPath $link)) { continue }
+        try {
+            $shortcut = (New-Object -ComObject WScript.Shell).CreateShortcut($link)
+            if ($shortcut.TargetPath) {
+                $root = Split-Path -Parent (Split-Path -Parent $shortcut.TargetPath)
+                $candidates += (Join-Path $root 'jbr')
+                $candidates += (Join-Path $root 'jre')
+            }
+        } catch { }
+    }
+    $knownJava = Get-Command 'java.exe' -ErrorAction SilentlyContinue
+    if ($knownJava) {
+        $candidates += (Split-Path -Parent (Split-Path -Parent $knownJava.Source))
+    }
+    foreach ($candidate in $candidates) {
+        if (-not $candidate) { continue }
+        $javaExe = Join-Path $candidate 'bin\java.exe'
+        $compiler = Join-Path $candidate 'bin\javac.exe'
+        if ((Test-Path -LiteralPath $javaExe) -and (Test-Path -LiteralPath $compiler)) {
+            $env:JAVA_HOME = (Resolve-Path -LiteralPath $candidate).Path
+            $env:Path = (Join-Path $env:JAVA_HOME 'bin') + ';' + $env:Path
+            Write-Host "[NovaGrid] JAVA_HOME detected: $env:JAVA_HOME"
+            return
+        }
+    }
+    throw 'Java JDK not found. Find Gradle JDK in Android Studio Settings > Build Tools > Gradle (usually C:\Program Files\Android\Android Studio\jbr). Set JAVA_HOME to that directory and rerun.'
+}
+Enable-AndroidStudioJava
+
 Write-Host '[NovaGrid] Build APK and release AAB.'
 Push-Location android
 try { Run '.\gradlew.bat' @(':app:assembleDebug',':app:bundleRelease','--no-daemon') }
