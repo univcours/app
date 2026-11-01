@@ -1,4 +1,5 @@
 /* RookVanta client. The server exclusively determines legal moves and clock results. */
+import {COUNTRY_CODES,normalizeCountry,countryFlag,countryName} from './countries.js';
 const $=id=>document.getElementById(id);
 const glyph={wk:'♔',wq:'♕',wr:'♖',wb:'♗',wn:'♘',wp:'♙',bk:'♚',bq:'♛',br:'♜',bb:'♝',bn:'♞',bp:'♟︎'};
 const languages=['en','fr','ar'];
@@ -12,6 +13,9 @@ const copy={
   turn:'Your move',theirTurn:'Opponent to move',check:' · Check!',win:'You won',lose:'You lost',drawResult:'Draw',roomCreated:'Room created · share your invite link',
   roomJoined:'Joined match',copied:'Copied to clipboard',notConnected:'Connecting to the server…',
   invalid:'Illegal move',offer:'Draw offered · waiting for reply',drawOffer:'Your opponent offers a draw. Accept?',roomNotFound:'Room not found',
+  countryLabel:'YOUR COUNTRY / FLAG (OPTIONAL)',countryHelp:'Flags show the country players select themselves.',international:'International',
+  yourTurnHeadline:'YOUR TURN',opponentTurnHeadline:'OPPONENT TO MOVE',waitingHeadline:'WAITING FOR RIVAL',checkHeadline:'CHECK!',victoryHeadline:'VICTORY',defeatHeadline:'DEFEAT',drawHeadline:'DRAW',
+  studioLive:'● LIVE MATCH',studioCompetition:'ROOKVANTA · WORLD CHESS SERIES',studioPrivate:'PRIVATE SHOWDOWN',studioWorldwide:'WORLDWIDE ARENA',studioRound:'MOVE',studioPhase:'TOURNAMENT STUDIO',white:'WHITE',black:'BLACK',
   time:'Time control',globalKicker:'GLOBAL MATCHMAKING',globalTitle:'Play anyone. Anywhere.',globalDescription:'Find a real opponent anywhere in the world automatically. No invite needed.',globalPlay:'PLAY WORLDWIDE',globalCancel:'Cancel search',globalSearching:'SEARCHING WORLDWIDE…',globalWaiting:'players waiting',globalFound:'Opponent found! Starting match…',globalCancelled:'Search cancelled',globalTime:'Searching'},
  fr:{hero:'DOMINEZ <em>L’ÉCHIQUIER.</em>',intro:'De vrais adversaires. Des parties en direct. À vous de jouer.',
   create:'Créer une partie',createInfo:'Défiez un ami où qu’il soit.',join:'Rejoindre',joinInfo:'Vous avez une invitation ? Entrez le code.',
@@ -21,6 +25,9 @@ const copy={
   wait:'En attente d’un adversaire. Partagez le code !',you:'Vous',opp:'En attente',connected:'Connecté',disconnected:'Déconnecté',
   turn:'À vous de jouer',theirTurn:'Tour de l’adversaire',check:' · Échec !',win:'Vous avez gagné',lose:'Vous avez perdu',drawResult:'Match nul',
   roomCreated:'Salon créé · partagez le lien',roomJoined:'Partie rejointe',copied:'Copié',notConnected:'Connexion au serveur…',
+  countryLabel:'VOTRE PAYS / DRAPEAU (FACULTATIF)',countryHelp:'Les drapeaux correspondent au pays choisi par chaque joueur.',international:'International',
+  yourTurnHeadline:'À VOUS DE JOUER',opponentTurnHeadline:'AU TOUR DE L’ADVERSAIRE',waitingHeadline:'EN ATTENTE D’UN ADVERSAIRE',checkHeadline:'ÉCHEC !',victoryHeadline:'VICTOIRE',defeatHeadline:'DÉFAITE',drawHeadline:'NULLE',
+  studioLive:'● MATCH EN DIRECT',studioCompetition:'ROOKVANTA · CHAMPIONNAT DU MONDE',studioPrivate:'DUEL PRIVÉ',studioWorldwide:'ARÈNE MONDIALE',studioRound:'COUP',studioPhase:'STUDIO COMPÉTITION',white:'BLANCS',black:'NOIRS',
   invalid:'Coup illégal',offer:'Nulle proposée',drawOffer:'Votre adversaire propose la nulle. Accepter ?',roomNotFound:'Salon introuvable',globalKicker:'MATCHMAKING MONDIAL',globalTitle:'Jouez contre le monde.',globalDescription:'Un véritable adversaire partout dans le monde, sans code d’invitation.',globalPlay:'JOUER DANS LE MONDE',globalCancel:'Annuler la recherche',globalSearching:'RECHERCHE EN COURS…',globalWaiting:'joueurs en attente',globalFound:'Adversaire trouvé !',globalCancelled:'Recherche annulée',globalTime:'Recherche'},
  ar:{hero:'سيطر على <em>الرقعة.</em>',intro:'شطرنج حقيقي، خصوم حقيقيون، ومباريات مباشرة حول العالم.',
   create:'إنشاء مباراة',createInfo:'تحدى صديقاً من أي مكان.',join:'الدخول لمباراة',joinInfo:'عندك دعوة؟ دخل رمز الغرفة.',
@@ -30,6 +37,9 @@ const copy={
   wait:'كنستناو اللاعب الثاني. شارك معاه الرمز!',you:'أنت',opp:'في انتظار الخصم',connected:'متصل',disconnected:'غير متصل',
   turn:'الدور ديالك',theirTurn:'الدور ديال الخصم',check:' · كش!',win:'ربحتي!',lose:'خسرتي',drawResult:'تعادل',
   roomCreated:'تخلقات الغرفة، صيفط رابط الدعوة',roomJoined:'دخلتي للمباراة',copied:'تنسخ الرابط',notConnected:'كنربطو بالسيرفر…',
+  countryLabel:'الدولة والعلم (اختياري)',countryHelp:'العلم كيمثل الدولة اللي اختارها اللاعب بنفسه.',international:'عالمي',
+  yourTurnHeadline:'الدور ديالك',opponentTurnHeadline:'دور الخصم',waitingHeadline:'كنستناو الخصم',checkHeadline:'كش!',victoryHeadline:'انتصار',defeatHeadline:'خسارة',drawHeadline:'تعادل',
+  studioLive:'● مباراة مباشرة',studioCompetition:'ROOKVANTA · بطولة الشطرنج العالمية',studioPrivate:'مواجهة خاصة',studioWorldwide:'الساحة العالمية',studioRound:'النقلة',studioPhase:'استوديو المنافسات',white:'الأبيض',black:'الأسود',
   invalid:'نقلة ممنوعة',offer:'تقدم عرض التعادل',drawOffer:'الخصم عرض التعادل، واش موافق؟',roomNotFound:'الغرفة ما كايناش',globalKicker:'اللعب العالمي',globalTitle:'لعب مع أي واحد فالعالم.',globalDescription:'السيرفر كيقلب ليك على خصم حقيقي من أي دولة، بلا رمز دعوة.',globalPlay:'العب عالمياً',globalCancel:'إلغاء البحث',globalSearching:'كنقلبو على خصم…',globalWaiting:'لاعبين فالانتظار',globalFound:'لقينا ليك خصم!',globalCancelled:'تلغى البحث',globalTime:'وقت البحث'}
 };
 let lang=localStorage.getItem('rv.lang')||'en',session=null,state=null,selected=null,promotion=null,timeOption='5+0',lastFen='',animationTime=0,clockTicker=null,lastDrawOffer=null;
@@ -45,14 +55,31 @@ function setLanguage(){
   joinNote:d.joinNote,backLabel:d.lobby,inviteLabel:d.invite,matchTitle:d.match,movesLabel:d.moves,emptyMoves:d.empty,
   drawLabel:d.draw,resignLabel:d.resign,rematchLabel:d.rematch,footerLabel:d.footer,promotionTitle:d.promotion,
   globalKicker:d.globalKicker,globalTitle:d.globalTitle,globalDescription:d.globalDescription,
-  globalCancelLabel:d.globalCancel,globalTimeLabel:d.time||'Time control'};
+  globalCancelLabel:d.globalCancel,globalTimeLabel:d.time||'Time control',countryLabel:d.countryLabel,
+  countryHelp:d.countryHelp,studioLiveLabel:d.studioLive,studioCompetition:d.studioCompetition,
+  studioSideKicker:d.studioPhase,studioWhiteLabel:d.white,studioBlackLabel:d.black};
  for(const [id,value] of Object.entries(translations)){if(id==='heroTitle')$(id).innerHTML=value;else $(id).textContent=value;}
  $('language').textContent=lang.toUpperCase();
  document.documentElement.lang=lang;
  document.documentElement.dir=lang==='ar'?'rtl':'ltr';
  // Chessboard orientation and file/rank coordinates remain chess standard.
- renderSearch();render();
+ populateCountries();renderSearch();render();
 }
+function populateCountries(){
+ const select=$('playerCountry'),selected=normalizeCountry(select.value||localStorage.getItem('rv.country'));
+ const collator=new Intl.Collator(lang,{sensitivity:'base'});
+ const order=[...COUNTRY_CODES].sort((a,b)=>collator.compare(countryName(a,lang),countryName(b,lang)));
+ const frag=document.createDocumentFragment();
+ const international=document.createElement('option');international.value='';international.textContent='🌐 '+t().international;
+ frag.append(international);
+ for(const code of order){
+  const option=document.createElement('option');option.value=code;
+  option.textContent=countryFlag(code)+'  '+countryName(code,lang);
+  frag.append(option);
+ }
+ select.replaceChildren(frag);select.value=selected;
+}
+const selectedCountry=()=>normalizeCountry($('playerCountry').value);
 function request(event,data){
  return new Promise(resolve=>{
   if(!socket.connected){alertUser(t().notConnected);resolve({ok:false});return;}
@@ -76,7 +103,7 @@ function renderSearch(){
 async function globalSearch(){
  if(searching||!socket.connected)return;
  searching=true;searchingSince=Date.now();renderSearch();
- const reply=await request('matchmaking:search',{name:$('playerName').value||'Player',time:timeOption});
+ const reply=await request('matchmaking:search',{name:$('playerName').value||'Player',country:selectedCountry(),time:timeOption});
  if(!reply?.ok){
   searching=false;renderSearch();alertUser(reply?.error||'Unable to find opponents');return;
  }
@@ -103,7 +130,7 @@ function enterRoom(res){
 }
 async function create(){
  if(searching)await cancelSearch();
- const res=await request('room:create',{name:$('playerName').value||'Player',time:timeOption});enterRoom(res);
+ const res=await request('room:create',{name:$('playerName').value||'Player',country:selectedCountry(),time:timeOption});enterRoom(res);
  if(res?.ok)alertUser(t().roomCreated);
 }
 async function join(){
@@ -111,7 +138,7 @@ async function join(){
  const code=$('roomCode').value.trim().toUpperCase().replace(/[^A-Z0-9]/g,'');
  if(code.length!==6){alertUser('Enter a 6-character room code');return;}
  const reuse=session?.code===code?session.token:null;
- enterRoom(await request('room:join',{code,name:$('playerName').value||'Player',token:reuse}));
+ enterRoom(await request('room:join',{code,name:$('playerName').value||'Player',country:selectedCountry(),token:reuse}));
 }
 function formatTime(ms){const s=Math.max(0,Math.ceil(ms/1000));return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');}
 function elapsedClock(color){
@@ -149,7 +176,7 @@ function drawBoard(){
  for(const [ri,rank] of ranks.entries())for(const [fi,col] of files.entries()){
   const realRow=8-rank,realCol=file.indexOf(col),piece=pos[realRow][realCol],square=col+rank;
   const button=document.createElement('button');button.type='button';
-  button.className='square '+(((realRow+realCol)%2===0)?'light':'dark')+(selected===square?' selected':'');
+  button.className='square '+(((realRow+realCol)%2===0)?'light':'dark')+(selected===square?' selected':'')+([state.lastMove?.from,state.lastMove?.to].includes(square)?' last':'');
   const checker=state.check&&state.turn===piece?.color&&piece.kind==='k';
   if(checker)button.classList.add('check');
   button.dataset.square=square;button.setAttribute('role','gridcell');
@@ -220,6 +247,51 @@ function renderHistory(){
  }
  list.append(frag);list.scrollTop=list.scrollHeight;
 }
+function setTextIfChanged(id,value){
+ const node=$(id);if(node.textContent!==value)node.textContent=value;
+}
+function updateStudio(){
+ const d=t(),white=state.players?.find(p=>p?.color==='w'),black=state.players?.find(p=>p?.color==='b');
+ const mine=state.players?.find(p=>p?.color===session.color),opponent=state.players?.find(p=>p&&p.color!==session.color);
+ for(const [prefix,player] of [['studioWhite',white],['studioBlack',black]]){
+  const flag=$(prefix+'Flag'),label=player?.country?countryName(player.country,lang):d.international;
+  flag.textContent=countryFlag(player?.country);flag.setAttribute('aria-label',label);
+  $(prefix+'Name').textContent=player?.name||d.opp;
+ }
+ for(const [prefix,player] of [['me',mine],['opponent',opponent]]){
+  const label=player?.country?countryName(player.country,lang):d.international;
+  $(prefix+'Flag').textContent=countryFlag(player?.country);
+  $(prefix+'Flag').setAttribute('aria-label',label);
+  $(prefix+'Country').textContent=label;
+ }
+ $('studioWhiteContender').classList.toggle('now-playing',state.started&&!state.result&&state.turn==='w');
+ $('studioBlackContender').classList.toggle('now-playing',state.started&&!state.result&&state.turn==='b');
+ $('studioMatchType').textContent=state.matchType==='global'?d.studioWorldwide:d.studioPrivate;
+ $('studioFormat').textContent=(state.timeLabel||'5+0')+' · '+(state.timeLabel==='10+0'?'RAPID':'BLITZ');
+ $('studioPly').textContent=d.studioRound+' '+(Math.floor((state.history?.length||0)/2)+1);
+ const mineTurn=state.started&&!state.result&&state.turn===session.color;
+ let heading,detail;
+ if(!state.started){
+  heading=d.waitingHeadline;detail=d.wait;
+ }else if(state.result){
+  heading=state.result.winner?(state.result.winner===session.color?d.victoryHeadline:d.defeatHeadline):d.drawHeadline;
+  detail=gameMessage();
+ }else{
+  heading=state.check?d.checkHeadline:(mineTurn?d.yourTurnHeadline:d.opponentTurnHeadline);
+  detail=mineTurn?d.turn:d.theirTurn;
+  if(state.check)detail+=' · '+(mineTurn?d.yourTurnHeadline:d.opponentTurnHeadline);
+ }
+ const ribbon=$('turnRibbon');
+ ribbon.classList.toggle('my-turn',mineTurn);
+ ribbon.classList.toggle('check-alert',!!state.check&&!state.result);
+ ribbon.classList.toggle('finished',!!state.result);
+ setTextIfChanged('turnHeadline',heading);
+ setTextIfChanged('turnDetail',detail);
+ $('turnSymbol').textContent=state.result?'♛':state.turn==='w'?'♔':'♚';
+ $('studioStage').textContent=state.result?heading:(state.check?d.checkHeadline:d.studioPhase);
+ $('opponentCard').classList.toggle('turn-active',state.started&&!state.result&&state.turn!==session.color);
+ $('meCard').classList.toggle('turn-active',mineTurn);
+}
 function render(){
  if(!state||$('arena').hidden)return;
  const mine=state.players?.find(x=>x?.color===session.color),op=state.players?.find(x=>x&&x.color!==session.color);
@@ -232,7 +304,7 @@ function render(){
  $('draw').disabled=!!state.result||!state.started;
  $('resign').disabled=!!state.result||!state.started;
  $('rematch').hidden=!state.result;
- drawBoard();renderHistory();renderClocks();
+ updateStudio();drawBoard();renderHistory();renderClocks();
  if(state.drawOffer&&state.drawOffer!==session.color&&state.drawOffer!==lastDrawOffer){
   lastDrawOffer=state.drawOffer;
   if(confirm(t().drawOffer))request('room:draw',{action:'accept'});
@@ -250,7 +322,7 @@ async function copyText(text){
 socket.on('connect',async()=>{
  $('connectionLabel').textContent='ONLINE';document.querySelector('.live-pill').classList.add('online');renderSearch();
  if(session?.code&&session?.token){
-  const res=await request('room:join',{code:session.code,token:session.token,name:$('playerName').value||'Player'});
+  const res=await request('room:join',{code:session.code,token:session.token,name:$('playerName').value||'Player',country:selectedCountry()});
   if(res?.ok)enterRoom(res);
   else{session=null;localStorage.removeItem('rv.session');}
  }
@@ -290,5 +362,6 @@ const invite=new URL(location.href).searchParams.get('room');
 if(invite)$('roomCode').value=invite.toUpperCase().slice(0,6);
 $('playerName').value=localStorage.getItem('rv.name')||'';
 $('playerName').addEventListener('change',()=>localStorage.setItem('rv.name',$('playerName').value.slice(0,24)));
+$('playerCountry').addEventListener('change',()=>localStorage.setItem('rv.country',selectedCountry()));
 setLanguage();
 clockTicker=setInterval(()=>{if(state&&!$('arena').hidden)renderClocks();if(searching)renderSearch();},250);
