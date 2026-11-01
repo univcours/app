@@ -14,6 +14,7 @@ const copy={
   roomJoined:'Joined match',copied:'Copied to clipboard',notConnected:'Connecting to the server…',
   invalid:'Illegal move',offer:'Draw offered · waiting for reply',drawOffer:'Your opponent offers a draw. Accept?',roomNotFound:'Room not found',
   countryLabel:'YOUR COUNTRY / FLAG (OPTIONAL)',countryHelp:'Flags show the country players select themselves.',international:'International',
+  alertsOn:'Turn alerts enabled',alertsOff:'Turn alerts disabled',enableAlerts:'Enable turn alerts',disableAlerts:'Disable turn alerts',
   yourTurnHeadline:'YOUR TURN',opponentTurnHeadline:'OPPONENT TO MOVE',waitingHeadline:'WAITING FOR RIVAL',checkHeadline:'CHECK!',victoryHeadline:'VICTORY',defeatHeadline:'DEFEAT',drawHeadline:'DRAW',
   studioLive:'● LIVE MATCH',studioCompetition:'ROOKVANTA · WORLD CHESS SERIES',studioPrivate:'PRIVATE SHOWDOWN',studioWorldwide:'WORLDWIDE ARENA',studioRound:'MOVE',studioPhase:'TOURNAMENT STUDIO',white:'WHITE',black:'BLACK',
   time:'Time control',globalKicker:'GLOBAL MATCHMAKING',globalTitle:'Play anyone. Anywhere.',globalDescription:'Find a real opponent anywhere in the world automatically. No invite needed.',globalPlay:'PLAY WORLDWIDE',globalCancel:'Cancel search',globalSearching:'SEARCHING WORLDWIDE…',globalWaiting:'players waiting',globalFound:'Opponent found! Starting match…',globalCancelled:'Search cancelled',globalTime:'Searching'},
@@ -26,6 +27,7 @@ const copy={
   turn:'À vous de jouer',theirTurn:'Tour de l’adversaire',check:' · Échec !',win:'Vous avez gagné',lose:'Vous avez perdu',drawResult:'Match nul',
   roomCreated:'Salon créé · partagez le lien',roomJoined:'Partie rejointe',copied:'Copié',notConnected:'Connexion au serveur…',
   countryLabel:'VOTRE PAYS / DRAPEAU (FACULTATIF)',countryHelp:'Les drapeaux correspondent au pays choisi par chaque joueur.',international:'International',
+  alertsOn:'Alertes de tour activées',alertsOff:'Alertes de tour désactivées',enableAlerts:'Activer les alertes',disableAlerts:'Désactiver les alertes',
   yourTurnHeadline:'À VOUS DE JOUER',opponentTurnHeadline:'AU TOUR DE L’ADVERSAIRE',waitingHeadline:'EN ATTENTE D’UN ADVERSAIRE',checkHeadline:'ÉCHEC !',victoryHeadline:'VICTOIRE',defeatHeadline:'DÉFAITE',drawHeadline:'NULLE',
   studioLive:'● MATCH EN DIRECT',studioCompetition:'ROOKVANTA · CHAMPIONNAT DU MONDE',studioPrivate:'DUEL PRIVÉ',studioWorldwide:'ARÈNE MONDIALE',studioRound:'COUP',studioPhase:'STUDIO COMPÉTITION',white:'BLANCS',black:'NOIRS',
   invalid:'Coup illégal',offer:'Nulle proposée',drawOffer:'Votre adversaire propose la nulle. Accepter ?',roomNotFound:'Salon introuvable',globalKicker:'MATCHMAKING MONDIAL',globalTitle:'Jouez contre le monde.',globalDescription:'Un véritable adversaire partout dans le monde, sans code d’invitation.',globalPlay:'JOUER DANS LE MONDE',globalCancel:'Annuler la recherche',globalSearching:'RECHERCHE EN COURS…',globalWaiting:'joueurs en attente',globalFound:'Adversaire trouvé !',globalCancelled:'Recherche annulée',globalTime:'Recherche'},
@@ -38,12 +40,14 @@ const copy={
   turn:'الدور ديالك',theirTurn:'الدور ديال الخصم',check:' · كش!',win:'ربحتي!',lose:'خسرتي',drawResult:'تعادل',
   roomCreated:'تخلقات الغرفة، صيفط رابط الدعوة',roomJoined:'دخلتي للمباراة',copied:'تنسخ الرابط',notConnected:'كنربطو بالسيرفر…',
   countryLabel:'الدولة والعلم (اختياري)',countryHelp:'العلم كيمثل الدولة اللي اختارها اللاعب بنفسه.',international:'عالمي',
+  alertsOn:'تفعّلات تنبيهات الدور',alertsOff:'توقفات تنبيهات الدور',enableAlerts:'فعّل تنبيهات الدور',disableAlerts:'وقف تنبيهات الدور',
   yourTurnHeadline:'الدور ديالك',opponentTurnHeadline:'دور الخصم',waitingHeadline:'كنستناو الخصم',checkHeadline:'كش!',victoryHeadline:'انتصار',defeatHeadline:'خسارة',drawHeadline:'تعادل',
   studioLive:'● مباراة مباشرة',studioCompetition:'ROOKVANTA · بطولة الشطرنج العالمية',studioPrivate:'مواجهة خاصة',studioWorldwide:'الساحة العالمية',studioRound:'النقلة',studioPhase:'استوديو المنافسات',white:'الأبيض',black:'الأسود',
   invalid:'نقلة ممنوعة',offer:'تقدم عرض التعادل',drawOffer:'الخصم عرض التعادل، واش موافق؟',roomNotFound:'الغرفة ما كايناش',globalKicker:'اللعب العالمي',globalTitle:'لعب مع أي واحد فالعالم.',globalDescription:'السيرفر كيقلب ليك على خصم حقيقي من أي دولة، بلا رمز دعوة.',globalPlay:'العب عالمياً',globalCancel:'إلغاء البحث',globalSearching:'كنقلبو على خصم…',globalWaiting:'لاعبين فالانتظار',globalFound:'لقينا ليك خصم!',globalCancelled:'تلغى البحث',globalTime:'وقت البحث'}
 };
 let lang=localStorage.getItem('rv.lang')||'en',session=null,state=null,selected=null,promotion=null,timeOption='5+0',lastFen='',animationTime=0,clockTicker=null,lastDrawOffer=null;
 let searching=false,searchingSince=0,populationByTime={};
+let turnAlertsEnabled=localStorage.getItem('rv.turnAlerts')==='on',turnSoundContext=null;
 try{session=JSON.parse(localStorage.getItem('rv.session')||'null');}catch{}
 const socket=window.io({autoConnect:true,reconnection:true,timeout:10000});
 const t=()=>copy[lang]||copy.en;
@@ -63,7 +67,7 @@ function setLanguage(){
  document.documentElement.lang=lang;
  document.documentElement.dir=lang==='ar'?'rtl':'ltr';
  // Chessboard orientation and file/rank coordinates remain chess standard.
- populateCountries();renderSearch();render();
+ populateCountries();renderTurnAlertsButton();renderSearch();render();
 }
 function populateCountries(){
  const select=$('playerCountry'),selected=normalizeCountry(select.value||localStorage.getItem('rv.country'));
@@ -247,6 +251,39 @@ function renderHistory(){
  }
  list.append(frag);list.scrollTop=list.scrollHeight;
 }
+function renderTurnAlertsButton(){
+ const button=$('turnAlerts'),d=t();
+ button.textContent=turnAlertsEnabled?'🔔':'🔕';
+ button.setAttribute('aria-pressed',String(turnAlertsEnabled));
+ button.setAttribute('aria-label',turnAlertsEnabled?d.disableAlerts:d.enableAlerts);
+ button.title=turnAlertsEnabled?d.disableAlerts:d.enableAlerts;
+}
+function playTurnChime(){
+ try{
+  const AC=window.AudioContext||window.webkitAudioContext;
+  if(!AC)return;
+  if(!turnSoundContext)turnSoundContext=new AC();
+  const ctx=turnSoundContext;
+  if(ctx.state==='suspended')void ctx.resume().catch(()=>{});
+  for(const [index,frequency] of [660,880].entries()){
+   const begin=ctx.currentTime+index*0.16;
+   const oscillator=ctx.createOscillator(),gain=ctx.createGain();
+   oscillator.type='sine';oscillator.frequency.value=frequency;
+   gain.gain.setValueAtTime(.0001,begin);
+   gain.gain.exponentialRampToValueAtTime(.055,begin+.015);
+   gain.gain.exponentialRampToValueAtTime(.0001,begin+.13);
+   oscillator.connect(gain);gain.connect(ctx.destination);
+   oscillator.start(begin);oscillator.stop(begin+.145);
+  }
+ }catch{}
+}
+function notifyPlayerTurn(){
+ if(!turnAlertsEnabled)return;
+ if(document.hidden&&'Notification' in window&&Notification.permission==='granted'){
+  try{new Notification('RookVanta ♟',{body:t().yourTurnHeadline,icon:'/favicon.svg'});}catch{}
+ }else alertUser('♟ '+t().yourTurnHeadline);
+ playTurnChime();
+}
 function setTextIfChanged(id,value){
  const node=$(id);if(node.textContent!==value)node.textContent=value;
 }
@@ -291,6 +328,7 @@ function updateStudio(){
  $('studioStage').textContent=state.result?heading:(state.check?d.checkHeadline:d.studioPhase);
  $('opponentCard').classList.toggle('turn-active',state.started&&!state.result&&state.turn!==session.color);
  $('meCard').classList.toggle('turn-active',mineTurn);
+ document.title=mineTurn?'♟ '+d.yourTurnHeadline+' · RookVanta':'RookVanta — Real-Time Chess';
 }
 function render(){
  if(!state||$('arena').hidden)return;
@@ -334,13 +372,30 @@ socket.on('matchmaking:found',match=>{
 });
 socket.on('room:replaced',()=>{state=null;session=null;localStorage.removeItem('rv.session');$('arena').hidden=true;$('lobby').hidden=false;alertUser('This room was resumed on another device.');});
 socket.on('room:state',payload=>{
+ const previous=state;
  state=payload;
+ // Server broadcasts every second; alert only when the other player made a new move.
+ if(previous?.code===payload.code&&previous.started&&!previous.result&&!payload.result&&
+   previous.turn!==payload.turn&&payload.turn===session?.color&&
+   (payload.history?.length||0)>(previous.history?.length||0))notifyPlayerTurn();
  if(selected&&!state.legalMoves?.some(m=>m.from===selected))selected=null;
  render();
 });
 $('create').addEventListener('click',create);$('join').addEventListener('click',join);
 $('globalPlay').addEventListener('click',globalSearch);
 $('globalCancel').addEventListener('click',cancelSearch);
+$('turnAlerts').addEventListener('click',async()=>{
+ turnAlertsEnabled=!turnAlertsEnabled;localStorage.setItem('rv.turnAlerts',turnAlertsEnabled?'on':'off');
+ renderTurnAlertsButton();alertUser(turnAlertsEnabled?t().alertsOn:t().alertsOff);
+ if(turnAlertsEnabled){
+  // Permission is requested only following the player's explicit click.
+  if('Notification' in window&&window.isSecureContext&&Notification.permission==='default')
+   try{await Notification.requestPermission();}catch{}
+  try{if(!turnSoundContext&&(window.AudioContext||window.webkitAudioContext))
+   turnSoundContext=new (window.AudioContext||window.webkitAudioContext)();
+   if(turnSoundContext?.state==='suspended')await turnSoundContext.resume();}catch{}
+ }
+});
 $('roomCode').addEventListener('keydown',e=>{if(e.key==='Enter')join();});
 document.querySelectorAll('[data-time]').forEach(b=>b.addEventListener('click',()=>{
  if(searching)return;

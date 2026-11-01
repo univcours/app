@@ -25,7 +25,7 @@ function eventOnce(s,name){return new Promise((resolve,reject)=>{
 test('tournament studio has separate country flags and dynamic turn banner',()=>{
  for(const id of ['playerCountry','studioWhiteFlag','studioBlackFlag','studioWhiteName','studioBlackName',
  'studioLiveLabel','studioFormat','studioMatchType','studioPly','turnRibbon','turnHeadline',
- 'turnDetail','turnSymbol','meFlag','opponentFlag','meCountry','opponentCountry']){
+ 'turnDetail','turnSymbol','turnAlerts','meFlag','opponentFlag','meCountry','opponentCountry']){
   assert.match(html,new RegExp('id="'+id+'"'),id);
  }
  assert.match(css,/\.turn-ribbon\.my-turn/);
@@ -91,4 +91,13 @@ test('unrecognized or forged country values cannot appear as arbitrary flags',as
  const created=await send(a,'room:create',{name:'Anon',country:'🚩 fake'});
  assert.equal(created.ok,true);
  assert.equal(server.rooms.get(created.code).players[0].country,'');
+});
+
+test('turn notifications require a user opt-in and only trigger on a new opponent move',()=>{
+ assert.match(clientCode,/localStorage\.getItem\('rv\.turnAlerts'\)==='on'/);
+ assert.match(clientCode,/previous\.turn!==payload\.turn&&payload\.turn===session\?\.color/);
+ assert.match(clientCode,/payload\.history\?\.length\|\|0/);
+ assert.match(clientCode,/Notification\.requestPermission\(\)/);
+ assert.match(clientCode,/function playTurnChime\(\)/);
+ assert.match(css,/\.alert-toggle\[aria-pressed="true"\]/);
 });

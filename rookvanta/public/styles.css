@@ -150,3 +150,9 @@ body{background:radial-gradient(ellipse 60% 50% at 85% 3%,#29325155,transparent)
  .identity-field select{font-size:11px}
 }
 @media(prefers-reduced-motion:reduce){.broadcast-pulse,.turn-ribbon.my-turn .turn-dot{animation:none}}
+
+/* Optional player-initiated turn alerts. */
+.arena-utilities{display:flex;align-items:center;gap:8px}
+.alert-toggle{min-width:40px;min-height:39px;background:#202c43;border:1px solid #465670;color:#f6d998;border-radius:10px;font-size:20px;line-height:1}
+.alert-toggle[aria-pressed="true"]{background:#2c523d;border-color:#96cd9e;box-shadow:0 0 12px #7bd6a63d}
+@media(max-width:650px){.arena-utilities{gap:5px}.alert-toggle{min-width:34px;min-height:34px;font-size:18px}}
