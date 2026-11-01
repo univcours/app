@@ -48,3 +48,105 @@ body{background:radial-gradient(ellipse 60% 50% at 85% 3%,#29325155,transparent)
 .global-time-buttons button.active{background:#70e0bc;border-color:#9aeccf;color:#123632}
 .global-time-buttons button:disabled{opacity:.5;cursor:not-allowed}
 @media(max-width:750px){.global-time{justify-content:center}}
+
+/* ── LIVE CHESS COMPETITION STUDIO ── */
+.player-identity-strip{max-width:970px;margin:-7px auto 20px;padding:15px 18px;
+ display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:15px;align-items:end;
+ background:linear-gradient(115deg,#18263a,#111e2e);border:1px solid #3b5063;border-radius:14px}
+.identity-field{min-width:0}.identity-field label{display:block;color:#b9c7d7;font-size:10px;font-weight:900;
+ letter-spacing:1.15px;margin-bottom:8px}
+.identity-field input,.identity-field select{height:42px;width:100%;padding:0 11px;border:1px solid #4b5a71;
+ background:#0d1728;color:#f1f7ff;border-radius:8px;font:600 13px 'DM Sans',sans-serif}
+.identity-field select{cursor:pointer;appearance:auto;direction:ltr}
+.identity-field select option{background:#16243a;color:#f4f4f4}
+.identity-field input:focus,.identity-field select:focus{border-color:#e6c68e}
+.identity-note{align-self:center;max-width:155px;color:#92a5b8;font-size:10px;line-height:1.5}
+.studio-broadcast{margin:0 auto 21px;border:1px solid #5a647c;border-radius:18px;overflow:hidden;
+ background:radial-gradient(ellipse 35% 110% at 0 50%,#285d5b52,transparent),
+ radial-gradient(ellipse 35% 110% at 100% 50%,#7b5c3252,transparent),
+ linear-gradient(120deg,#151d31,#16243b 55%,#151b30);
+ box-shadow:0 18px 50px #01051080,0 0 0 1px #f6c67e18}
+.studio-strip{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 18px;
+ background:#0b1528c4;border-bottom:1px solid #3b4860;font-size:10px;font-weight:800;letter-spacing:1.6px}
+.studio-live{display:inline-flex;align-items:center;gap:7px;color:#fbb9a7;
+ border:1px solid #753b43;background:#4b182746;padding:6px 10px;border-radius:30px;white-space:nowrap}
+.broadcast-pulse{width:8px;height:8px;border-radius:50%;background:#ff6e73;box-shadow:0 0 13px #ff5b5b;animation:studioPulse 2s infinite}
+#studioCompetition{color:#c7d2e4;text-align:center;letter-spacing:2px}
+.studio-format{color:#f3d49c;white-space:nowrap}
+.studio-matchup{display:grid;grid-template-columns:minmax(0,1fr) 82px minmax(0,1fr);
+ align-items:center;gap:8px;padding:23px 30px 19px;direction:ltr}
+.studio-contender{display:flex;min-width:0;align-items:center;gap:13px;padding:9px 12px;
+ border:1px solid transparent;border-radius:14px;transition:background .2s,border-color .2s}
+.studio-contender.now-playing{background:#cfbb7a18;border-color:#d9b4785e;box-shadow:inset 0 0 20px #f0c77f0e}
+.studio-contender-away{flex-direction:row-reverse;text-align:right}
+.studio-flag{height:65px;width:80px;flex:0 0 80px;display:grid;place-items:center;font-size:48px;
+ border:1px solid #62768e59;border-radius:13px;background:#111b2ecb;text-shadow:0 2px 8px #0008}
+.studio-identity{min-width:0;display:flex;flex-direction:column;gap:5px}
+.studio-identity small{font-size:10px;letter-spacing:2.8px;font-weight:800;color:#98aabd}
+.studio-identity strong{font:800 clamp(16px,2.5vw,26px) 'Space Grotesk',sans-serif;
+ overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#f6f6f4;max-width:100%}
+.studio-vs{font:800 27px 'Space Grotesk',sans-serif;letter-spacing:2px;color:#efca8d;text-align:center;
+ text-shadow:0 0 25px #eac3876b}
+.studio-ticker{display:flex;align-items:center;justify-content:center;gap:13px;padding:10px 14px;
+ color:#9cb6c5;border-top:1px solid #3a4760;font-weight:800;font-size:10px;letter-spacing:2px;text-transform:uppercase}
+.studio-divider{color:#e8c68e}
+.turn-ribbon{display:flex;gap:12px;align-items:center;min-height:65px;margin:7px 0 9px;padding:10px 14px;
+ border:1px solid #52677c;border-radius:12px;background:linear-gradient(110deg,#1e2d43,#182337);
+ transition:border-color .18s,background .18s;position:relative;overflow:hidden;direction:ltr}
+.turn-ribbon .turn-dot{height:11px;width:11px;flex:0 0 11px;border-radius:50%;
+ background:#8298a8;box-shadow:0 0 10px #7891a35c}
+.turn-ribbon>div{display:flex;flex-direction:column;gap:3px;flex:1;min-width:0}
+.turn-ribbon strong{font:900 clamp(12px,2.7vw,16px) 'Space Grotesk',sans-serif;letter-spacing:1px;color:#dae8f2}
+.turn-ribbon small{font-size:11px;color:#98adbf}
+.turn-symbol{font-size:30px;color:#dfb877;line-height:1}
+.turn-ribbon.my-turn{border-color:#b7df95;background:linear-gradient(110deg,#205943,#173c39 80%,#173347);box-shadow:0 2px 25px #54c69923}
+.turn-ribbon.my-turn .turn-dot{background:#85edb0;box-shadow:0 0 15px #77dca6;animation:studioPulse 1.2s infinite}
+.turn-ribbon.my-turn strong{color:#b5fdd5}
+.turn-ribbon.check-alert{border-color:#e3a75c;background:linear-gradient(110deg,#59352c,#322940);box-shadow:0 0 18px #f4a34e38}
+.turn-ribbon.check-alert .turn-dot{background:#f5b05f;box-shadow:0 0 16px #f29c54}
+.turn-ribbon.check-alert strong{color:#ffe1a7}
+.turn-ribbon.finished{border-color:#d8bf8b;background:linear-gradient(110deg,#443b30,#182337)}
+.turn-ribbon.finished strong{color:#f8d8a1}
+.playercard{transition:border-color .2s,box-shadow .2s}
+.playercard.turn-active{border-color:#a9c88f;box-shadow:inset 4px 0 #84cd8b,0 0 15px #65d1a822}
+.player-flag{width:31px;min-width:31px;font-size:24px;line-height:1;text-align:center;filter:drop-shadow(0 1px 3px #0009)}
+.player-country{font-size:10px;color:#d8c38c;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.clock.active{box-shadow:0 0 0 2px #f8d8935b,0 0 17px #f0c7806e}
+.square.last{box-shadow:inset 0 0 0 999px #e7c86678}
+.board-frame{outline:1px solid #f0cc8e2c;outline-offset:3px}
+@keyframes studioPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.53;transform:scale(.78)}}
+@media(max-width:900px){
+ .studio-matchup{padding:15px 18px;grid-template-columns:minmax(0,1fr) 45px minmax(0,1fr)}
+ .studio-flag{width:56px;height:51px;flex-basis:56px;font-size:37px}
+ .studio-vs{font-size:23px}
+ .studio-contender{padding:5px;gap:8px}
+ .studio-strip{padding:8px 12px}
+}
+@media(max-width:650px){
+ .player-identity-strip{grid-template-columns:1fr 1fr;gap:10px;padding:12px;margin:0 auto 14px}
+ .identity-note{grid-column:1/-1;max-width:100%;font-size:9px;justify-self:center}
+ .identity-field label{font-size:9px;letter-spacing:.45px}
+ .identity-field input,.identity-field select{height:40px;padding:0 6px;font-size:12px}
+ .studio-broadcast{border-radius:12px;margin-bottom:11px}
+ .studio-strip{gap:5px;font-size:8px;letter-spacing:.45px;padding:7px 8px}
+ #studioCompetition{font-size:8px;letter-spacing:.4px;max-width:160px}
+ .studio-live{padding:5px 6px;font-size:8px}
+ .studio-matchup{grid-template-columns:minmax(0,1fr) 33px minmax(0,1fr);gap:2px;padding:9px 5px}
+ .studio-contender{gap:5px}
+ .studio-flag{width:38px;height:38px;flex-basis:38px;font-size:28px;border-radius:8px}
+ .studio-identity small{font-size:8px;letter-spacing:1px}
+ .studio-identity strong{font-size:clamp(11px,3.8vw,16px)}
+ .studio-vs{font-size:17px}
+ .studio-ticker{gap:8px;padding:7px 4px;font-size:8px;letter-spacing:.4px}
+ .turn-ribbon{margin:5px 0 8px;min-height:52px;padding:8px 11px;gap:9px}
+ .turn-ribbon strong{font-size:13px}.turn-ribbon small{font-size:10px}.turn-symbol{font-size:24px}
+ .playercard .avatar{width:34px;height:34px;font-size:24px}.player-flag{font-size:19px;min-width:25px;width:25px}
+ .player-country{font-size:9px}
+}
+@media(max-width:360px){
+ .studio-flag{width:30px;height:34px;flex-basis:30px;font-size:24px}
+ .studio-identity strong{font-size:11px}.studio-vs{font-size:15px}
+ .studio-ticker{font-size:7px;gap:5px}
+ .identity-field select{font-size:11px}
+}
+@media(prefers-reduced-motion:reduce){.broadcast-pulse,.turn-ribbon.my-turn .turn-dot{animation:none}}
