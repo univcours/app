@@ -5,6 +5,7 @@ import {fileURLToPath,pathToFileURL} from 'node:url';
 import {randomBytes} from 'node:crypto';
 import {Server} from 'socket.io';
 import {Chess} from 'chess.js';
+import {normalizeCountry} from './public/countries.js';
 
 const publicDir=fileURLToPath(new URL('./public/',import.meta.url));
 const alphabet='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -57,10 +58,12 @@ export function createGameServer({port=Number(process.env.PORT)||3000,host='0.0.
   const color=getSeat(room,socket)?.color??null;
   const moves=room.started&&!room.result&&color===room.chess.turn()
    ?room.chess.moves({verbose:true}).map(m=>({from:m.from,to:m.to,promotion:m.promotion||null})):[],now=Date.now();
-  return {code:room.id,color,fen:room.chess.fen(),turn:room.chess.turn(),history:room.chess.history(),
+  const past=room.chess.history({verbose:true}),last=past.at(-1);
+  return {code:room.id,color,fen:room.chess.fen(),turn:room.chess.turn(),history:past.map(m=>m.san),
+   lastMove:last?{from:last.from,to:last.to,san:last.san}:null,
    legalMoves:moves,check:room.chess.isCheck(),started:room.started,result:room.result,clocks:clocks(room,now),
    serverTime:now,increment:room.increment,base:room.base,timeLabel:room.timeLabel,
-   players:room.players.map(p=>p?{color:p.color,name:p.name,online:!!p.socket,readyRematch:!!p.rematch}:null),
+   players:room.players.map(p=>p?{color:p.color,name:p.name,country:p.country||'',online:!!p.socket,readyRematch:!!p.rematch}:null),
    drawOffer:room.drawOffer,matchType:room.matchType||'private'};
  }
  function broadcast(room,{touch=true}={}){
@@ -106,7 +109,7 @@ export function createGameServer({port=Number(process.env.PORT)||3000,host='0.0.
     const timeLabel=timeOptions.has(payload.time)?payload.time:'5+0';
     const [base,increment]=timeOptions.get(timeLabel);
     let id=code();while(rooms.has(id))id=code();
-    const first={name:name(payload.name),color:'w',token:token(),socket:null,rematch:false};
+    const first={name:name(payload.name),country:normalizeCountry(payload.country),color:'w',token:token(),socket:null,rematch:false};
     const room={id,chess:new Chess(),players:[first,null],base,increment,timeLabel,
      timeLeft:{w:base,b:base},activeSince:null,started:false,result:null,drawOffer:null,updated:Date.now()};
     rooms.set(id,room);joinSocket(socket,room,first);safeAck(ack,{ok:true,code:id,token:first.token,color:'w'});
@@ -120,7 +123,7 @@ export function createGameServer({port=Number(process.env.PORT)||3000,host='0.0.
     if(!room)throw Error('Room not found or expired');
     let p=room.players.find(x=>x&&x.token===payload.token&&typeof payload.token==='string');
     if(!p){if(getSeat(room,socket))throw Error('Already seated in this room');if(room.players[1])throw Error('Room full — two players already joined');
-     p={name:name(payload.name),color:'b',token:token(),socket:null,rematch:false};room.players[1]=p;
+     p={name:name(payload.name),country:normalizeCountry(payload.country),color:'b',token:token(),socket:null,rematch:false};room.players[1]=p;
     }
     joinSocket(socket,room,p);
     if(room.players[0]&&room.players[1]&&!room.started){room.started=true;room.activeSince=Date.now();}
@@ -152,7 +155,7 @@ export function createGameServer({port=Number(process.env.PORT)||3000,host='0.0.
      opponent={socket:peer,...seat};break;
     }
     if(!opponent){
-     waiting.set(socket.id,{name:name(payload.name),time,since:Date.now()});
+     waiting.set(socket.id,{name:name(payload.name),country:normalizeCountry(payload.country),time,since:Date.now()});
      pool.add(socket.id);
      safeAck(ack,{ok:true,status:'waiting',time});
      queueBroadcast();return;
@@ -161,8 +164,8 @@ export function createGameServer({port=Number(process.env.PORT)||3000,host='0.0.
     const [base,increment]=timeOptions.get(time);
     let id=code();while(rooms.has(id))id=code();
     const firstWhite=(randomBytes(1)[0]&1)===0;
-    const first={name:opponent.name,color:firstWhite?'w':'b',token:token(),socket:null,rematch:false};
-    const second={name:name(payload.name),color:firstWhite?'b':'w',token:token(),socket:null,rematch:false};
+    const first={name:opponent.name,country:opponent.country||'',color:firstWhite?'w':'b',token:token(),socket:null,rematch:false};
+    const second={name:name(payload.name),country:normalizeCountry(payload.country),color:firstWhite?'b':'w',token:token(),socket:null,rematch:false};
     const roomNew={id,chess:new Chess(),players:[first,second],base,increment,timeLabel:time,
       timeLeft:{w:base,b:base},activeSince:Date.now(),started:true,result:null,drawOffer:null,
       matchType:'global',updated:Date.now()};
