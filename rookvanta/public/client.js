@@ -12,7 +12,7 @@ const copy={
   turn:'Your move',theirTurn:'Opponent to move',check:' · Check!',win:'You won',lose:'You lost',drawResult:'Draw',roomCreated:'Room created · share your invite link',
   roomJoined:'Joined match',copied:'Copied to clipboard',notConnected:'Connecting to the server…',
   invalid:'Illegal move',offer:'Draw offered · waiting for reply',drawOffer:'Your opponent offers a draw. Accept?',roomNotFound:'Room not found',
-  time:'Time control'},
+  time:'Time control',globalKicker:'GLOBAL MATCHMAKING',globalTitle:'Play anyone. Anywhere.',globalDescription:'Find a real opponent anywhere in the world automatically. No invite needed.',globalPlay:'PLAY WORLDWIDE',globalCancel:'Cancel search',globalSearching:'SEARCHING WORLDWIDE…',globalWaiting:'players waiting',globalFound:'Opponent found! Starting match…',globalCancelled:'Search cancelled',globalTime:'Searching'},
  fr:{hero:'DOMINEZ <em>L’ÉCHIQUIER.</em>',intro:'De vrais adversaires. Des parties en direct. À vous de jouer.',
   create:'Créer une partie',createInfo:'Défiez un ami où qu’il soit.',join:'Rejoindre',joinInfo:'Vous avez une invitation ? Entrez le code.',
   name:'VOTRE PSEUDO',time:'CADENCE',room:'CODE À 6 CARACTÈRES',createBtn:'CRÉER UN SALON',joinBtn:'REJOINDRE LA PARTIE',
@@ -21,7 +21,7 @@ const copy={
   wait:'En attente d’un adversaire. Partagez le code !',you:'Vous',opp:'En attente',connected:'Connecté',disconnected:'Déconnecté',
   turn:'À vous de jouer',theirTurn:'Tour de l’adversaire',check:' · Échec !',win:'Vous avez gagné',lose:'Vous avez perdu',drawResult:'Match nul',
   roomCreated:'Salon créé · partagez le lien',roomJoined:'Partie rejointe',copied:'Copié',notConnected:'Connexion au serveur…',
-  invalid:'Coup illégal',offer:'Nulle proposée',drawOffer:'Votre adversaire propose la nulle. Accepter ?',roomNotFound:'Salon introuvable'},
+  invalid:'Coup illégal',offer:'Nulle proposée',drawOffer:'Votre adversaire propose la nulle. Accepter ?',roomNotFound:'Salon introuvable',globalKicker:'MATCHMAKING MONDIAL',globalTitle:'Jouez contre le monde.',globalDescription:'Un véritable adversaire partout dans le monde, sans code d’invitation.',globalPlay:'JOUER DANS LE MONDE',globalCancel:'Annuler la recherche',globalSearching:'RECHERCHE EN COURS…',globalWaiting:'joueurs en attente',globalFound:'Adversaire trouvé !',globalCancelled:'Recherche annulée',globalTime:'Recherche'},
  ar:{hero:'سيطر على <em>الرقعة.</em>',intro:'شطرنج حقيقي، خصوم حقيقيون، ومباريات مباشرة حول العالم.',
   create:'إنشاء مباراة',createInfo:'تحدى صديقاً من أي مكان.',join:'الدخول لمباراة',joinInfo:'عندك دعوة؟ دخل رمز الغرفة.',
   name:'اسم اللاعب',time:'مدة المباراة',room:'رمز الغرفة من 6 حروف',createBtn:'إنشاء غرفة خاصة',joinBtn:'دخول للمباراة',
@@ -30,9 +30,10 @@ const copy={
   wait:'كنستناو اللاعب الثاني. شارك معاه الرمز!',you:'أنت',opp:'في انتظار الخصم',connected:'متصل',disconnected:'غير متصل',
   turn:'الدور ديالك',theirTurn:'الدور ديال الخصم',check:' · كش!',win:'ربحتي!',lose:'خسرتي',drawResult:'تعادل',
   roomCreated:'تخلقات الغرفة، صيفط رابط الدعوة',roomJoined:'دخلتي للمباراة',copied:'تنسخ الرابط',notConnected:'كنربطو بالسيرفر…',
-  invalid:'نقلة ممنوعة',offer:'تقدم عرض التعادل',drawOffer:'الخصم عرض التعادل، واش موافق؟',roomNotFound:'الغرفة ما كايناش'}
+  invalid:'نقلة ممنوعة',offer:'تقدم عرض التعادل',drawOffer:'الخصم عرض التعادل، واش موافق؟',roomNotFound:'الغرفة ما كايناش',globalKicker:'اللعب العالمي',globalTitle:'لعب مع أي واحد فالعالم.',globalDescription:'السيرفر كيقلب ليك على خصم حقيقي من أي دولة، بلا رمز دعوة.',globalPlay:'العب عالمياً',globalCancel:'إلغاء البحث',globalSearching:'كنقلبو على خصم…',globalWaiting:'لاعبين فالانتظار',globalFound:'لقينا ليك خصم!',globalCancelled:'تلغى البحث',globalTime:'وقت البحث'}
 };
 let lang=localStorage.getItem('rv.lang')||'en',session=null,state=null,selected=null,promotion=null,timeOption='5+0',lastFen='',animationTime=0,clockTicker=null,lastDrawOffer=null;
+let searching=false,searchingSince=0,waitingCount=0;
 try{session=JSON.parse(localStorage.getItem('rv.session')||'null');}catch{}
 const socket=window.io({autoConnect:true,reconnection:true,timeout:10000});
 const t=()=>copy[lang]||copy.en;
@@ -42,13 +43,15 @@ function setLanguage(){
  const translations={heroTitle:d.hero,heroIntro:d.intro,createTitle:d.create,createInfo:d.createInfo,joinTitle:d.join,
   joinInfo:d.joinInfo,nameLabel:d.name,timeLabel:d.time,roomLabel:d.room,createButton:d.createBtn,joinButton:d.joinBtn,
   joinNote:d.joinNote,backLabel:d.lobby,inviteLabel:d.invite,matchTitle:d.match,movesLabel:d.moves,emptyMoves:d.empty,
-  drawLabel:d.draw,resignLabel:d.resign,rematchLabel:d.rematch,footerLabel:d.footer,promotionTitle:d.promotion};
+  drawLabel:d.draw,resignLabel:d.resign,rematchLabel:d.rematch,footerLabel:d.footer,promotionTitle:d.promotion,
+  globalKicker:d.globalKicker,globalTitle:d.globalTitle,globalDescription:d.globalDescription,
+  globalCancelLabel:d.globalCancel};
  for(const [id,value] of Object.entries(translations)){if(id==='heroTitle')$(id).innerHTML=value;else $(id).textContent=value;}
  $('language').textContent=lang.toUpperCase();
  document.documentElement.lang=lang;
  document.documentElement.dir=lang==='ar'?'rtl':'ltr';
  // Chessboard orientation and file/rank coordinates remain chess standard.
- render();
+ renderSearch();render();
 }
 function request(event,data){
  return new Promise(resolve=>{
@@ -56,9 +59,41 @@ function request(event,data){
   socket.timeout(7000).emit(event,data,(err,res)=>resolve(err?{ok:false,error:'Network timeout'}:res));
  });
 }
+function renderSearch(){
+ const d=t();
+ $('globalPlayLabel').textContent=searching?d.globalSearching:d.globalPlay;
+ $('globalPlay').classList.toggle('searching',searching);
+ $('globalPlay').disabled=searching||!socket.connected;
+ $('globalCancel').hidden=!searching;
+ $('globalPopulation').textContent=waitingCount+' '+d.globalWaiting;
+ $('globalTimer').hidden=!searching;
+ if(searching){
+  const seconds=Math.floor((Date.now()-searchingSince)/1000);
+  $('globalTimer').textContent=d.globalTime+': '+String(Math.floor(seconds/60)).padStart(2,'0')+':'+String(seconds%60).padStart(2,'0');
+ }
+}
+async function globalSearch(){
+ if(searching||!socket.connected)return;
+ searching=true;searchingSince=Date.now();renderSearch();
+ const reply=await request('matchmaking:search',{name:$('playerName').value||'Player',time:timeOption});
+ if(!reply?.ok){
+  searching=false;renderSearch();alertUser(reply?.error||'Unable to find opponents');return;
+ }
+ if(reply.status==='matched'){
+  searching=false;renderSearch();enterRoom(reply);alertUser(t().globalFound);
+ }
+}
+async function cancelSearch(){
+ if(!searching)return;
+ // Cancel locally first to prevent delayed match responses from duplicating UI transitions.
+ searching=false;renderSearch();
+ const response=await request('matchmaking:cancel',{});
+ if(response.ok)alertUser(t().globalCancelled);
+}
 function saveSession(p){session=p;localStorage.setItem('rv.session',JSON.stringify(p));}
 function enterRoom(res){
  if(!res?.ok){alertUser(res?.error||t().roomNotFound);return;}
+ searching=false;renderSearch();
  saveSession({code:res.code,token:res.token,color:res.color});
  const url=new URL(location.href);url.searchParams.set('room',res.code);history.replaceState(null,'',url);
  $('lobby').hidden=true;$('arena').hidden=false;
@@ -66,10 +101,12 @@ function enterRoom(res){
  selected=null;render();alertUser(t().roomJoined);
 }
 async function create(){
+ if(searching)await cancelSearch();
  const res=await request('room:create',{name:$('playerName').value||'Player',time:timeOption});enterRoom(res);
  if(res?.ok)alertUser(t().roomCreated);
 }
 async function join(){
+ if(searching)await cancelSearch();
  const code=$('roomCode').value.trim().toUpperCase().replace(/[^A-Z0-9]/g,'');
  if(code.length!==6){alertUser('Enter a 6-character room code');return;}
  const reuse=session?.code===code?session.token:null;
@@ -210,14 +247,18 @@ async function copyText(text){
  catch{window.prompt('Copy link',text);}
 }
 socket.on('connect',async()=>{
- $('connectionLabel').textContent='ONLINE';document.querySelector('.live-pill').classList.add('online');
+ $('connectionLabel').textContent='ONLINE';document.querySelector('.live-pill').classList.add('online');renderSearch();
  if(session?.code&&session?.token){
   const res=await request('room:join',{code:session.code,token:session.token,name:$('playerName').value||'Player'});
   if(res?.ok)enterRoom(res);
   else{session=null;localStorage.removeItem('rv.session');}
  }
 });
-socket.on('disconnect',()=>{$('connectionLabel').textContent='OFFLINE';document.querySelector('.live-pill').classList.remove('online');});
+socket.on('disconnect',()=>{$('connectionLabel').textContent='OFFLINE';document.querySelector('.live-pill').classList.remove('online');if(searching){searching=false;alertUser('Disconnected. Search again to find a match.');}renderSearch();});
+socket.on('matchmaking:population',data=>{waitingCount=Math.max(0,Number(data?.byTime?.[timeOption]||0));renderSearch();});
+socket.on('matchmaking:found',match=>{
+ searching=false;renderSearch();enterRoom({...match,ok:true});alertUser(t().globalFound);
+});
 socket.on('room:replaced',()=>{state=null;session=null;localStorage.removeItem('rv.session');$('arena').hidden=true;$('lobby').hidden=false;alertUser('This room was resumed on another device.');});
 socket.on('room:state',payload=>{
  state=payload;
@@ -225,9 +266,11 @@ socket.on('room:state',payload=>{
  render();
 });
 $('create').addEventListener('click',create);$('join').addEventListener('click',join);
+$('globalPlay').addEventListener('click',globalSearch);
+$('globalCancel').addEventListener('click',cancelSearch);
 $('roomCode').addEventListener('keydown',e=>{if(e.key==='Enter')join();});
 document.querySelectorAll('[data-time]').forEach(b=>b.addEventListener('click',()=>{
- timeOption=b.dataset.time;
+ timeOption=b.dataset.time;waitingCount=0;renderSearch();
  document.querySelectorAll('[data-time]').forEach(x=>{x.classList.toggle('active',x===b);x.setAttribute('aria-pressed',String(x===b));});
 }));
 $('back').addEventListener('click',()=>{$('arena').hidden=true;$('lobby').hidden=false;});
@@ -246,4 +289,4 @@ if(invite)$('roomCode').value=invite.toUpperCase().slice(0,6);
 $('playerName').value=localStorage.getItem('rv.name')||'';
 $('playerName').addEventListener('change',()=>localStorage.setItem('rv.name',$('playerName').value.slice(0,24)));
 setLanguage();
-clockTicker=setInterval(()=>{if(state&&!$('arena').hidden)renderClocks();},250);
+clockTicker=setInterval(()=>{if(state&&!$('arena').hidden)renderClocks();if(searching)renderSearch();},250);

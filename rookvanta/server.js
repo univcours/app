@@ -16,6 +16,8 @@ const name=s=>String(s||'Player').trim().replace(/[<>]/g,'').slice(0,24)||'Playe
 const safeAck=(cb,response)=>{if(typeof cb==='function')cb(response);};
 export function createGameServer({port=Number(process.env.PORT)||3000,host='0.0.0.0'}={}){
  const rooms=new Map();
+ const queues=new Map([...timeOptions.keys()].map(label=>[label,new Set()]));
+ const waiting=new Map();
  const handler=async(req,res)=>{
   const pathname=new URL(req.url,'http://localhost').pathname;
   if(pathname==='/health'){res.writeHead(200,{'content-type':'application/json','cache-control':'no-store'});res.end(JSON.stringify({ok:true,service:'RookVanta'}));return;}
@@ -59,13 +61,25 @@ export function createGameServer({port=Number(process.env.PORT)||3000,host='0.0.
    legalMoves:moves,check:room.chess.isCheck(),started:room.started,result:room.result,clocks:clocks(room,now),
    serverTime:now,increment:room.increment,base:room.base,timeLabel:room.timeLabel,
    players:room.players.map(p=>p?{color:p.color,name:p.name,online:!!p.socket,readyRematch:!!p.rematch}:null),
-   drawOffer:room.drawOffer};
+   drawOffer:room.drawOffer,matchType:room.matchType||'private'};
  }
  function broadcast(room,{touch=true}={}){
   if(touch)room.updated=Date.now();
   for(const p of room.players){if(p?.socket){const s=io.sockets.sockets.get(p.socket);if(s)s.emit('room:state',state(room,s));}}
  }
+ function queueNumbers(){
+  return {total:waiting.size,byTime:Object.fromEntries([...queues].map(([label,q])=>[label,q.size]))};
+ }
+ function queueBroadcast(){io.emit('matchmaking:population',queueNumbers());}
+ function queueRemove(id){
+  const existing=waiting.get(id);if(!existing)return false;
+  waiting.delete(id);queues.get(existing.time)?.delete(id);return true;
+ }
+ function queueStatus(socket){
+  socket.emit('matchmaking:population',queueNumbers());
+ }
  function joinSocket(socket,room,player){
+  if(queueRemove(socket.id))queueBroadcast();
   if(socket.data.roomId&&socket.data.roomId!==room.id){const old=rooms.get(socket.data.roomId);if(old){const prev=getSeat(old,socket);if(prev)prev.socket=null;broadcast(old);}socket.leave(socket.data.roomId);}
   if(player.socket&&player.socket!==socket.id){
    const old=io.sockets.sockets.get(player.socket);
@@ -86,6 +100,7 @@ export function createGameServer({port=Number(process.env.PORT)||3000,host='0.0.
   });
  }
  io.on('connection',socket=>{
+  queueStatus(socket);
   socket.on('room:create',(payload={},ack)=>{
    try{
     const timeLabel=timeOptions.has(payload.time)?payload.time:'5+0';
@@ -112,6 +127,57 @@ export function createGameServer({port=Number(process.env.PORT)||3000,host='0.0.
     safeAck(ack,{ok:true,code:id,token:p.token,color:p.color});
     broadcast(room);
    }catch(e){safeAck(ack,{ok:false,error:String(e.message||e)});}
+  });
+  // Globally shared FIFO matchmaking. No geographic restrictions or room codes.
+  socket.on('matchmaking:search',(payload={},ack)=>{
+   try{
+    if(!payload||typeof payload!=='object'||Array.isArray(payload))throw Error('Invalid request');
+    const time=String(payload.time||'5+0');
+    if(!timeOptions.has(time))throw Error('Unsupported time control');
+    const room=rooms.get(socket.data.roomId);
+    if(room?.started&&!room.result&&getSeat(room,socket))
+     throw Error('Finish your active match before searching again');
+    if(waiting.has(socket.id)){
+     const previous=waiting.get(socket.id);
+     if(previous.time!==time)throw Error('Cancel the current search before changing the time');
+     safeAck(ack,{ok:true,status:'waiting',time});return;
+    }
+    const pool=queues.get(time);
+    let opponent=null;
+    while(pool.size){
+     const id=pool.values().next().value;
+     const seat=waiting.get(id),peer=io.sockets.sockets.get(id);
+     if(!seat||!peer||!peer.connected){queueRemove(id);continue;}
+     if(id===socket.id)break;
+     opponent={socket:peer,...seat};break;
+    }
+    if(!opponent){
+     waiting.set(socket.id,{name:name(payload.name),time,since:Date.now()});
+     pool.add(socket.id);
+     safeAck(ack,{ok:true,status:'waiting',time});
+     queueBroadcast();return;
+    }
+    queueRemove(opponent.socket.id);
+    const [base,increment]=timeOptions.get(time);
+    let id=code();while(rooms.has(id))id=code();
+    const firstWhite=(randomBytes(1)[0]&1)===0;
+    const first={name:opponent.name,color:firstWhite?'w':'b',token:token(),socket:null,rematch:false};
+    const second={name:name(payload.name),color:firstWhite?'b':'w',token:token(),socket:null,rematch:false};
+    const roomNew={id,chess:new Chess(),players:[first,second],base,increment,timeLabel:time,
+      timeLeft:{w:base,b:base},activeSince:Date.now(),started:true,result:null,drawOffer:null,
+      matchType:'global',updated:Date.now()};
+    rooms.set(id,roomNew);
+    joinSocket(opponent.socket,roomNew,first);
+    joinSocket(socket,roomNew,second);
+    safeAck(ack,{ok:true,status:'matched',code:id,token:second.token,color:second.color,time});
+    opponent.socket.emit('matchmaking:found',{code:id,token:first.token,color:first.color,time});
+    broadcast(roomNew);queueBroadcast();
+   }catch(e){safeAck(ack,{ok:false,error:String(e.message||e)});}
+  });
+  socket.on('matchmaking:cancel',(_payload={},ack)=>{
+   const removed=queueRemove(socket.id);
+   safeAck(ack,{ok:true,cancelled:removed});
+   if(removed)queueBroadcast();
   });
   roomEvent(socket,'room:move',(room,seat,payload,ack)=>{
    refreshClock(room);
@@ -160,6 +226,7 @@ export function createGameServer({port=Number(process.env.PORT)||3000,host='0.0.
    safeAck(ack,{ok:true});broadcast(room);
   });
   socket.on('disconnect',()=>{
+   if(queueRemove(socket.id))queueBroadcast();
    const room=rooms.get(socket.data.roomId),player=getSeat(room,socket);
    if(player){player.socket=null;broadcast(room);}
   });
@@ -176,7 +243,7 @@ export function createGameServer({port=Number(process.env.PORT)||3000,host='0.0.
   httpServer.once('error',reject);
   httpServer.listen(port,host,()=>{
    httpServer.off('error',reject);
-   resolveStart({port:httpServer.address().port,httpServer,io,rooms,
+   resolveStart({port:httpServer.address().port,httpServer,io,rooms,queues,waiting,
     close:async()=>{clearInterval(ticker);await new Promise(r=>io.close(r));}});
   });
  });

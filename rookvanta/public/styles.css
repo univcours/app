@@ -20,3 +20,23 @@ body{background:radial-gradient(ellipse 60% 50% at 85% 3%,#29325155,transparent)
 .board-grid{direction:ltr;unicode-bidi:isolate}
 .board-grid .square{direction:ltr}
 @media(hover:none){.square{touch-action:manipulation}}
+
+/* Worldwide anonymous matchmaking — no invitation code required. */
+.global-card{max-width:970px;margin:0 auto 21px;padding:23px 25px;border:1px solid #62827d;
+ background:linear-gradient(110deg,#21454a 0%,#17283e 56%,#20233c 100%);
+ border-radius:20px;display:flex;align-items:center;gap:19px;box-shadow:0 12px 36px #060d1e4f}
+.global-emblem{width:65px;height:65px;flex:0 0 65px;border-radius:17px;display:grid;place-items:center;
+ font-size:40px;background:#266157;border:1px solid #568e81;color:#a9f3e0}
+.global-copy{flex:1;min-width:0}.global-kicker{color:#8fe6d5;font-size:10px;font-weight:800;letter-spacing:2px}
+.global-copy h2{margin:5px 0;font:800 clamp(20px,3.4vw,27px) 'Space Grotesk',sans-serif;color:#f3fcfa}
+.global-copy p{margin:0;font-size:13px;line-height:1.5;color:#b3cbd2}
+.global-meta{display:flex;gap:15px;margin-top:9px;font-size:11px;color:#90dcc5;font-weight:700}
+.global-actions{display:flex;flex-direction:column;gap:7px;min-width:215px}
+.global-play{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:17px 15px;
+ border:0;border-radius:12px;background:linear-gradient(120deg,#75e8c5,#34bcad);
+ color:#0b2530;font-size:12px;letter-spacing:.7px;font-weight:900}
+.global-play.searching{background:#d2ba80;color:#282031;cursor:default}
+.global-cancel{padding:9px;border:1px solid #7b8e9b;background:#1a2e43;color:#dfecf2;border-radius:10px}
+@media(max-width:750px){.global-card{flex-direction:column;text-align:center;gap:12px;padding:20px}
+ .global-actions{width:100%;min-width:0}.global-meta{justify-content:center}
+ .global-emblem{width:54px;height:54px;flex-basis:54px;font-size:32px}}
