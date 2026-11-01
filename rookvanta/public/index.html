@@ -21,6 +21,17 @@
  <p id="heroIntro">Real chess. Real rivals. Your next legendary match starts here.</p>
  <div class="hero-badges"><span>♚ <b>LIVE MULTIPLAYER</b></span><span>♟ <b>100% CHESS RULES</b></span><span>⏱ <b>REAL-TIME CLOCKS</b></span></div>
  </div>
+ <div class="player-identity-strip">
+   <div class="identity-field">
+    <label for="playerName" id="nameLabel">YOUR CHESS NAME</label>
+    <input id="playerName" maxlength="24" autocomplete="nickname" placeholder="Grandmaster" spellcheck="false">
+   </div>
+   <div class="identity-field country-field">
+    <label for="playerCountry" id="countryLabel">YOUR COUNTRY / FLAG (OPTIONAL)</label>
+    <select id="playerCountry" aria-label="Choose your country or flag"><option value="">🌐 International</option></select>
+   </div>
+   <div class="identity-note" id="countryHelp">Flags represent each player's choice.</div>
+ </div>
  <section class="global-card" aria-labelledby="globalTitle">
    <div class="global-emblem">♟</div>
    <div class="global-copy"><span class="global-kicker" id="globalKicker">GLOBAL MATCHMAKING</span>
@@ -44,8 +55,6 @@
  <div class="lobby-columns">
   <div class="panel create-panel">
    <div class="panel-top"><div class="panel-icon">♛</div><div><h2 id="createTitle">Create a match</h2><p id="createInfo">Challenge a friend from anywhere.</p></div></div>
-   <label for="playerName" id="nameLabel">YOUR CHESS NAME</label>
-   <input id="playerName" maxlength="24" autocomplete="nickname" placeholder="Grandmaster" spellcheck="false">
    <label for="timeControl" id="timeLabel">TIME CONTROL</label>
    <div class="time-select" role="radiogroup" aria-label="Time control">
     <button class="time-button" data-time="3+2" type="button"><b>3+2</b><small>BLITZ</small></button>
@@ -68,14 +77,34 @@
  <div class="arena-header"><button id="back" class="subtle" type="button">← <span id="backLabel">Lobby</span></button>
   <div class="match-label"><span id="modeLabel">LIVE MATCH</span><strong id="roomBadge">—</strong></div>
   <button id="copyLink" class="share" type="button">⧉ <span id="inviteLabel">Invite</span></button></div>
+ <div class="studio-broadcast" aria-label="Live chess competition studio">
+    <div class="studio-strip">
+      <span class="studio-live"><span class="broadcast-pulse"></span><span id="studioLiveLabel">● LIVE ARENA</span></span>
+      <span id="studioCompetition">ROOKVANTA · WORLD CHESS SERIES</span>
+      <span class="studio-format" id="studioFormat">5+0 BLITZ</span>
+    </div>
+    <div class="studio-matchup">
+      <div class="studio-contender" id="studioWhiteContender">
+       <span class="studio-flag" id="studioWhiteFlag" aria-label="Country">🌐</span>
+       <div class="studio-identity"><small id="studioWhiteLabel">WHITE</small><strong id="studioWhiteName">Waiting…</strong></div>
+      </div>
+      <div class="studio-vs">VS</div>
+      <div class="studio-contender studio-contender-away" id="studioBlackContender">
+       <span class="studio-flag" id="studioBlackFlag" aria-label="Country">🌐</span>
+       <div class="studio-identity"><small id="studioBlackLabel">BLACK</small><strong id="studioBlackName">Waiting…</strong></div>
+      </div>
+    </div>
+    <div class="studio-ticker"><span id="studioMatchType">GLOBAL CHESS</span><span class="studio-divider">✦</span><span id="studioPly">MOVE 1</span><span class="studio-divider">✦</span><span id="studioStage">LIVE COMPETITION</span></div>
+ </div>
  <div class="arena-content">
   <div class="play-column">
-   <div id="opponentCard" class="playercard"><div class="avatar dark">♚</div><div class="player-details"><strong id="opponentName">Waiting for opponent</strong><span id="opponentStatus">—</span></div><div class="clock" id="opponentClock">05:00</div></div>
+   <div id="opponentCard" class="playercard"><div class="avatar dark">♚</div><span class="player-flag" id="opponentFlag" aria-label="Country">🌐</span><div class="player-details"><strong id="opponentName">Waiting for opponent</strong><span id="opponentStatus">—</span><small class="player-country" id="opponentCountry">International</small></div><div class="clock" id="opponentClock">05:00</div></div>
+   <div id="turnRibbon" class="turn-ribbon" role="status" aria-live="polite"><span class="turn-dot"></span><div><strong id="turnHeadline">WAITING FOR OPPONENT</strong><small id="turnDetail">Live match status</small></div><span id="turnSymbol" class="turn-symbol">♟</span></div>
    <div class="board-frame"><div class="board-grid" id="board" role="grid" aria-label="Chess board"></div></div>
-   <div id="meCard" class="playercard"><div class="avatar light">♔</div><div class="player-details"><strong id="meName">You</strong><span id="meStatus">—</span></div><div class="clock" id="meClock">05:00</div></div>
+   <div id="meCard" class="playercard"><div class="avatar light">♔</div><span class="player-flag" id="meFlag" aria-label="Country">🌐</span><div class="player-details"><strong id="meName">You</strong><span id="meStatus">—</span><small class="player-country" id="meCountry">International</small></div><div class="clock" id="meClock">05:00</div></div>
   </div>
   <aside class="match-sidebar">
-   <div class="sidebar-heading"><span class="sidebar-kicker">YOUR ARENA</span><h2 id="matchTitle">The Match</h2><p id="matchStatus">Waiting for the second player…</p></div>
+   <div class="sidebar-heading"><span class="sidebar-kicker" id="studioSideKicker">TOURNAMENT STUDIO</span><h2 id="matchTitle">The Match</h2><p id="matchStatus">Waiting for the second player…</p></div>
    <div class="room-display"><div><span id="roomCodeLabel">ROOM CODE</span><b id="roomCodeValue">—</b></div><button id="copyCode" type="button">⧉</button></div>
    <div class="moves-top"><b id="movesLabel">MOVE HISTORY</b><span id="moveCount">0 MOVES</span></div>
    <div class="move-list" id="moveList" aria-live="polite"><div class="empty-moves">♟<span id="emptyMoves">Moves appear here as you play</span></div></div>
