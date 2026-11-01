@@ -40,3 +40,11 @@ body{background:radial-gradient(ellipse 60% 50% at 85% 3%,#29325155,transparent)
 @media(max-width:750px){.global-card{flex-direction:column;text-align:center;gap:12px;padding:20px}
  .global-actions{width:100%;min-width:0}.global-meta{justify-content:center}
  .global-emblem{width:54px;height:54px;flex-basis:54px;font-size:32px}}
+
+.global-time{display:flex;gap:10px;align-items:center;margin-top:13px;flex-wrap:wrap}
+.global-time>span{font-size:10px;letter-spacing:1.1px;color:#a6d4ce;font-weight:800}
+.global-time-buttons{display:flex;gap:6px}
+.global-time-buttons button{border:1px solid #4d7675;background:#112c38;border-radius:8px;color:#b4d9d3;padding:7px 10px;font-size:12px;font-weight:800}
+.global-time-buttons button.active{background:#70e0bc;border-color:#9aeccf;color:#123632}
+.global-time-buttons button:disabled{opacity:.5;cursor:not-allowed}
+@media(max-width:750px){.global-time{justify-content:center}}

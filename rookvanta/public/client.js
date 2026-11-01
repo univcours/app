@@ -33,7 +33,7 @@ const copy={
   invalid:'نقلة ممنوعة',offer:'تقدم عرض التعادل',drawOffer:'الخصم عرض التعادل، واش موافق؟',roomNotFound:'الغرفة ما كايناش',globalKicker:'اللعب العالمي',globalTitle:'لعب مع أي واحد فالعالم.',globalDescription:'السيرفر كيقلب ليك على خصم حقيقي من أي دولة، بلا رمز دعوة.',globalPlay:'العب عالمياً',globalCancel:'إلغاء البحث',globalSearching:'كنقلبو على خصم…',globalWaiting:'لاعبين فالانتظار',globalFound:'لقينا ليك خصم!',globalCancelled:'تلغى البحث',globalTime:'وقت البحث'}
 };
 let lang=localStorage.getItem('rv.lang')||'en',session=null,state=null,selected=null,promotion=null,timeOption='5+0',lastFen='',animationTime=0,clockTicker=null,lastDrawOffer=null;
-let searching=false,searchingSince=0,waitingCount=0;
+let searching=false,searchingSince=0,populationByTime={};
 try{session=JSON.parse(localStorage.getItem('rv.session')||'null');}catch{}
 const socket=window.io({autoConnect:true,reconnection:true,timeout:10000});
 const t=()=>copy[lang]||copy.en;
@@ -45,7 +45,7 @@ function setLanguage(){
   joinNote:d.joinNote,backLabel:d.lobby,inviteLabel:d.invite,matchTitle:d.match,movesLabel:d.moves,emptyMoves:d.empty,
   drawLabel:d.draw,resignLabel:d.resign,rematchLabel:d.rematch,footerLabel:d.footer,promotionTitle:d.promotion,
   globalKicker:d.globalKicker,globalTitle:d.globalTitle,globalDescription:d.globalDescription,
-  globalCancelLabel:d.globalCancel};
+  globalCancelLabel:d.globalCancel,globalTimeLabel:d.time||'Time control'};
  for(const [id,value] of Object.entries(translations)){if(id==='heroTitle')$(id).innerHTML=value;else $(id).textContent=value;}
  $('language').textContent=lang.toUpperCase();
  document.documentElement.lang=lang;
@@ -65,7 +65,8 @@ function renderSearch(){
  $('globalPlay').classList.toggle('searching',searching);
  $('globalPlay').disabled=searching||!socket.connected;
  $('globalCancel').hidden=!searching;
- $('globalPopulation').textContent=waitingCount+' '+d.globalWaiting;
+ $('globalPopulation').textContent=Math.max(0,Number(populationByTime[timeOption]||0))+' '+d.globalWaiting;
+ document.querySelectorAll('[data-time]').forEach(b=>{b.disabled=searching;b.classList.toggle('active',b.dataset.time===timeOption);b.setAttribute('aria-pressed',String(b.dataset.time===timeOption));});
  $('globalTimer').hidden=!searching;
  if(searching){
   const seconds=Math.floor((Date.now()-searchingSince)/1000);
@@ -255,7 +256,7 @@ socket.on('connect',async()=>{
  }
 });
 socket.on('disconnect',()=>{$('connectionLabel').textContent='OFFLINE';document.querySelector('.live-pill').classList.remove('online');if(searching){searching=false;alertUser('Disconnected. Search again to find a match.');}renderSearch();});
-socket.on('matchmaking:population',data=>{waitingCount=Math.max(0,Number(data?.byTime?.[timeOption]||0));renderSearch();});
+socket.on('matchmaking:population',data=>{populationByTime=data?.byTime||{};renderSearch();});
 socket.on('matchmaking:found',match=>{
  searching=false;renderSearch();enterRoom({...match,ok:true});alertUser(t().globalFound);
 });
@@ -270,7 +271,8 @@ $('globalPlay').addEventListener('click',globalSearch);
 $('globalCancel').addEventListener('click',cancelSearch);
 $('roomCode').addEventListener('keydown',e=>{if(e.key==='Enter')join();});
 document.querySelectorAll('[data-time]').forEach(b=>b.addEventListener('click',()=>{
- timeOption=b.dataset.time;waitingCount=0;renderSearch();
+ if(searching)return;
+ timeOption=b.dataset.time;renderSearch();
  document.querySelectorAll('[data-time]').forEach(x=>{x.classList.toggle('active',x===b);x.setAttribute('aria-pressed',String(x===b));});
 }));
 $('back').addEventListener('click',()=>{$('arena').hidden=true;$('lobby').hidden=false;});
