@@ -7,8 +7,8 @@ An original 9×9 block puzzle. Core gameplay works offline; Android test builds 
 - Three-placeable-piece tray, combos, one undo per game, and high scores.
 - Exactly **three handcrafted Candy Arcade campaign stages**, not 14,000:
   1. 🍬 **Candy Pop** — score at least 260, clear 2 lines/boxes, survive 6 moves.
-  2. 🚀 **Rocket Rush** — score at least 450, fire 2 real board-clearing rockets, survive 8 moves.
-  3. 💣 **Candy Bomb Boss** — score at least 700, trigger 2 real 3×3 bombs and deplete the Boss HP, survive 10 moves.
+  2. 🚀 **Rocket Rush** — score at least 800, fire 3 real board-clearing rockets, survive 10 moves.
+  3. 💣 **Candy Bomb Boss** — score at least 1,400, trigger 3 real 3×3 bombs and deplete the Boss HP, survive 12 moves.
 - Stages unlock **only after genuine score + objective + minimum moves**. No coins, ads or payments can bypass the next stage's requirement.
 - Original synthesized candy chimes, rocket whooshes, bomb blasts, victory sounds and responsive stage-specific music.
 - Six bright glass candy colors; reduced-motion-aware CSS explosions, sparks and rocket beams, mild haptics.
