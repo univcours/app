@@ -13,6 +13,6 @@ test('pitch frequencies are monotonic and have standard octave ratio',()=>{
 test('audio controller is safe to use without a browser or audio device',()=>{
  const audio=createGameAudio({effectsEnabled:false,musicEnabled:false});
  assert.equal(audio.musicEnabled,false);
- audio.unlock();audio.effect('pick');audio.setMusic(true);audio.setEffects(true);
+ audio.unlock();audio.effect('pick');audio.setStage(1);audio.effect('candy');audio.setStage(2);audio.effect('rocket');audio.setStage(3);audio.effect('bomb');audio.effect('victory');audio.setMusic(true);audio.setEffects(true);
  assert.equal(audio.effectsEnabled,true);assert.equal(audio.musicEnabled,true);
 });
