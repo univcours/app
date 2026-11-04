@@ -84,3 +84,58 @@ test('real setup on pre-existing debug resources succeeds, backs up once, stays 
   rmSync(dir,{recursive:true,force:true});
  }
 });
+
+test('signingConfigs.debug before buildTypes.debug does not steal applicationIdSuffix',()=>{
+ const input=[
+  'plugins { id "com.android.application" }',
+  'android {',
+  " defaultConfig { applicationId 'com.novagrid.cosmicpuzzle' }",
+  ' signingConfigs {',
+  "  debug { storeFile file('debug.keystore') }",
+  ' }',
+  " buildTypes { release { minifyEnabled false } debug { debuggable true } }",
+  '}'
+ ].join('\n');
+ const result=addDebugSuffix(input);
+ assert.match(result,/signingConfigs \{\s*debug \{ storeFile file\('debug.keystore'\) \}\s*\}/);
+ assert.match(result,/buildTypes \{ release \{ minifyEnabled false \} debug \{\s*applicationIdSuffix '\.candytest'/);
+ assert.equal((result.match(/applicationIdSuffix/g)||[]).length,1);
+ assert.equal(addDebugSuffix(result),result);
+});
+test('repairs exact misplaced Candy suffix in signingConfigs and builds debug block correctly',()=>{
+ const input=[
+  'android {',
+  " defaultConfig { applicationId 'com.novagrid.cosmicpuzzle' }",
+  ' signingConfigs { debug {',
+  "   applicationIdSuffix '.candytest'",
+  "   storeFile file('debug.keystore')",
+  ' }}',
+  ' buildTypes { release { minifyEnabled false } }',
+  '}'
+ ].join('\n');
+ const fixed=addDebugSuffix(input);
+ const signing=fixed.slice(fixed.indexOf('signingConfigs'),fixed.indexOf('buildTypes'));
+ assert.doesNotMatch(signing,/applicationIdSuffix/);
+ assert.match(signing,/storeFile file\('debug.keystore'\)/);
+ assert.match(fixed,/buildTypes \{\s*debug \{ applicationIdSuffix '\.candytest' \}/);
+ assert.equal(addDebugSuffix(fixed),fixed);
+});
+test('repairs misplaced Candy suffix directly under buildTypes without touching release block',()=>{
+ const input=[
+  'android {',
+  " defaultConfig { applicationId 'com.novagrid.cosmicpuzzle' }",
+  ' buildTypes {',
+  "   applicationIdSuffix '.candytest'",
+  "   release { proguardFiles getDefaultProguardFile('proguard-android-optimize.txt') }",
+  ' }',
+  '}'
+ ].join('\n');
+ const fixed=addDebugSuffix(input);
+ assert.match(fixed,/buildTypes \{\s*debug \{ applicationIdSuffix '\.candytest' \}/);
+ assert.match(fixed,/release \{ proguardFiles getDefaultProguardFile\('proguard-android-optimize.txt'\) \}/);
+ assert.equal((fixed.match(/applicationIdSuffix/g)||[]).length,1);
+});
+test('preserves a deliberately configured non-Candy debug suffix and refuses to override it',()=>{
+ const input="android { defaultConfig { applicationId 'com.novagrid.cosmicpuzzle' } buildTypes { debug { applicationIdSuffix '.another' } release {} } }";
+ assert.throws(()=>addDebugSuffix(input),/Existing custom debug applicationIdSuffix/);
+});
