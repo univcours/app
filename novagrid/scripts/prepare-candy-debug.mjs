@@ -25,7 +25,11 @@ export function mergeDebugStrings(xml){
     const attr=tag.match(/\bname\s*=\s*(["'])([^"']+)\1/);
     return attr?.[2]===name;
    });
-  if(matches.length>1||new RegExp('<string\\b[^>]*\\bname\\s*=\\s*["\\']'+name+'["\\'][^>]*\\/>').test(result))
+  const selfClosing=[...result.matchAll(/<string\b[^>]*\/>/g)].some(m=>{
+   const attr=m[0].match(/\bname\s*=\s*(["'])([^"']+)\1/);
+   return attr?.[2]===name;
+  });
+  if(matches.length>1||selfClosing)
    throw Error('Ambiguous debug string resource: '+name+'; refusing to overwrite');
   if(matches.length===1){
    const source=matches[0];
