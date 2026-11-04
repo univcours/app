@@ -11,9 +11,9 @@ export const SECTORS=Object.freeze([
  {id:'candy',icon:'🍬',name:{en:'Candy Pop',fr:'Candy Pop',ar:'انفجار الحلوى'},
   philosophy:{en:'Clear two lines or boxes and reach 260 points',fr:'Effacez 2 lignes ou carrés et marquez 260 points',ar:'مسح جوج صفوف أو مربعات ووصل لـ260 نقطة'}},
  {id:'rocket',icon:'🚀',name:{en:'Rocket Rush',fr:'Course aux fusées',ar:'سباق الصواريخ'},
-  philosophy:{en:'Trigger two rockets and reach 450 points',fr:'Lancez 2 fusées et marquez 450 points',ar:'طلّق جوج صواريخ ووصل لـ450 نقطة'}},
+  philosophy:{en:'Trigger three rockets and reach 800 points',fr:'Lancez 3 fusées et marquez 800 points',ar:'طلّق 3 صواريخ ووصل لـ800 نقطة'}},
  {id:'bomb',icon:'💣',name:{en:'Candy Bomb Boss',fr:'Boss bombes',ar:'زعيم القنابل'},
-  philosophy:{en:'Detonate two bombs and reach 700 points',fr:'Explosez 2 bombes et marquez 700 points',ar:'فجّر جوج قنابل ووصل لـ700 نقطة'}}
+  philosophy:{en:'Detonate three bombs and reach 1400 points',fr:'Explosez 3 bombes et marquez 1400 points',ar:'فجّر 3 قنابل ووصل لـ1400 نقطة'}}
 ]);
 export const WORLD_NAMES=SECTORS.map(s=>s.name.en);
 export const WORLD_SYMBOLS=SECTORS.map(s=>s.icon);
@@ -21,13 +21,13 @@ export const MISSION_TYPES=['candy','rocket','bomb'];
 
 export function stageConfig(level){
  if(!Number.isInteger(level)||level<1||level>TOTAL_STAGES)throw new RangeError('Only three NovaGrid Candy Arcade stages exist');
- const i=level-1,goals=[260,450,700],requirements=[2,2,2],moves=[6,8,10];
+ const i=level-1,goals=[260,800,1400],requirements=[2,3,3],moves=[6,10,12];
  return {
   level,world:i,sector:i,sectorId:SECTORS[i].id,sectorName:SECTORS[i].name,ordinal:1,
   kind:MISSION_TYPES[i],goal:goals[i],target:goals[i],scoreTarget:goals[i],
   specialTarget:requirements[i],minMoves:moves[i],
   unlockCost:0,tier:i,layout:i,hazardEvery:0,gravity:false,boss:level===3,
-  bossHp:level===3?2:0
+  bossHp:level===3?3:0
  };
 }
 export function initialProgress(){return {version:4,coins:0,unlocked:1,completed:{},totalEarned:0};}
