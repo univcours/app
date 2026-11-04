@@ -135,7 +135,55 @@ test('repairs misplaced Candy suffix directly under buildTypes without touching 
  assert.match(fixed,/release \{ proguardFiles getDefaultProguardFile\('proguard-android-optimize.txt'\) \}/);
  assert.equal((fixed.match(/applicationIdSuffix/g)||[]).length,1);
 });
-test('preserves a deliberately configured non-Candy debug suffix and refuses to override it',()=>{
- const input="android { defaultConfig { applicationId 'com.novagrid.cosmicpuzzle' } buildTypes { debug { applicationIdSuffix '.another' } release {} } }";
- assert.throws(()=>addDebugSuffix(input),/Existing custom debug applicationIdSuffix/);
+test('migrates previous debug application IDs to Candy TEST only, preserving release and signing',()=>{
+ for(const legacy of ['.originaltest','.beta','.another']){
+  for(const style of [
+   "applicationIdSuffix '"+legacy+"'",
+   "applicationIdSuffix = '"+legacy+"'",
+   'applicationIdSuffix("'+legacy+'")'
+  ]){
+   const input=[
+    'android {',
+    " defaultConfig { applicationId 'com.novagrid.cosmicpuzzle' }",
+    " signingConfigs { debug { storeFile file('existing.keystore') } }",
+    ' buildTypes {',
+    '  debug { '+style+'; debuggable true }',
+    '  release { minifyEnabled false }',
+    ' }',
+    '}'
+   ].join('\n');
+   const changed=addDebugSuffix(input);
+   const signing=changed.slice(changed.indexOf('signingConfigs'),changed.indexOf('buildTypes'));
+   assert.match(signing,/storeFile file\('existing.keystore'\)/);
+   assert.match(changed,/release \{ minifyEnabled false \}/);
+   assert.match(changed,/applicationIdSuffix\s*(?:=\s*|\(\s*|\s+)['"]\.candytest['"]/);
+   assert.equal((changed.match(/applicationIdSuffix/g)||[]).length,1);
+   assert.equal(addDebugSuffix(changed),changed);
+  }
+ }
+});
+test('backs up previous native Gradle file before switching existing local debug ID',()=>{
+ const dir=mkdtempSync(join(tmpdir(),'novagrid-candy-old-debug-'));
+ const cwd=process.cwd();
+ try{
+  const android=join(dir,'android');
+  const path=join(android,'app','build.gradle');
+  mkdirSync(join(android,'app'),{recursive:true});
+  writeFileSync(join(dir,'capacitor.config.json'),JSON.stringify({appId:'com.novagrid.cosmicpuzzle',appName:'NovaGrid'}));
+  const original="android { defaultConfig { applicationId 'com.novagrid.cosmicpuzzle' } signingConfigs { debug { storeFile file('debug.keystore') } } buildTypes { debug { applicationIdSuffix '.originaltest' } release { minifyEnabled false } } }";
+  writeFileSync(path,original);
+  process.chdir(dir);
+  setupDebug(android);
+  const result=readFileSync(path,'utf8');
+  assert.match(result,/debug \{ applicationIdSuffix '\.candytest' \}/);
+  assert.match(result,/release \{ minifyEnabled false \}/);
+  const backup=join(android,'app','novagrid-candy-prior-gradle.backup');
+  assert.equal(readFileSync(backup,'utf8'),original);
+  setupDebug(android);
+  assert.equal(readFileSync(backup,'utf8'),original);
+  assert.equal(readFileSync(path,'utf8'),result);
+ }finally{
+  process.chdir(cwd);
+  rmSync(dir,{recursive:true,force:true});
+ }
 });
