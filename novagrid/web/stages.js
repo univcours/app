@@ -1,286 +1,189 @@
-/* NovaGrid Galaxies: 14,000 deterministic stages, seven distinct sectors.
-   All progression stays on device. The first 2,000 levels and historical progress
-   remain compatible with the original NovaGrid campaign. */
-import {makeGame,seededRng,hashDate,hasMove,drawTray,PATTERNS,anyPlacement} from './engine.js';
-import {fallingConfig,fallingWon,fallingStars} from './falling.js';
-export const WORLD_SIZE=100;
-export const WORLDS_PER_SECTOR=20;
-export const SECTOR_SIZE=WORLD_SIZE*WORLDS_PER_SECTOR;
-export const SECTORS=[
- {id:'explorer',icon:'✦',name:{en:'Cosmic Explorer',fr:'Exploration cosmique',ar:'الاستكشاف الكوني'},
-  philosophy:{en:'Classic placement and eight evolving missions',fr:'Placement classique et huit missions',ar:'الوضع الكلاسيكي وثمانية تحديات'}},
- {id:'meteor',icon:'☄',name:{en:'Meteor Storm',fr:'Tempête de météores',ar:'عاصفة النيازك'},
-  philosophy:{en:'New blocks fall into the grid during play',fr:'Des météores envahissent la grille',ar:'نيازك جديدة كتهبط داخل الشبكة'}},
- {id:'gravity',icon:'⬇',name:{en:'Gravity Forge',fr:'Forge gravitationnelle',ar:'مصنع الجاذبية'},
-  philosophy:{en:'Every turn pulls the board downward',fr:'La gravité attire les blocs vers le bas',ar:'كل حركة كتهبط القطع للأسفل'}},
- {id:'prism',icon:'◈',name:{en:'Prism Temple',fr:'Temple des prismes',ar:'معبد الكريستال'},
-  philosophy:{en:'3×3 squares charge the prism and earn bonuses',fr:'Les carrés 3×3 chargent les prismes',ar:'المربعات 3×3 كتشحن البلورات وكتعطي مكافآت'}},
- {id:'reactor',icon:'⚡',name:{en:'Chain Reactor',fr:'Réacteur des combos',ar:'مفاعل السلاسل'},
-  philosophy:{en:'Chain clears power score boosts and clearing pulses',fr:'Les combos créent des impulsions',ar:'السلاسل كتولد طاقة ومسح إضافي'}},
- {id:'void',icon:'◉',name:{en:'Void Trials',fr:'Épreuves du vide',ar:'تحديات الفراغ'},
-  philosophy:{en:'Gravity and meteors together, with boss stages',fr:'Gravité et météores avec des boss',ar:'الجاذبية والنيازك مع مراحل الزعماء'}},
- {id:'blockfall',icon:'▥',name:{en:'Blockfall Arena',fr:'Arène des blocs',ar:'ساحة القطع الهابطة'},
-  philosophy:{en:'Falling pieces, rotation and line-clearing missions',fr:'Blocs tombants, rotation et lignes complètes',ar:'قطع كتهبط، دوران، ومسح الصفوف'}}
-];
-export const TOTAL_WORLDS=SECTORS.length*WORLDS_PER_SECTOR;
-export const TOTAL_STAGES=TOTAL_WORLDS*WORLD_SIZE;
-const baseNames=[
- 'Nebula Dawn','Aurora Fields','Comet Trail','Lunar Grove','Starlight Harbor',
- 'Crystal Orbit','Violet Rift','Meteor Garden','Solar Temple','Quantum Vale',
- 'Titan Rings','Nova Cascade','Celestial Reef','Photon Horizon','Gravity Wells',
- 'Cosmic Bloom','Eclipse Passage','Hypernova Path','Infinity Gate','Astral Crown'
-];
-const adjectives=['Blazing','Iron','Falling','Amber','Silent','Electric','Radiant','Twilight','Frozen','Golden','Storm','Orbiting','Ancient','Rising','Shifting','Hidden','Luminous','Eternal','Crimson','Boundless'];
-const themes=['Comet','Gravity','Prism','Reactor','Void','Blockfall'];
-export const WORLD_NAMES=baseNames.concat(themes.flatMap(theme=>adjectives.map(a=>a+' '+theme)));
-export const WORLD_SYMBOLS=Array.from({length:TOTAL_WORLDS},(_,i)=>SECTORS[Math.floor(i/WORLDS_PER_SECTOR)].icon);
-export const MISSION_TYPES=['score','rows','columns','squares','combo','survival','clearing','mastery','charge'];
-const sectorKinds={
- explorer:MISSION_TYPES.filter(k=>k!=='charge'),
- meteor:['survival','clearing','rows','mastery','score'],
- gravity:['columns','clearing','survival','score','mastery'],
- prism:['squares','charge','clearing','score','mastery'],
- reactor:['combo','charge','mastery','score','clearing'],
- void:['survival','mastery','charge','rows','columns','squares'],
- blockfall:['falling-lines','falling-score','falling-drops','falling-combos']
-};
+/* NovaGrid: three hand-crafted Candy Arcade stages. Add more only after QA.
+   Local progress is isolated from the retired 14,000-stage Galaxy save. */
+import {makeGame,seededRng,hashDate,hasMove,drawTray,anyPlacement,PATTERNS} from './engine.js';
+
+export const TOTAL_STAGES=3;
+export const WORLD_SIZE=1;
+export const WORLDS_PER_SECTOR=1;
+export const SECTOR_SIZE=1;
+export const TOTAL_WORLDS=3;
+export const SECTORS=Object.freeze([
+ {id:'candy',icon:'🍬',name:{en:'Candy Pop',fr:'Candy Pop',ar:'انفجار الحلوى'},
+  philosophy:{en:'Clear two lines or boxes and reach 260 points',fr:'Effacez 2 lignes ou carrés et marquez 260 points',ar:'مسح جوج صفوف أو مربعات ووصل لـ260 نقطة'}},
+ {id:'rocket',icon:'🚀',name:{en:'Rocket Rush',fr:'Course aux fusées',ar:'سباق الصواريخ'},
+  philosophy:{en:'Trigger two rockets and reach 450 points',fr:'Lancez 2 fusées et marquez 450 points',ar:'طلّق جوج صواريخ ووصل لـ450 نقطة'}},
+ {id:'bomb',icon:'💣',name:{en:'Candy Bomb Boss',fr:'Boss bombes',ar:'زعيم القنابل'},
+  philosophy:{en:'Detonate two bombs and reach 700 points',fr:'Explosez 2 bombes et marquez 700 points',ar:'فجّر جوج قنابل ووصل لـ700 نقطة'}}
+]);
+export const WORLD_NAMES=SECTORS.map(s=>s.name.en);
+export const WORLD_SYMBOLS=SECTORS.map(s=>s.icon);
+export const MISSION_TYPES=['candy','rocket','bomb'];
+
 export function stageConfig(level){
- if(!Number.isInteger(level)||level<1||level>TOTAL_STAGES)throw new RangeError('Invalid NovaGrid stage');
- const sector=Math.floor((level-1)/SECTOR_SIZE),section=SECTORS[sector],local=(level-1)%SECTOR_SIZE;
- const world=Math.floor((level-1)/WORLD_SIZE);
- // Keep the first 2,000 campaign tiers identical to the original release.
- const tier=sector===0?Math.min(10,Math.floor(local/115)):Math.min(11,Math.floor(local/155));
- if(section.id==='blockfall'){
-  const falling=fallingConfig(level,SECTOR_SIZE*6+1);
-  return {level,world,sector,sectorId:section.id,sectorName:section.name,ordinal:local%WORLD_SIZE+1,
-   kind:'falling-'+falling.kind,goal:falling.goal,target:falling.goal,interval:falling.interval,
-   unlockCost:local===0?0:100+Math.min(80,Math.floor(local/40)*2),
-   minMoves:0,tier:falling.tier,boss:(local+1)%25===0,gravity:true,hazardEvery:0};
- }
- const difficulty=tier+sector*2;
- const kinds=sectorKinds[section.id],kind=kinds[local%kinds.length];
- const objectives={
-  score:80+difficulty*28,
-  rows:1+Math.min(3,Math.floor(difficulty/4)),
-  columns:1+Math.min(3,Math.floor(difficulty/4)),
-  squares:1+Math.min(3,Math.floor(difficulty/4)),
-  combo:2+Math.min(2,Math.floor(difficulty/7)),
-  survival:8+Math.min(15,difficulty),
-  clearing:18+9*Math.min(7,Math.floor(difficulty/3)),
-  mastery:2+Math.min(4,Math.floor(difficulty/5)),
-  charge:2+Math.min(5,Math.floor(difficulty/3))
- };
- return {level,world,sector,sectorId:section.id,sectorName:section.name,ordinal:(level-1)%WORLD_SIZE+1,
-  kind,goal:objectives[kind],target:objectives[kind],minMoves:6+Math.min(6,Math.floor(difficulty/3)),
-  scoreBonus:kind==='mastery'?100+difficulty*20:0,
-  unlockCost:local===0?0:100+Math.min(80,Math.floor(local/40)*2),
-  layout:(level-1)%6,tier,sectorDifficulty:difficulty,
-  hazardEvery:section.id==='void'?2:section.id==='meteor'?3:0,
-  gravity:section.id==='gravity'||section.id==='void',
-  boss:section.id==='void'&&(local+1)%25===0
+ if(!Number.isInteger(level)||level<1||level>TOTAL_STAGES)throw new RangeError('Only three NovaGrid Candy Arcade stages exist');
+ const i=level-1,goals=[260,450,700],requirements=[2,2,2],moves=[6,8,10];
+ return {
+  level,world:i,sector:i,sectorId:SECTORS[i].id,sectorName:SECTORS[i].name,ordinal:1,
+  kind:MISSION_TYPES[i],goal:goals[i],target:goals[i],scoreTarget:goals[i],
+  specialTarget:requirements[i],minMoves:moves[i],
+  unlockCost:0,tier:i,layout:i,hazardEvery:0,gravity:false,boss:level===3,
+  bossHp:level===3?2:0
  };
 }
-export function initialProgress(){return {version:3,coins:0,unlocked:1,unlockedSectors:SECTORS.map((_,i)=>i*SECTOR_SIZE+1),completed:{},totalEarned:0};}
+export function initialProgress(){return {version:4,coins:0,unlocked:1,completed:{},totalEarned:0};}
 export function normalizeProgress(value){
  const p=initialProgress();
  if(!value||typeof value!=='object')return p;
- const coins=Number(value.coins),unlocked=Number(value.unlocked);
- p.coins=Number.isSafeInteger(coins)&&coins>=0?Math.min(99999999,coins):0;
- p.unlocked=Number.isInteger(unlocked)?Math.max(1,Math.min(SECTOR_SIZE,unlocked)):1;
- if(Array.isArray(value.unlockedSectors)){
-  p.unlockedSectors=p.unlockedSectors.map((first,i)=>{
-   const valueAt=Number(value.unlockedSectors[i]);
-   return Number.isInteger(valueAt)?Math.max(first,Math.min(first+SECTOR_SIZE-1,valueAt)):first;
-  });
- }
- p.unlockedSectors[0]=Math.max(p.unlocked,p.unlockedSectors[0]);
- p.unlocked=p.unlockedSectors[0]; // compatibility for the first 2,000 stage legacy save
+ // Only native version-4 Candy Arcade saves are eligible. Legacy saves
+ // from the previous Galaxy are never mistaken for wins in these new stages.
+ if(value.version!==4)return p;
+ const coins=Number(value.coins);
+ if(Number.isSafeInteger(coins)&&coins>=0)p.coins=Math.min(99999999,coins);
  if(value.completed&&typeof value.completed==='object'){
-  for(const [key,stars] of Object.entries(value.completed)){
-   const lvl=Number(key);
-   if(Number.isInteger(lvl)&&lvl>0&&lvl<=TOTAL_STAGES&&String(lvl)===key&&isStageUnlocked(p,lvl)){
-    p.completed[key]=Math.min(3,Math.max(0,Math.floor(Number(stars)||0)));
-   }
+  for(let level=1;level<=TOTAL_STAGES;level++){
+   const stars=Number(value.completed[level]);
+   if(Number.isInteger(stars)&&stars>=1&&stars<=3&&
+      (level===1||p.completed[level-1]))p.completed[level]=stars;
   }
  }
- p.totalEarned=Number.isSafeInteger(value.totalEarned)&&value.totalEarned>=0?value.totalEarned:0;
+ for(let level=1;level<TOTAL_STAGES&&p.completed[level];level++)p.unlocked=level+1;
+ const earned=Number(value.totalEarned);
+ if(Number.isSafeInteger(earned)&&earned>=0)p.totalEarned=earned;
  return p;
 }
 export function isStageUnlocked(progress,level){
  if(!Number.isInteger(level)||level<1||level>TOTAL_STAGES)return false;
- const sec=Math.floor((level-1)/SECTOR_SIZE);
- const arr=progress?.unlockedSectors;
- const ceiling=Array.isArray(arr)?Number(arr[sec]):sec===0?Number(progress?.unlocked):sec*SECTOR_SIZE+1;
- return level<=ceiling;
+ return level<=normalizeProgress(progress).unlocked;
 }
 export function stageBoard(level){
- const cfg=stageConfig(level),rng=seededRng(hashDate('nova-galaxy-geometry-'+level));
- const board=Array.from({length:9},()=>Array(9).fill(0));
- const add=(r,c)=>{if(r>=0&&c>=0&&r<9&&c<9)board[r][c]=1;};
- if(level===1)return board;
- const count=3+cfg.tier+(cfg.layout%3)+cfg.sector;
- if(cfg.kind==='rows'){const row=Math.floor(rng()*9);for(let i=0;i<Math.min(7,count+2);i++)add(row,(i*2+cfg.layout)%9);}
- else if(cfg.kind==='columns'){const col=Math.floor(rng()*9);for(let i=0;i<Math.min(7,count+2);i++)add((i*2+cfg.layout)%9,col);}
- else if(cfg.kind==='squares'||cfg.sectorId==='prism'){
-  const y=Math.floor(rng()*3)*3,x=Math.floor(rng()*3)*3;
-  for(let i=0;i<Math.min(7,count+2);i++)add(y+Math.floor(i/3),x+i%3);
- }else if(cfg.kind==='combo'||cfg.sectorId==='reactor'){
-  const row=Math.floor(rng()*9),col=Math.floor(rng()*9);
-  for(let i=0;i<5;i++){add(row,(i*2)%9);add((i*2+1)%9,col);}
- }else if(cfg.kind==='clearing'){
-  const row=Math.floor(rng()*9);for(let i=0;i<6;i++)add(row,(i+cfg.layout)%9);
- }else{
-  for(let i=0;i<count;i++)add(Math.floor(rng()*9),Math.floor(rng()*9));
- }
- for(let i=0;i<Math.floor(cfg.tier/2)+((cfg.boss)?5:0);i++)add(Math.floor(rng()*9),Math.floor(rng()*9));
- return board;
+ stageConfig(level);
+ const b=Array.from({length:9},()=>Array(9).fill(0));
+ if(level===2){for(let c=0;c<5;c++)b[4][c]=1;}
+ if(level===3){for(let c=0;c<6;c++)b[2][c]=1;for(let r=5;r<8;r++)b[r][7]=1;}
+ return b;
 }
-/* Distinct shape economies: all sections still guarantee one playable piece. */
 export function drawSectorTray(level,board,round=0){
- const cfg=stageConfig(level);
- if(cfg.sectorId==='explorer')return drawTray(seededRng(hashDate('nova-stage-'+level+'-'+round)),board);
- const rng=seededRng(hashDate('nova-sector-tray-'+level+'-'+round));
- const dims=p=>({h:Math.max(...p.map(c=>c[0]))+1,w:Math.max(...p.map(c=>c[1]))+1});
- const filters={
-  meteor:p=>p.length>=3&&p.length<=6,
-  gravity:p=>p.length>=2&&dims(p).h>=dims(p).w,
-  prism:p=>p.length>=3&&dims(p).h<=3&&dims(p).w<=3,
-  reactor:p=>p.length>=3&&p.length<=6,
-  void:p=>p.length>=4
- };
- const choices=PATTERNS.filter(filters[cfg.sectorId]||(()=>true));
- const pool=choices.length?choices:PATTERNS;
- const tray=Array.from({length:3},()=>pool[Math.floor(rng()*pool.length)].map(c=>[...c]));
+ stageConfig(level);
+ const rng=seededRng(hashDate('nova-candy-tray-'+level+'-'+round));
+ const choices=PATTERNS.filter(p=>level===1?p.length<=6:level===2?p.length>=2&&p.length<=6:p.length>=2&&p.length<=7);
+ const tray=Array.from({length:3},()=>choices[Math.floor(rng()*choices.length)].map(x=>[...x]));
  if(!hasMove(board,tray)){
   const playable=PATTERNS.filter(p=>anyPlacement(board,p));
-  if(playable.length)tray[Math.floor(rng()*3)]=playable[Math.floor(rng()*playable.length)].map(c=>[...c]);
+  if(playable.length)tray[0]=playable[Math.floor(rng()*playable.length)].map(x=>[...x]);
  }
  return tray;
 }
 export function startStage(level){
- const cfg=stageConfig(level),date='nova-stage-'+level,game=makeGame('daily',date);
- if(cfg.sectorId==='blockfall')throw Error('Blockfall stages must start via makeFallingState');
+ const cfg=stageConfig(level),date='nova-candy-stage-'+level,game=makeGame('daily',date);
  const board=stageBoard(level);
- const specialized=cfg.sectorId==='explorer'?game.tray:drawSectorTray(level,board,0);
- const tray=hasMove(board,specialized)?specialized:drawTray(seededRng(hashDate(date+'-tray')),board);
- return {...game,board,tray,mode:'stage',stageLevel:level,clears:0,rows:0,columns:0,
-  squares:0,cellsCleared:0,maxCombo:0,clearingMoves:0,charge:0,meteorHits:0,
-  date,won:false,over:false,sectorId:cfg.sectorId};
+ const tray=drawSectorTray(level,board,0);
+ return {...game,mode:'stage',date,stageLevel:level,sectorId:cfg.sectorId,
+  board,tray,score:0,moves:0,combo:0,over:false,won:false,
+  clears:0,rows:0,columns:0,squares:0,cellsCleared:0,
+  clearingMoves:0,maxCombo:0,charge:0,rocketShots:0,bombBlasts:0,
+  candyBursts:0,bossHp:cfg.bossHp,specialEvent:null};
 }
-export function collapseBoard(board){
- const next=board.map(row=>[...row]);
- for(let c=0;c<9;c++){const occupied=board.reduce((n,row)=>n+Number(!!row[c]),0);
-  for(let r=0;r<9;r++)next[r][c]=r>=9-occupied?1:0;
+function bestBlast(board,kind,moves){
+ const candidates=[];
+ if(kind==='rocket'){
+  for(let r=0;r<9;r++)candidates.push({direction:'row',index:r,cells:Array.from({length:9},(_,c)=>[r,c])});
+  for(let c=0;c<9;c++)candidates.push({direction:'column',index:c,cells:Array.from({length:9},(_,r)=>[r,c])});
+ }else{
+  for(let r=1;r<8;r++)for(let c=1;c<8;c++){
+   const cells=[];for(let y=r-1;y<=r+1;y++)for(let x=c-1;x<=c+1;x++)cells.push([y,x]);
+   candidates.push({direction:'blast',index:r*9+c,cells,center:[r,c]});
+  }
  }
- return next;
-}
-function meteorStrike(board,seed,moves,n=1){
- const free=[];
- for(let r=0;r<9;r++)for(let c=0;c<9;c++)if(!board[r][c])free.push([r,c]);
- const rng=seededRng(hashDate('nova-meteor-'+seed+'-'+moves));
- const next=board.map(row=>[...row]);
- for(let i=0;i<n&&free.length;i++){
-  const j=Math.floor(rng()*free.length),[r,c]=free.splice(j,1)[0];next[r][c]=1;
- }
- return next;
+ const score=x=>x.cells.filter(([r,c])=>board[r][c]).length;
+ candidates.sort((a,b)=>score(b)-score(a)||Math.abs(a.index-moves%9)-Math.abs(b.index-moves%9)||a.index-b.index);
+ const chosen=candidates[0],next=board.map(row=>row.slice());
+ let removed=0;
+ for(const [r,c] of chosen.cells)if(next[r][c]){next[r][c]=0;removed++;}
+ return {board:next,removed,center:chosen.center||(
+  chosen.direction==='row'?[chosen.index,4]:[4,chosen.index]),
+  cells:chosen.cells,direction:chosen.direction};
 }
 export function applySectorTurn(state,result){
  if(state.mode!=='stage')return state;
- const cfg=stageConfig(state.stageLevel);
- let next={...state};
- // Refill the tray using this division's shape strategy on each new round.
- if(cfg.sectorId!=='explorer'&&next.moves>0&&next.moves%3===0&&next.tray.every(Boolean))
-  next.tray=drawSectorTray(next.stageLevel,next.board,next.moves/3);
- if(cfg.sectorId==='prism'&&result.squares){
-  next.score+=result.squares*25;
-  next.charge=(state.charge||0)+result.squares;
+ const cfg=stageConfig(state.stageLevel),next={...state,specialEvent:null};
+ if(!result?.groups){
+  next.over=!!state.over||!hasMove(next.board,next.tray);
+  return next;
  }
- if(cfg.sectorId==='reactor'&&result.groups){
-  next.charge=(state.charge||0)+result.groups;
-  next.score+=result.groups*(12+Math.min(5,next.combo||0)*4);
-  if(next.charge%3===0){
-   // Clearing pulse creates more breathing space, but it cannot complete
-   // objectives automatically: only result.groups counts as a player clear.
-   const board=next.board.map(row=>[...row]);
-   let removed=0;
-   for(let r=0;r<9&&removed<3;r++)for(let c=0;c<9&&removed<3;c++)
-    if(board[r][c]&&(r+c+next.moves)%3===0){board[r][c]=0;removed++;}
-   next.board=board;
+ next.charge=(state.charge||0)+result.groups;
+ if(cfg.kind==='candy'){
+  next.candyBursts=(state.candyBursts||0)+result.groups;
+  next.score+=15*result.groups;
+  next.specialEvent={kind:'candy',center:[4,4],cells:[],removed:0};
+ }else{
+  const kind=cfg.kind,blast=bestBlast(next.board,kind,next.moves);
+  next.board=blast.board;
+  const bonus=(kind==='rocket'?40:60)+blast.removed*12;
+  next.score+=bonus;
+  next.cellsCleared=(state.cellsCleared||0)+blast.removed;
+  if(kind==='rocket')next.rocketShots=(state.rocketShots||0)+1;
+  if(kind==='bomb'){
+   next.bombBlasts=(state.bombBlasts||0)+1;
+   next.bossHp=Math.max(0,(state.bossHp??cfg.bossHp)-1);
   }
- }
- if(cfg.sectorId==='void'&&result.groups)next.charge=(state.charge||0)+result.groups;
- if(cfg.gravity)next.board=collapseBoard(next.board);
- if(cfg.hazardEvery&&next.moves%cfg.hazardEvery===0){
-  next.board=meteorStrike(next.board,next.seed,next.moves,cfg.boss?2:1);
-  next.meteorHits=(state.meteorHits||0)+(cfg.boss?2:1);
+  next.specialEvent={kind,center:blast.center,cells:blast.cells,removed:blast.removed,direction:blast.direction,bonus};
  }
  next.over=!hasMove(next.board,next.tray);
  return next;
 }
 export function objectiveValue(state,cfg=stageConfig(state.stageLevel)){
- switch(cfg.kind){
-  case 'score':return state.score||0;
-  case 'rows':return state.rows||0;
-  case 'columns':return state.columns||0;
-  case 'squares':return state.squares||0;
-  case 'combo':return state.maxCombo||0;
-  case 'survival':return state.moves||0;
-  case 'clearing':return state.cellsCleared||0;
-  case 'mastery':return state.clears||0;
-  case 'charge':return state.charge||0;
-  default:return 0;
- }
+ if(cfg.kind==='rocket')return state.rocketShots||0;
+ if(cfg.kind==='bomb')return state.bombBlasts||0;
+ return state.clears||0;
 }
-const LABELS={
- en:{score:'Score',rows:'Rows cleared',columns:'Columns cleared',squares:'3×3 cleared',combo:'Best chain',survival:'Placements',clearing:'Blocks removed',mastery:'Groups cleared',charge:'Energy charged',finish:'Play until no shapes fit'},
- fr:{score:'Score',rows:'Lignes effacées',columns:'Colonnes effacées',squares:'Carrés 3×3',combo:'Meilleure série',survival:'Pièces posées',clearing:'Blocs effacés',mastery:'Groupes effacés',charge:'Énergie chargée',finish:'Jouez jusqu’à épuisement'},
- ar:{score:'النقاط',rows:'صفوف ممسوحة',columns:'أعمدة ممسوحة',squares:'مربعات 3×3',combo:'أفضل سلسلة',survival:'قطع موضوعة',clearing:'مربعات ممسوحة',mastery:'مجموعات ممسوحة',charge:'الطاقة المشحونة',finish:'كمّل حتى ما يبقى حتى حل'}
-};
 export function stageObjectiveText(state,lang='en'){
- const cfg=stageConfig(state.stageLevel),t=LABELS[lang]||LABELS.en;
- const base=t[cfg.kind]+' '+objectiveValue(state,cfg)+'/'+cfg.goal;
- return cfg.kind==='mastery'?base+' · '+t.score+' '+(state.score||0)+'/'+cfg.scoreBonus:base;
+ const cfg=stageConfig(state.stageLevel);
+ const labels={
+  en:['Candy clears','Rockets fired','Bombs exploded','Score'],
+  fr:['Éliminations Candy','Fusées tirées','Bombes explosées','Score'],
+  ar:['مسح الحلوى','الصواريخ','القنابل','النقاط']
+ };
+ const t=labels[lang]||labels.en;
+ return t[cfg.level-1]+' '+objectiveValue(state,cfg)+'/'+cfg.specialTarget+
+  ' · '+t[3]+' '+(state.score||0)+'/'+cfg.scoreTarget;
 }
 export function stageWon(state){
- if(state.mode!=='stage'||!state.over)return false; // only resolve after a real puzzle run
+ if(state?.mode!=='stage')return false;
  const cfg=stageConfig(state.stageLevel);
- return (state.moves||0)>=cfg.minMoves&&objectiveValue(state,cfg)>=cfg.goal&&
-  (cfg.kind!=='mastery'||state.score>=cfg.scoreBonus);
+ return (state.moves||0)>=cfg.minMoves&&(state.score||0)>=cfg.scoreTarget&&
+   objectiveValue(state,cfg)>=cfg.specialTarget&&(!cfg.boss||(state.bossHp??cfg.bossHp)===0);
 }
-export function stageFailed(state){return state.mode==='stage'&&!!state.over&&!stageWon(state);}
+export function stageFailed(state){return state?.mode==='stage'&&!!state.over&&!stageWon(state);}
 export function rankStage(state){
  if(!stageWon(state))return 0;
- const cfg=stageConfig(state.stageLevel),ratio=objectiveValue(state,cfg)/cfg.goal;
- return ratio>=2.25&&state.score>=cfg.scoreBonus?3:ratio>=1.45?2:1;
+ const cfg=stageConfig(state.stageLevel);
+ const bonus=(state.score||0)/cfg.scoreTarget;
+ return bonus>=1.6&&(state.maxCombo||0)>=3?3:bonus>=1.25||(state.maxCombo||0)>=2?2:1;
 }
-export function awardStage(progress,level,finishedState){
+export function awardStage(progress,level,finished){
  const p=normalizeProgress(progress);
- if(!isStageUnlocked(p,level)||finishedState?.stageLevel!==level)return {progress:p,earned:0};
- const cfg=stageConfig(level);
- const verified=cfg.sectorId==='blockfall'?
-  (finishedState?.mode==='falling'&&fallingWon(finishedState,fallingConfig(level))):stageWon(finishedState);
- if(!verified)return {progress:p,earned:0};
- const stars=cfg.sectorId==='blockfall'?fallingStars(finishedState,fallingConfig(level)):rankStage(finishedState);
- const prev=p.completed[level]||0;
- if(stars<=prev)return {progress:p,earned:0};
- const earned=prev===0?150+25*stars:15*(stars-prev);
+ if(!isStageUnlocked(p,level)||finished?.stageLevel!==level||
+   !finished?.over||!finished?.won||!stageWon(finished))return {progress:p,earned:0};
+ const stars=rankStage(finished),prior=p.completed[level]||0;
+ if(stars<=prior)return {progress:p,earned:0};
+ const earned=prior===0?100+stars*35:15*(stars-prior);
  p.completed[level]=stars;p.coins+=earned;p.totalEarned+=earned;
+ if(level<TOTAL_STAGES)p.unlocked=Math.max(p.unlocked,level+1);
  return {progress:p,earned};
 }
 export function purchaseStage(progress,level){
  const p=normalizeProgress(progress);
- if(!Number.isInteger(level)||level<2||level>TOTAL_STAGES)return {progress:p,ok:false,reason:'invalid'};
+ if(!Number.isInteger(level)||level<1||level>TOTAL_STAGES)return {progress:p,ok:false,reason:'invalid'};
  if(isStageUnlocked(p,level))return {progress:p,ok:true,cost:0};
- const sec=Math.floor((level-1)/SECTOR_SIZE);
- if(level!==p.unlockedSectors[sec]+1||!(p.completed[level-1]>0))return {progress:p,ok:false,reason:'progress'};
- const cost=stageConfig(level).unlockCost;
- if(p.coins<cost)return {progress:p,ok:false,reason:'coins',cost};
- p.coins-=cost;p.unlockedSectors[sec]=level;p.unlocked=p.unlockedSectors[0];
- return {progress:p,ok:true,cost};
+ if(level!==p.unlocked+1||!p.completed[level-1])return {progress:p,ok:false,reason:'progress'};
+ p.unlocked=level;
+ return {progress:p,ok:true,cost:0};
 }
 export function progressSummary(progress){
  const p=normalizeProgress(progress);
  return {completed:Object.values(p.completed).filter(v=>v>0).length,
-  stars:Object.values(p.completed).reduce((a,b)=>a+b,0),
-  coins:p.coins,unlocked:p.unlocked,unlockedSectors:p.unlockedSectors};
+  stars:Object.values(p.completed).reduce((a,b)=>a+b,0),coins:p.coins,
+  unlocked:p.unlocked,unlockedSectors:[p.unlocked]};
 }
+// Legacy exports kept for harmless test and plugin interoperability.
+export function collapseBoard(board){return board.map(row=>row.slice());}
