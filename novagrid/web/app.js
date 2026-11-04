@@ -224,14 +224,17 @@ function placeAt(row,col){if(state.over)return;audio.unlock();if(selected<0){not
  if(special){
   audio.effect(special.kind);
   notify((special.kind==='rocket'?'🚀 ROCKET RUSH!':special.kind==='bomb'?'💣 CANDY BOOM!':'🍬 CANDY POP!')+' +'+(special.bonus||result.gained));
-  if(navigator.vibrate)navigator.vibrate(special.kind==='bomb'?[26,40,55]:special.kind==='rocket'?[15,24,22]:[12,16,12]);
+  try{navigator.vibrate?.(special.kind==='bomb'?[26,40,55]:special.kind==='rocket'?[15,24,22]:[12,16,12]);}catch{} 
  }else if(result.groups){notify('🍬 '+tr('nice')+' +'+result.gained);audio.effect('clear');}
  else audio.effect('place');
  render();if(special)arcadeEffect($('candyFxLayer'),special);
  if(state.over){
   if(state.won)audio.effect('victory');else if(state.mode==='stage')audio.effect('gameover');
   gameFinished();if(state.mode==='daily')storage.set('nova.daily.completed.'+today(),'1');
-  setTimeout(()=>showEnd(),special?650:360);
+  // Ignore an old victory timer if the player has already restarted or
+  // entered another mode. Otherwise a stale modal appears over a new game.
+  const finishedState=state;
+  setTimeout(()=>{if(state===finishedState&&state.over)showEnd();},special?650:360);
  }
 }
 function showEnd(){
