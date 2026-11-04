@@ -75,7 +75,7 @@ function updateStageHUD(){
  if(state?.mode!=='stage'){hud.hidden=true;return;}
  hud.hidden=false;
  const cfg=stageConfig(state.stageLevel);
- $('stageTitle').textContent=SECTORS[cfg.sector].icon+' '+state.stageLevel+' · '+(SECTORS[cfg.sector].name[lang]||SECTORS[cfg.sector].name.en);
+ $('stageTitle').textContent=SECTORS[cfg.sector].icon+' '+state.stageLevel+' · '+(SECTORS[cfg.sector].name[lang]||SECTORS[cfg.sector].name.en)+(cfg.boss?' · 💥 '+state.bossHp+'/'+cfg.bossHp:'');
  $('stageStats').textContent=stageObjectiveText(state,lang);
  $('stageCoins').textContent='✦ '+progress.coins;
  $('stageProgressFill').style.width=Math.min(100,Math.round(state.score/cfg.scoreTarget*100))+'%';
@@ -235,6 +235,7 @@ function placeAt(row,col){if(state.over)return;audio.unlock();if(selected<0){not
  }
 }
 function showEnd(){
+ $('dialog').classList.toggle('candy-win',state.mode==='stage'&&!!state.won);
  if(state.mode==='stage'){
   const win=!!state.won;
   const messages={
@@ -243,7 +244,12 @@ function showEnd(){
    ar:[win?'أكملت المرحلة!':'حاول من جديد!','ربحت ','نقاط نوفا','خريطة المجرات','إعادة المحاولة']
   };
   const [title,earned,points,map,retry]=messages[lang]||messages.en;
-  $('dialogTitle').textContent=title;
+  const winTitles={
+   en:['🍬 SWEET VICTORY!','🚀 ROCKET MASTER!','🏆 CANDY CHAMPION!'],
+   fr:['🍬 VICTOIRE SUCRÉE !','🚀 MAÎTRE DES FUSÉES !','🏆 CHAMPION CANDY !'],
+   ar:['🍬 انتصار حلو!','🚀 سيد الصواريخ!','🏆 بطل القنابل!']
+  };
+  $('dialogTitle').textContent=win?winTitles[lang][state.stageLevel-1]:title;
   $('dialogBody').textContent=win?'★'.repeat(progress.completed[state.stageLevel]||1)+' · '+earned+lastEarned+' '+points:
    '✦ '+stageObjectiveText(state,lang)+' · '+(lang==='ar'?'نفس المرحلة حتى تنجح':lang==='fr'?'Ce niveau reste verrouillé':'Replay this level to unlock the next');
   $('dialogPlay').textContent=win?map:retry;
