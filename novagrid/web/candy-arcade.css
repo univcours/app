@@ -69,3 +69,12 @@ html[data-sector="bomb"] .boardwrap{border-color:#ffc879;box-shadow:0 0 20px #ff
 @media(max-height:670px){.candy-stage-card{min-height:87px;padding:8px}.candy-stage-badge{font-size:28px}
  .candy-stage-cards{gap:7px}.candy-stage-panel{gap:7px}}
 @media(prefers-reduced-motion:reduce){.candy-fx *{animation:none!important;display:none!important}}
+
+/* The boss / victory finale must feel earned without blocking accessibility. */
+#dialog.candy-win .modal{border:2px solid #ffe196!important;
+ box-shadow:0 0 30px #ffb94d8c,0 0 66px #f86add51,inset 0 1px 1px #fff8;
+ animation:candy-victory-pop .54s cubic-bezier(.2,1.4,.4,1) both}
+#dialog.candy-win .modalicon{font-size:52px;filter:drop-shadow(0 0 19px #ffe98a)}
+#dialog.candy-win h2{color:#fff0b2;text-shadow:0 0 18px #ff7dd3;font-size:clamp(22px,6vw,29px)}
+@keyframes candy-victory-pop{from{opacity:.45;transform:translateY(20px) scale(.82)}to{opacity:1;transform:translateY(0) scale(1)}}
+@media(prefers-reduced-motion:reduce){#dialog.candy-win .modal{animation:none!important}}
