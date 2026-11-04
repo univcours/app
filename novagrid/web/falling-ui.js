@@ -53,7 +53,7 @@ export function createBlockfallUI({onFinish,onExit,getLanguage,onSound,onAdBreak
   if(!game||!active)return;
   const words=t();
   get('fallTitle').textContent='▥ '+words.title;
-  get('fallStage').textContent=words.stage+' '+game.stageLevel+' / 14000';
+  get('fallStage').textContent=getLanguage()==='ar'?'🎮 وضع أركاد إضافي':getLanguage()==='fr'?'🎮 Mode arcade bonus':'🎮 Bonus Arcade mode';
   for(const [k,v] of [['fallScoreLabel','score'],['fallLinesLabel','lines'],['fallGoalLabel','goal'],['fallNextLabel','next']])
    get(k).textContent=words[v];
   get('fallScore').textContent=game.score.toLocaleString();
