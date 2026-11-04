@@ -7,9 +7,12 @@ function Run($program, [string[]]$arguments) {
     if ($LASTEXITCODE -ne 0) { throw "NovaGrid command failed: $program (exit $LASTEXITCODE)" }
 }
 $branch = (& git.exe branch --show-current).Trim()
-if ($branch -ne 'novagrid-mvp') { throw "Wrong Git branch: $branch; use novagrid-mvp" }
+if ($branch -ne 'novagrid-original-1-0-0') { throw "Wrong Git branch: $branch; use novagrid-original-1-0-0" }
 $config = Get-Content capacitor.config.json -Raw | ConvertFrom-Json
 if ($config.appName -cne 'NovaGrid' -or $config.appId -ne 'com.novagrid.cosmicpuzzle') { throw 'Wrong Android project!' }
+$env:ADMOB_LIVE_ADS = 'false' # Local test builds only.
+Remove-Item Env:\ADMOB_ANDROID_APP_ID -ErrorAction SilentlyContinue
+Remove-Item Env:\ADMOB_INTERSTITIAL_UNIT_ID -ErrorAction SilentlyContinue
 Write-Host '[NovaGrid] Install dependencies and run tests.'
 Run 'npm.cmd' @('install','--no-audit','--no-fund')
 Run 'npm.cmd' @('test')
@@ -36,6 +39,7 @@ function Enable-AndroidStudioJava {
     if ($env:STUDIO_JDK) { $candidates += $env:STUDIO_JDK }
     if ($env:JDK_HOME) { $candidates += $env:JDK_HOME }
     if ($env:ProgramFiles) {
+        $candidates += (Join-Path $env:ProgramFiles 'Eclipse Adoptium\jdk-21.0.13.9-hotspot')
         $candidates += (Join-Path $env:ProgramFiles 'Android\Android Studio\jbr')
         $candidates += (Join-Path $env:ProgramFiles 'Android\Android Studio\jre')
     }
@@ -88,6 +92,23 @@ finally { Pop-Location }
 $apk = Join-Path (Get-Location) 'android\app\build\outputs\apk\debug\app-debug.apk'
 $aab = Join-Path (Get-Location) 'android\app\build\outputs\bundle\release\app-release.aab'
 if (-not (Test-Path $apk) -or -not (Test-Path $aab)) { throw 'APK or AAB missing.' }
+# The generated Debug APK must never replace the Play-signed NovaGrid application.
+$aapt = $null
+$buildTools = Join-Path $env:LOCALAPPDATA 'Android\Sdk\build-tools'
+if (Test-Path $buildTools) {
+    foreach ($directory in @(Get-ChildItem -LiteralPath $buildTools -Directory | Sort-Object Name -Descending)) {
+        $candidate = Join-Path $directory.FullName 'aapt.exe'
+        if (Test-Path $candidate) { $aapt = $candidate; break }
+    }
+}
+if (-not $aapt) { throw 'Android aapt missing; cannot safely verify APK package.' }
+$details = (& $aapt dump badging $apk | Out-String)
+if ($LASTEXITCODE -ne 0 -or $details -notmatch "package:\s+name='com\.novagrid\.cosmicpuzzle\.candytest'") {
+    throw 'Expected Candy test package. Refusing installation to protect Play Store app.'
+}
+$dest = Join-Path $env:USERPROFILE 'Downloads\NovaGrid-Candy-Arcade-3-Stages-TEST.apk'
+Copy-Item -LiteralPath $apk -Destination $dest -Force
+Write-Host "[NovaGrid] Verified test APK ready: $dest" -ForegroundColor Green
 Write-Host "Debug APK: $apk"
 Write-Host "Unsigned AAB: $aab"
 
@@ -121,10 +142,10 @@ if ($devices.Count -ne 1) {
     Write-Warning "Expected exactly one Android device, found $($devices.Count). APK not installed."
     exit 0
 }
-Write-Host '[NovaGrid] Updating installed app without clearing its data.'
+Write-Host '[NovaGrid] Installing separate Candy Arcade TEST; original Play app stays untouched.'
 & $adb install -r $apk
 if ($LASTEXITCODE -ne 0) {
     throw 'Install failed. Existing signing certificate may differ. No uninstall or data deletion performed.'
 }
-Run $adb @('shell','monkey','-p','com.novagrid.cosmicpuzzle','-c','android.intent.category.LAUNCHER','1')
-Write-Host '[NovaGrid] App updated and launched. Play Console upload must be performed separately.'
+Run $adb @('shell','monkey','-p','com.novagrid.cosmicpuzzle.candytest','-c','android.intent.category.LAUNCHER','1')
+Write-Host '[NovaGrid] Candy Arcade TEST launched. Play Store game/data untouched.'
