@@ -73,34 +73,38 @@ export function addDebugSuffix(gradle){
  let info=gradleDebugBlock(gradle);
  const suffix=/\bapplicationIdSuffix\s*(?:=\s*|\(\s*|\s+)(['"])([^'"]+)\1\s*\)?/g;
  const matches=[...gradle.matchAll(suffix)].filter(m=>info.masked.slice(m.index,m.index+'applicationIdSuffix'.length)==='applicationIdSuffix');
- let count=0;
+ let seenDebugSuffix=false;
  const edits=[];
  for(const m of matches){
   const inDebug=!!info.debug&&m.index>info.debug.open&&m.index<info.debug.close;
   if(inDebug){
-   count++;
-   // This command explicitly builds a separate Candy TEST debug APK.
-   // Existing debug IDs (e.g. .originaltest or .beta) may be left by
-   // earlier NovaGrid versions. Change ONLY this debug suffix, never
-   // defaultConfig, release or signingConfigs; setupDebug backs up Gradle.
-   if(m[2]!==DEBUG_SUFFIX){
-    const quoteStart=m[0].indexOf(m[1]+m[2]+m[1]);
-    if(quoteStart<0)throw Error('Could not safely parse debug applicationIdSuffix');
-    const start=m.index+quoteStart+1;
-    edits.push({start,end:start+m[2].length,text:DEBUG_SUFFIX});
+   if(seenDebugSuffix){
+    // Previous NovaGrid scripts repeatedly inserted applicationIdSuffix.
+    // Keeping more than one would make the local build invalid. Remove
+    // extra statements, preserving all other debug and release settings.
+    edits.push({start:m.index,end:m.index+m[0].length,text:m[0].replace(/[^\r\n]/g,' ')});
+   }else{
+    seenDebugSuffix=true;
+    // Migrate an older .originaltest/.beta/custom debug ID to the
+    // explicitly requested Candy TEST ID. The original APK is separate.
+    if(m[2]!==DEBUG_SUFFIX){
+     const quoteStart=m[0].indexOf(m[1]+m[2]+m[1]);
+     if(quoteStart<0)throw Error('Could not safely parse debug applicationIdSuffix');
+     const start=m.index+quoteStart+1;
+     edits.push({start,end:start+m[2].length,text:DEBUG_SUFFIX});
+    }
    }
   }else if(m[2]===DEBUG_SUFFIX){
-   // Earlier faulty versions placed Candy's suffix inside signingConfigs.
-   // Blank that known invalid statement but leave other settings intact.
+   // Fix the earlier bug which injected a suffix into signingConfigs or
+   // the buildTypes root. Never change another release-specific suffix.
    edits.push({start:m.index,end:m.index+m[0].length,text:m[0].replace(/[^\r\n]/g,' ')});
   }
  }
- if(count>1)throw Error('Duplicate debug applicationIdSuffix; inspect buildTypes.debug');
  let cleaned=gradle;
  for(const edit of edits.sort((a,b)=>b.start-a.start)){
   cleaned=cleaned.slice(0,edit.start)+edit.text+cleaned.slice(edit.end);
  }
- if(count===1)return cleaned;
+ if(seenDebugSuffix)return cleaned;
  info=gradleDebugBlock(cleaned);
  const insert=info.debug
   ?{at:info.debug.open+1,text:"\n            applicationIdSuffix '.candytest'\n"}
