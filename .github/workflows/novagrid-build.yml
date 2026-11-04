@@ -51,6 +51,28 @@ jobs:
         run: npm run android:gradle-fix
       - name: Isolate Candy Arcade DEBUG from the original Play Store package
         run: node scripts/prepare-candy-debug.mjs
+      - name: Regression test previously damaged Windows Gradle Debug configuration
+        run: |
+          node --input-type=module <<'NODE'
+          import {readFileSync,writeFileSync} from 'node:fs';
+          const p='android/app/build.gradle';
+          const source=readFileSync(p,'utf8');
+          const mark="debug { applicationIdSuffix '.candytest' }";
+          if(!source.includes(mark))throw Error('Expected native Gradle debug block was not generated');
+          const damaged=source.replace(mark,"debug { applicationIdSuffix '.candytest'; applicationIdSuffix '.originaltest'; applicationIdSuffix '.candytest' }");
+          writeFileSync(p,damaged,'utf8');
+          NODE
+          node scripts/prepare-candy-debug.mjs
+          node --input-type=module <<'NODE'
+          import {readFileSync} from 'node:fs';
+          import {addDebugSuffix} from './scripts/prepare-candy-debug.mjs';
+          const source=readFileSync('android/app/build.gradle','utf8');
+          if((source.match(/applicationIdSuffix/g)||[]).length!==1)throw Error('Duplicate applicationIdSuffix still present');
+          if(!source.includes("applicationIdSuffix '.candytest'"))throw Error('Candy test application ID missing');
+          if(addDebugSuffix(source)!==source)throw Error('Local Gradle repair is not idempotent');
+          if(!source.includes('release {'))throw Error('Play release settings were not preserved');
+          NODE
+          echo 'Verified: previous local Windows duplicate-suffix crash is automatically repaired.'
 
       - name: Verify Play target API and app ID
         run: |
