@@ -1,0 +1,71 @@
+/* NovaGrid ORIGINAL · three-stage Candy Arcade.
+   Large readable candy-glass tiles, precise touch geometry and lightweight VFX. */
+:root{--candy-pink:#ff5fa8;--candy-orange:#ffad47;--candy-yellow:#ffe16b;
+ --candy-mint:#58e7a9;--candy-blue:#55d5ff;--candy-violet:#aa79ff}
+.boardwrap{isolation:isolate}
+.board .cell.block,.micro:not(.blank){
+ position:relative;overflow:hidden;border-radius:clamp(4px,1vw,8px)!important;
+ border:1px solid #fff9!important;
+ background:linear-gradient(145deg,#fff9 0%,transparent 33%),linear-gradient(155deg,var(--candy-light),var(--candy-base) 49%,var(--candy-dark))!important;
+ box-shadow:inset 0 2px 3px #fff9,inset 0 -3px 5px #28083577,0 0 8px var(--candy-glow)!important;
+}
+.board .cell.block:before,.micro:not(.blank):before{
+ content:"";position:absolute;left:12%;top:7%;width:74%;height:24%;
+ border-radius:50%;background:linear-gradient(180deg,#fff8,#fff0);pointer-events:none
+}
+.candy-0{--candy-light:#ffb1dc;--candy-base:#ff5fa8;--candy-dark:#a92771;--candy-glow:#ff6db9a0}
+.candy-1{--candy-light:#ffdc9c;--candy-base:#ffad47;--candy-dark:#b95a18;--candy-glow:#ffaa50a0}
+.candy-2{--candy-light:#fffab0;--candy-base:#ffe16b;--candy-dark:#aa801d;--candy-glow:#ffe272a0}
+.candy-3{--candy-light:#bcffe0;--candy-base:#58e7a9;--candy-dark:#169e73;--candy-glow:#5fffd6a0}
+.candy-4{--candy-light:#c8faff;--candy-base:#55d5ff;--candy-dark:#2868c8;--candy-glow:#68caffae}
+.candy-5{--candy-light:#e1ccff;--candy-base:#aa79ff;--candy-dark:#682ebe;--candy-glow:#a68dffae}
+.board .cell.preview{background:linear-gradient(145deg,#d3fff9,#20ddb6)!important;box-shadow:0 0 14px #65ffe5!important}
+.board .cell.block.blocked{background:#f35490!important}
+.dragcell:not(.empty){background:linear-gradient(135deg,#fff7,#ff7bc0 48%,#b94fff)!important;border-color:#fff9!important}
+.candy-fx{position:absolute;inset:5px;z-index:9;pointer-events:none;overflow:visible}
+.candy-fx-icon{position:absolute;transform:translate(-50%,-50%);font-size:clamp(29px,8vw,52px);
+ animation:candy-blast .58s cubic-bezier(.13,.8,.2,1) forwards;filter:drop-shadow(0 0 15px #fff)}
+.candy-fx-spark{position:absolute;width:clamp(5px,1.7vw,10px);height:clamp(5px,1.7vw,10px);
+ transform:translate(-50%,-50%);border:1px solid #fff9;border-radius:45%;
+ background:var(--spark);box-shadow:0 0 8px var(--spark);
+ animation:candy-particle .75s cubic-bezier(.13,.75,.24,1) forwards}
+.candy-fx-beam{position:absolute;transform:translate(-50%,-50%);border-radius:100px;
+ background:linear-gradient(90deg,transparent,#fff,#61f9ff,transparent);
+ box-shadow:0 0 14px #6afcff,0 0 27px #cc7fff;
+ animation:candy-beam .44s ease-out forwards}
+.candy-fx-beam.row{height:10px;width:100%}.candy-fx-beam.column{height:100%;width:10px;
+ background:linear-gradient(180deg,transparent,#fff,#61f9ff,transparent)}
+@keyframes candy-blast{0%{opacity:0;scale:.2}22%{opacity:1;scale:1.5}100%{opacity:0;scale:2.35}}
+@keyframes candy-particle{0%{opacity:1;translate:0 0;scale:.5}40%{opacity:1}
+ 100%{opacity:0;translate:var(--dx) var(--dy);scale:1.5;rotate:230deg}}
+@keyframes candy-beam{0%{opacity:0;scale:.2}30%{opacity:1;scale:1}100%{opacity:0;scale:1.08}}
+.stagehud{position:relative}
+.candy-stage-progress{position:absolute;inset:auto 6px 2px;height:3px;border-radius:6px;overflow:hidden;background:#ffffff28}
+.candy-stage-progress span{display:block;height:100%;width:0;background:linear-gradient(90deg,#ff63b8,#ffe16b,#58e7a9);
+ border-radius:6px;box-shadow:0 0 9px #ffef96}
+html[data-sector="candy"] .boardwrap{border-color:#ff89ce;box-shadow:0 0 16px #ff69bd90,inset 0 0 13px #602faaa0}
+html[data-sector="rocket"] .boardwrap{border-color:#78e9ff;box-shadow:0 0 18px #4fcaffaa,inset 0 0 13px #40bcff83}
+html[data-sector="bomb"] .boardwrap{border-color:#ffc879;box-shadow:0 0 20px #ffb04daa,inset 0 0 14px #d947a5a8}
+.candy-stage-panel{justify-content:flex-start;overflow-y:auto;gap:12px}
+.candy-stage-cards{display:flex;flex-direction:column;gap:11px;min-height:0}
+.candy-stage-card{border:1px solid #ffffff4d;border-radius:16px;color:#fff;
+ padding:13px 11px;display:grid;grid-template-columns:47px minmax(0,1fr);gap:8px 12px;text-align:start;
+ background:linear-gradient(125deg,#e34a9c66,#8b52ed5a);
+ box-shadow:inset 0 1px 0 #fff7,0 6px 24px #08093488;min-height:104px}
+.candy-stage-card.stage-2{background:linear-gradient(125deg,#187dc888,#7e39c088)}
+.candy-stage-card.stage-3{background:linear-gradient(125deg,#a54d2d88,#a0259488)}
+.candy-stage-card.ready{border-color:#d3fff1;box-shadow:0 0 16px #74eaff74,inset 0 1px 1px #fff8}
+.candy-stage-card.locked{filter:grayscale(.65);opacity:.65}
+.candy-stage-card.completed{border-color:#ffe78f}
+.candy-stage-badge{font-size:34px;grid-row:span 2;align-self:center;text-align:center;filter:drop-shadow(0 0 8px #fff5)}
+.candy-stage-description{display:flex;flex-direction:column;gap:4px;min-width:0}
+.candy-stage-description strong{font-size:clamp(14px,3.8vw,18px)}
+.candy-stage-description small{font-size:clamp(10px,2.7vw,12px);color:#ece8ff;line-height:1.35}
+.candy-stage-target{font-size:11px;font-weight:800;color:#ffe8aa}
+.candy-stage-state{grid-column:2;font-size:12px;letter-spacing:.7px;font-weight:900;color:#ccffed}
+.candy-stage-note{margin:2px;color:#cfd8ff;text-align:center;font-size:12px;line-height:1.5}
+.galaxy-panel.candy-stage-panel{width:min(100%,480px)}
+.galaxy-overlay{overflow-y:auto}
+@media(max-height:670px){.candy-stage-card{min-height:87px;padding:8px}.candy-stage-badge{font-size:28px}
+ .candy-stage-cards{gap:7px}.candy-stage-panel{gap:7px}}
+@media(prefers-reduced-motion:reduce){.candy-fx *{animation:none!important;display:none!important}}
