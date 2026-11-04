@@ -8,7 +8,7 @@ import {TOTAL_STAGES,SECTORS,stageConfig,startStage,stageWon,stageFailed,rankSta
 test('exactly three unique Candy Arcade stages, no 14,000 hidden stages',()=>{
  assert.equal(TOTAL_STAGES,3);assert.equal(SECTORS.length,3);
  assert.deepEqual([1,2,3].map(x=>stageConfig(x).kind),['candy','rocket','bomb']);
- assert.deepEqual([1,2,3].map(x=>stageConfig(x).scoreTarget),[260,450,700]);
+ assert.deepEqual([1,2,3].map(x=>stageConfig(x).scoreTarget),[260,800,1400]);
  for(const level of [0,4,12001,14000])assert.throws(()=>stageConfig(level),RangeError);
 });
 test('legacy 14k progress does not unlock the new handcrafted stages',()=>{
@@ -38,10 +38,12 @@ test('rocket actually clears board cells; two bombs defeat boss deterministicall
  assert.ok(r.board.flat().filter(Boolean).length<=first.board.flat().filter(Boolean).length);
  assert.deepEqual(r.board,applySectorTurn({...first,moves:9},{groups:1}).board);
  const one=applySectorTurn({...startStage(3),moves:11},{groups:1});
- assert.equal(one.bossHp,1);assert.equal(one.bombBlasts,1);
+ assert.equal(one.bossHp,2);assert.equal(one.bombBlasts,1);
  assert.equal(one.specialEvent.cells.length,9);
  const two=applySectorTurn({...one,moves:12},{groups:1});
- assert.equal(two.bossHp,0);assert.equal(two.bombBlasts,2);
+ assert.equal(two.bossHp,1);assert.equal(two.bombBlasts,2);
+ const three=applySectorTurn({...two,moves:13},{groups:1});
+ assert.equal(three.bossHp,0);assert.equal(three.bombBlasts,3);
 });
 test('score, actual specials and minimum moves all required for progression',()=>{
  let progress=initialProgress();
@@ -49,7 +51,7 @@ test('score, actual specials and minimum moves all required for progression',()=
   const c=stageConfig(level),s=startStage(level);
   s.moves=c.minMoves;s.score=c.scoreTarget;
   assert.equal(stageWon(s),false);
-  s.clears=2;s.rocketShots=2;s.bombBlasts=2;s.bossHp=0;
+  s.clears=2;s.rocketShots=3;s.bombBlasts=3;s.bossHp=0;
   assert.equal(stageWon(s),true);assert.ok(rankStage(s)>=1);
   assert.ok(stageObjectiveText(s,'ar').length>4);
   assert.equal(awardStage(progress,level,{...s,over:true,won:false}).earned,0);
