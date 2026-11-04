@@ -81,6 +81,16 @@ jobs:
         run: |
           chmod +x android/gradlew
           cd android && ./gradlew :app:bundleRelease :app:assembleDebug --no-daemon
+      - name: Verify Candy test APK will not overwrite the Play Store app
+        run: |
+          set -euo pipefail
+          tool="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          test -n "$tool"
+          "$tool" dump badging android/app/build/outputs/apk/debug/app-debug.apk |
+            grep -Fq "package: name='com.novagrid.cosmicpuzzle.candytest'"
+          grep -Eq "applicationId[[:space:]]+['\"]com.novagrid.cosmicpuzzle['\"]" android/app/build.gradle
+          echo "Verified: Candy test debug package separate from release package."
+
 
       - name: Sign the AAB for Play Internal Testing
         if: env.NOVAGRID_SIGNING_READY == 'true'
@@ -142,7 +152,7 @@ jobs:
           changesNotSentForReview: false
       - uses: actions/upload-artifact@v4
         with:
-          name: novagrid-debug-apk
+          name: novagrid-candy-arcade-test-apk
           path: novagrid/android/app/build/outputs/apk/debug/*.apk
       - uses: actions/upload-artifact@v4
         with:
