@@ -23,6 +23,7 @@
   "devDependencies": {
     "@capacitor/cli": "8.5.3",
     "esbuild": "0.25.12",
-    "sharp": "0.34.3"
+    "sharp": "0.34.3",
+    "jsdom": "^27.0.0"
   }
 }
