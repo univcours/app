@@ -187,3 +187,77 @@ test('backs up previous native Gradle file before switching existing local debug
   rmSync(dir,{recursive:true,force:true});
  }
 });
+
+test('repairs duplicated Candy suffixes introduced by repeated old Android syncs',()=>{
+ const gradle=[
+ "apply plugin: 'com.android.application'",
+ 'android {',
+ ' namespace = "com.novagrid.cosmicpuzzle"',
+ ' defaultConfig { applicationId "com.novagrid.cosmicpuzzle" }',
+ ' signingConfigs { debug { storeFile file("debug.keystore") } }',
+ ' buildTypes {',
+ "  debug { applicationIdSuffix '.candytest'",
+ "   applicationIdSuffix '.candytest'",
+ "   applicationIdSuffix '.originaltest'",
+ "   applicationIdSuffix = '.beta'",
+ '   debuggable true',
+ '  }',
+ "  release { minifyEnabled false }",
+ ' }',
+ '}'
+ ].join('\n');
+ const clean=addDebugSuffix(gradle);
+ const debug=clean.slice(clean.indexOf('buildTypes'),clean.indexOf('release {'));
+ assert.equal((debug.match(/applicationIdSuffix/g)||[]).length,1,clean);
+ assert.match(debug,/applicationIdSuffix '\.candytest'/);
+ assert.match(debug,/debuggable true/);
+ assert.match(clean,/signingConfigs \{ debug \{ storeFile file\("debug.keystore"\) \} \}/);
+ assert.match(clean,/release \{ minifyEnabled false \}/);
+ assert.equal(clean,addDebugSuffix(clean),'second sync must not insert any suffix');
+});
+test('recovers from misplaced signing suffix plus duplicate buildTypes.debug statements',()=>{
+ const corrupted=[
+ 'android {',
+ " defaultConfig { applicationId 'com.novagrid.cosmicpuzzle' }",
+ " signingConfigs { debug { applicationIdSuffix '.candytest'; storeFile file('debug.keystore') } }",
+ ' buildTypes {',
+ "  debug { applicationIdSuffix '.beta'; applicationIdSuffix '.candytest'; applicationIdSuffix '.candytest' }",
+ "  release { minifyEnabled false; signingConfig signingConfigs.debug }",
+ ' }',
+ '}'
+ ].join('\n');
+ const clean=addDebugSuffix(corrupted);
+ assert.equal((clean.match(/applicationIdSuffix/g)||[]).length,1,clean);
+ assert.match(clean,/applicationIdSuffix\s*['"]\.candytest['"]/);
+ assert.match(clean,/release \{ minifyEnabled false; signingConfig signingConfigs.debug \}/);
+ assert.equal(addDebugSuffix(clean),clean);
+});
+test('the actual Capacitor 8-style Gradle script with repetitive debug settings is repaired',()=>{
+ const gradle=[
+ "apply plugin: 'com.android.application'",
+ 'android {',
+ '    namespace = "com.novagrid.cosmicpuzzle"',
+ '    compileSdk = rootProject.ext.compileSdkVersion',
+ '    defaultConfig {',
+ '       applicationId "com.novagrid.cosmicpuzzle"',
+ '       minSdkVersion rootProject.ext.minSdkVersion',
+ '       targetSdkVersion rootProject.ext.targetSdkVersion',
+ '       versionCode 10354',
+ '    }',
+ '    buildTypes {',
+ "       debug { applicationIdSuffix '.candytest' }",
+ "       debug { applicationIdSuffix '.candytest' }",
+ '       release {',
+ '          minifyEnabled false',
+ "          proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'",
+ '       }',
+ '    }',
+ '}'
+ ].join('\n');
+ const result=addDebugSuffix(gradle);
+ // A duplicate debug *build type* itself needs manual attention;
+ // the suffix sanitizer must never silently delete full Gradle blocks.
+ assert.equal((result.match(/applicationIdSuffix/g)||[]).length,1,result);
+ assert.match(result,/proguardFiles getDefaultProguardFile/);
+ assert.equal(addDebugSuffix(result),result);
+});
