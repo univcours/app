@@ -15,7 +15,7 @@ const $=id=>document.getElementById(id);const today=()=>new Date().toLocaleDateS
 let lang='en';try{lang=localStorage.getItem('nova.lang')||((navigator.language||'en').slice(0,2));}catch{}if(!T[lang])lang='en';
 let state,selected=-1,hover=null,undoSnapshot=null,toastTimer=0,drag=null;
 let progress=initialProgress(),galaxy=null,falling=null,lastEarned=0;
-try{progress=normalizeProgress(JSON.parse(localStorage.getItem('nova.galaxies')||'null'));}catch{}
+try{progress=normalizeProgress(JSON.parse(localStorage.getItem('nova.candy.progress.v1')||'null'));}catch{}
 const tr=k=>T[lang][k]||T.en[k]||k;
 const storage={get(k){try{return localStorage.getItem(k)}catch{return null}},set(k,v){try{localStorage.setItem(k,v)}catch{}}};
 const audio=createGameAudio({effectsEnabled:storage.get('nova.effects')!=='off',musicEnabled:storage.get('nova.music')!=='off'});
@@ -38,16 +38,16 @@ function renderAudioButtons(){
  fx.title=fx.getAttribute('aria-label');
  music.title=music.getAttribute('aria-label');
 }
-function saveProgress(){storage.set('nova.galaxies',JSON.stringify(progress));}
+function saveProgress(){storage.set('nova.candy.progress.v1',JSON.stringify(progress));}
 function readGame(mode){try{const s=JSON.parse(storage.get(`nova.${mode}`));if(s&&s.board?.length===9&&s.tray?.length===3&&s.mode===mode&&(!s.date||mode!=='daily'||s.date===today()))return s;}catch{}return makeGame(mode,today());}
-function store(){storage.set(state.mode==='stage'?'nova.stage.current':`nova.${state.mode}`,JSON.stringify(state));}
-function bestKey(){return state.mode==='stage'?`nova.best.stage.${state.stageLevel}`:`nova.best.${state.mode}`;}
+function store(){storage.set(state.mode==='stage'?'nova.candy.stage.current':`nova.${state.mode}`,JSON.stringify(state));}
+function bestKey(){return state.mode==='stage'?`nova.best.candy.${state.stageLevel}`:`nova.best.${state.mode}`;}
 function best(){return Number(storage.get(bestKey())||0);}
 function setMode(mode){
  if(!['classic','daily','stage'].includes(mode))return;
  cancelDrag();
  if(mode==='stage'){
-  let saved=null;try{saved=JSON.parse(storage.get('nova.stage.current'));}catch{}
+  let saved=null;try{saved=JSON.parse(storage.get('nova.candy.stage.current'));}catch{}
   state=saved?.mode==='stage'&&isStageUnlocked(progress,saved.stageLevel)&&saved.board?.length===9&&saved.tray?.length===3&&!saved.over?saved:startStage(progress.unlocked);
  }else state=readGame(mode);
  selected=-1;undoSnapshot=null;
@@ -63,7 +63,7 @@ function launchStage(level){
   falling?.open(level);
   return;
  }
- let saved=null;try{saved=JSON.parse(storage.get('nova.stage.current'));}catch{}
+ let saved=null;try{saved=JSON.parse(storage.get('nova.candy.stage.current'));}catch{}
  state=saved?.mode==='stage'&&saved.stageLevel===level&&!saved.over&&saved.board?.length===9&&saved.tray?.length===3?saved:startStage(level);
  selected=-1;undoSnapshot=null;
  document.querySelectorAll('[data-mode]').forEach(b=>b.classList.toggle('active',b.dataset.mode==='stage'));
@@ -75,15 +75,15 @@ function updateStageHUD(){
  hud.hidden=false;
  const cfg=stageConfig(state.stageLevel);
  $('stageTitle').textContent=SECTORS[cfg.sector].icon+' '+state.stageLevel+' · '+(SECTORS[cfg.sector].name[lang]||SECTORS[cfg.sector].name.en);
- $('stageStats').textContent=stageObjectiveText(state,lang)+' · '+(lang==='ar'?'حتى ما يبقاش حل':lang==='fr'?'Jusqu’au dernier coup':'Play until no moves');
+ $('stageStats').textContent=stageObjectiveText(state,lang);
  $('stageCoins').textContent='✦ '+progress.coins;
 }
 
 function saveBest(){if(state.score>best())storage.set(bestKey(),String(state.score));}
 function cellClass(r,c){
- const filled=!!state.board[r][c];
+ const filled=!!state.board[r][c],candy=(r*7+c*3+(state.stageLevel||0)*2)%6;
  const inRegion=(Math.floor(r/3)+Math.floor(c/3))%2===0;
- let cl=filled?'cell block':'cell'+(inRegion?' region':'');
+ let cl=filled?'cell block candy-'+candy:'cell'+(inRegion?' region':'');
  if(selected>=0&&state.tray[selected]&&hover){
   const shape=state.tray[selected];
   if(shape.some(([dr,dc])=>hover[0]+dr===r&&hover[1]+dc===c)){
@@ -95,7 +95,7 @@ function cellClass(r,c){
 }
 function renderBoard(){const board=$('board');board.textContent='';const frag=document.createDocumentFragment();for(let r=0;r<SIZE;r++)for(let c=0;c<SIZE;c++){const el=document.createElement('button');el.type='button';el.className=cellClass(r,c);el.dataset.r=r;el.dataset.c=c;el.setAttribute('role','gridcell');el.setAttribute('aria-label',`Row ${r+1}, column ${c+1}: ${state.board[r][c]?'filled':'empty'}`);el.addEventListener('click',()=>placeAt(r,c));el.addEventListener('pointerenter',()=>{if(selected>=0){hover=[r,c];updateHighlights();}});frag.append(el);}board.append(frag);}
 function updateHighlights(){const cells=$('board').children;for(let r=0;r<SIZE;r++)for(let c=0;c<SIZE;c++)cells[r*SIZE+c].className=cellClass(r,c);}
-function makePiece(shape){const rows=Math.max(...shape.map(v=>v[0]))+1,cols=Math.max(...shape.map(v=>v[1]))+1;const g=document.createElement('span');g.className='piecegrid';g.style.gridTemplateColumns=`repeat(${cols},var(--micro-size,14px))`;g.style.gridTemplateRows=`repeat(${rows},var(--micro-size,14px))`;const occupied=new Set(shape.map(([r,c])=>`${r},${c}`));for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){const b=document.createElement('span');b.className='micro'+(occupied.has(`${r},${c}`)?'':' blank');g.append(b);}return g;}
+function makePiece(shape){const rows=Math.max(...shape.map(v=>v[0]))+1,cols=Math.max(...shape.map(v=>v[1]))+1;const g=document.createElement('span');g.className='piecegrid';g.style.gridTemplateColumns=`repeat(${cols},var(--micro-size,14px))`;g.style.gridTemplateRows=`repeat(${rows},var(--micro-size,14px))`;const occupied=new Set(shape.map(([r,c])=>`${r},${c}`));for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){const b=document.createElement('span');b.className='micro'+(occupied.has(`${r},${c}`)?' candy-'+((r*7+c*3+(state.stageLevel||0)*2)%6):' blank');g.append(b);}return g;}
 function selectPiece(index){
  if(!state.tray[index]||state.over)return;
  selected=index;hover=null;
@@ -209,10 +209,9 @@ function placeAt(row,col){if(state.over)return;audio.unlock();if(selected<0){not
   state.cellsCleared=(snapshot.cellsCleared||0)+result.cleared;
   state.clearingMoves=(snapshot.clearingMoves||0)+(result.groups>0?1:0);
   state.maxCombo=Math.max(snapshot.maxCombo||0,state.combo||0);
-  // Stage can finish ONLY when the real puzzle engine reports that no piece fits.
-  // Achieving a score/mission target during play is never enough to advance.
+  // Win after real score + special challenges; no artificial game-over required.
   state=applySectorTurn(state,result);
-  if(state.over&&stageWon(state)){
+  if(stageWon(state)){
    state.won=true;state.over=true;
    const awarded=awardStage(progress,state.stageLevel,state);
    progress=awarded.progress;lastEarned=awarded.earned;saveProgress();
@@ -244,10 +243,7 @@ $('newBtn').addEventListener('click',()=>{if(state.moves>0&&!window.confirm(tr('
 $('dialogPlay').addEventListener('click',async()=>{const btn=$('dialogPlay');btn.disabled=true;try{await maybeShowInterstitialOnReplay();}finally{btn.disabled=false;if(state.mode==='stage'&&state.won){$('dialog').hidden=true;galaxy?.open(state.stageLevel+1);}else restart();}});$('dialogClose').addEventListener('click',()=>$('dialog').hidden=true);
 document.querySelectorAll('[data-mode]').forEach(btn=>btn.addEventListener('click',()=>{
  if(btn.dataset.mode==='blockfall'){
-  const first=12001,last=Number(storage.get('nova.blockfall.lastLevel'));
-  const unlocked=progress.unlockedSectors[6]||first;
-  const level=Number.isInteger(last)&&last>=first&&last<=unlocked?last:unlocked;
-  launchStage(level);
+  falling?.open(12001); // independent bonus mode, not a campaign stage
   return;
  }
  setMode(btn.dataset.mode);
@@ -269,11 +265,7 @@ $('shareBtn').addEventListener('click',async()=>{const text=`✦ NovaGrid ${stat
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){cancelDrag();galaxy?.close();$('dialog').hidden=true;selected=-1;hover=null;render();}if(/^[1-3]$/.test(e.key)&&state.tray[Number(e.key)-1]){selected=Number(e.key)-1;render();}});
 state=readGame('classic');
 falling=createBlockfallUI({
- onFinish:finished=>{
-  const awarded=awardStage(progress,finished.stageLevel,finished);
-  progress=awarded.progress;saveProgress();gameFinished();
-  return awarded.earned;
- },
+ onFinish:()=>{gameFinished();return 0;},
  onExit:level=>{setMode('stage');galaxy?.open(level);},
  getLanguage:()=>lang,
  onSound:kind=>{audio.unlock();audio.effect(kind||'pick');},
@@ -288,8 +280,8 @@ galaxy=createGalaxyUI({
  onSound:()=>{audio.unlock();audio.effect('pick');}
 });
 setMode('stage');
-if(storage.get('nova.galaxy.intro')!=='done'){
- storage.set('nova.galaxy.intro','done');
+if(storage.get('nova.candy.intro')!=='done'){
+ storage.set('nova.candy.intro','done');
  galaxy.open(1);
 }
 
