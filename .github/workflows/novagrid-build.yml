@@ -49,6 +49,8 @@ jobs:
         run: npm run android:name
       - name: Fix legacy Gradle ProGuard configuration
         run: npm run android:gradle-fix
+      - name: Isolate Candy Arcade DEBUG from the original Play Store package
+        run: node scripts/prepare-candy-debug.mjs
 
       - name: Verify Play target API and app ID
         run: |
