@@ -8,7 +8,7 @@ on:
         required: true
         default: false
   push:
-    branches: [novagrid-mvp]
+    branches: [novagrid-original-1-0-0]
     paths:
       - 'novagrid/**'
       - '.github/workflows/novagrid-build.yml'
@@ -31,6 +31,12 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: Test puzzle engine
         run: npm test
+      - name: Verify only three authored Candy Arcade stages
+        run: |
+          grep -Fq 'export const TOTAL_STAGES=3' web/stages.js
+          grep -Fq 'candy-arcade.css' web/index.html
+          grep -Fq 'rocket' web/arcade-fx.js
+          grep -Fq 'bomb' web/audio.js
       - name: Prepare web assets
         run: npm run build
       - name: Create Android project
