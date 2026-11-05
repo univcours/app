@@ -25,10 +25,11 @@ test('handles very short viewport without negative dimensions',()=>{
 });
 
 import {readFileSync} from 'node:fs';
-test('game navigation has endless Classic, Daily and Blockfall without stages',()=>{
+test('game navigation shows only endless Classic and bonus Blockfall',()=>{
  const html=readFileSync(new URL('../web/index.html',import.meta.url),'utf8');
  const tabs=[...html.matchAll(/data-mode="([^"]+)"/g)].map(m=>m[1]);
- assert.deepEqual(tabs,['classic','daily','blockfall']);
+ assert.deepEqual(tabs,['classic','blockfall']);
+ assert.doesNotMatch(html,/data-mode="daily"|data-mode="stage"/);
  assert.doesNotMatch(html,/id="stageHud"|id="stageMapButton"/);
  const css=readFileSync(new URL('../web/continuous.css',import.meta.url),'utf8');
  assert.match(css,/grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
