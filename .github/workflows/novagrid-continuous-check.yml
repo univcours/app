@@ -1,0 +1,25 @@
+name: NovaGrid Continuous Play QA
+on:
+  push:
+    branches: [novagrid-continuous-play]
+  workflow_dispatch:
+jobs:
+  web-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install project dependencies
+        working-directory: novagrid
+        run: npm install --no-audit --no-fund
+      - name: Verify gameplay and interface tests
+        working-directory: novagrid
+        run: npm test
+      - name: Build NovaGrid web assets (Google test ads only)
+        working-directory: novagrid
+        env:
+          ADMOB_LIVE_ADS: 'false'
+        run: npm run build
