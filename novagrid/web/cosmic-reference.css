@@ -219,3 +219,13 @@ html[data-grid="portrait"] .gamecard{
  font-size:12px!important;
  line-height:1!important;
 }
+
+
+/* Blockfall QA: solid bright crystal centers, not hollow white outlines. */
+.fall-cell.fall-filled{
+ background-color:var(--piece-color,#28dfff)!important;
+ background-image:linear-gradient(145deg,#ffffffce 0%,#ffffff57 13%,transparent 39%,#050c355c 100%),
+ linear-gradient(130deg,var(--piece-color,#28dfff),var(--piece-color,#28dfff))!important;
+ border-color:#ecfbff!important;
+}
+.fall-mini{border-color:#ffffffd0!important;background-image:linear-gradient(145deg,#fff9,transparent 50%)!important}
