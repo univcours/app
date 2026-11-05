@@ -1,0 +1,137 @@
+/* NOVAGRID NEON DUO | one visual system for Block Puzzle and falling-block arcade.
+   Two games, big playable boards, zero native banner, minimal HUD and chrome.
+   Animations are transform/opacity based and disabled when reduced-motion is requested. */
+:root{--native-ad-height:0px;--native-ad-reserve:0px;--glass-cyan:#63f2ff;--glass-pink:#ff75e9;--glass-violet:#b48bff;--neon-stroke:#9beeff}
+html,body{background-color:#060a29!important}
+html.no-banner body{padding-bottom:0!important}
+body{position:relative;isolation:isolate}
+body::before,body::after{content:"";position:fixed;pointer-events:none;inset:-20%;z-index:0;opacity:.55}
+body::before{
+ background:radial-gradient(ellipse 33% 23% at 22% 15%,#6626ba92,transparent 86%),
+ radial-gradient(ellipse 35% 25% at 80% 64%,#164cdb9e,transparent 86%),
+ radial-gradient(ellipse 22% 16% at 52% 90%,#d628a080,transparent 86%);
+ animation:nova-nebula-drift 23s ease-in-out infinite alternate}
+body::after{background-image:radial-gradient(2px 2px at 15% 20%,#fff8,transparent),
+ radial-gradient(2px 2px at 72% 43%,#99e8ff,transparent),
+ radial-gradient(1px 1px at 44% 70%,#ffb5f4,transparent),
+ radial-gradient(2px 2px at 87% 87%,#fff8,transparent);
+ background-size:300px 420px;animation:nova-stars-drift 34s linear infinite}
+@keyframes nova-nebula-drift{from{transform:translate3d(-2%,0,0) scale(1)}to{transform:translate3d(3%,-3%,0) scale(1.1)}}
+@keyframes nova-stars-drift{from{transform:translate3d(0,0,0)}to{transform:translate3d(0,-160px,0)}}
+.shell{position:relative;z-index:1;gap:4px!important;padding:3px 6px max(3px,env(safe-area-inset-bottom,0px))!important}
+.topbar{height:38px!important;min-height:0!important}
+.brandlogo{height:30px!important;width:30px!important;border-radius:9px!important}
+.brand{font-size:19px!important;letter-spacing:.4px!important;color:#d9faff!important;text-shadow:0 0 12px #17d8ff}
+.topactions{gap:4px!important}
+.topactions .iconbtn,.topactions .language{height:32px!important;min-width:32px!important;width:32px!important;padding:0!important;border-radius:10px!important}
+.neon-duo-modes{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:5px!important;height:34px!important;flex:0 0 auto}
+.neon-duo-modes .mode{padding:3px 8px!important;gap:5px!important;min-width:0!important;font-weight:850!important;
+ border:1px solid #b8deffb0!important;border-radius:13px!important;
+ background:linear-gradient(140deg,#2a78c2a8,#822bc9a3 70%,#a42d9c9a)!important;
+ color:#f5fcff!important;text-shadow:0 1px 2px #0b1656!important;
+ box-shadow:inset 0 2px 1px #fff8,inset 0 -3px 5px #171251a0,0 0 13px #389eff58!important;
+ transition:transform .15s ease,filter .15s ease,box-shadow .15s ease!important}
+.neon-duo-modes .mode.active{border-color:#d9ffff!important;
+ background:linear-gradient(140deg,#23d7e7ce,#6963ebc4 60%,#c45be1bc)!important;
+ box-shadow:inset 0 2px 2px #fffe,0 0 19px #5be3ff9c!important}
+.neon-duo-modes .mode:active{transform:translateY(2px) scale(.98)}
+.neon-duo-modes .mode>span:first-child{font-size:16px!important;color:#fff!important}
+.gamecard{flex:1 1 0!important;min-height:0!important;padding:6px 6px 5px!important;gap:3px!important;
+ background:linear-gradient(158deg,#111f4cdd,#270d4edc 52%,#071a3edb)!important;
+ border:1px solid #89caffaa!important;border-radius:17px!important;
+ box-shadow:0 0 20px #3f90f755,inset 0 0 15px #ffffff09!important}
+.scorebar{height:34px!important;min-height:0!important;margin:0!important;gap:4px!important}
+.scorebox{min-width:0!important;gap:0!important}
+.scorebox span{font-size:8px!important;letter-spacing:.5px!important;color:#c8dcff!important}
+.scorebox strong{font-size:clamp(16px,4vw,20px)!important;color:#f3fcff!important;
+ text-shadow:0 0 8px #61aaffaa}
+.scoreline{height:23px!important;background:#90c8ff46!important}
+.intensity-chip{font-size:9px!important;padding:5px 3px!important;border-color:#f7dbff80!important}
+.boardwrap{max-width:100%!important;margin:auto!important;padding:3px!important;border:2px solid #8bf0ff!important;
+ border-radius:15px!important;
+ background:linear-gradient(155deg,#070f31f2,#180d42eb)!important;
+ box-shadow:inset 0 0 17px #104aba70,0 0 17px #5b9eff91,0 0 0 1px #ff8bec79!important}
+.board{gap:2px!important;touch-action:manipulation}
+.board .cell{border-radius:clamp(3px,1.1vw,7px)!important;transition:background .10s ease,transform .10s ease,filter .12s ease!important}
+.board .cell:not(.block){border:1px solid #a3bbff21;background:#18254f9e!important}
+.board .cell.block,.micro:not(.blank){box-shadow:inset 0 2px 2px #fffbd0,inset 0 -4px 5px #16285a91,0 0 9px var(--candy-glow,#90dfff88)!important}
+.board .cell.block:active{transform:scale(.95)}
+/* Preserve the large 9x9 field; the existing helpful message stays accessible. */
+.gamehint{position:absolute!important;width:1px!important;height:1px!important;min-height:0!important;
+ overflow:hidden!important;clip-path:inset(50%)!important;white-space:nowrap!important;margin:0!important;padding:0!important}
+.pieces{height:clamp(55px,8.6dvh,72px)!important;gap:6px!important}
+.piece{border-radius:12px!important;padding:2px!important;background:linear-gradient(140deg,#174985b8,#5a2698b6)!important;
+ border:1px solid #96e1ff99!important;box-shadow:inset 0 2px 2px #ffffff56,0 0 12px #427aff6a!important}
+.piece.selected{background:linear-gradient(140deg,#1bcfdeb4,#8455ddc1)!important;
+ box-shadow:inset 0 2px 2px #ffffffb8,0 0 15px #57e9f7bb!important}
+.piecegrid{gap:2px!important}
+.micro{width:var(--micro-size,clamp(11px,3.2vw,16px))!important;height:var(--micro-size,clamp(11px,3.2vw,16px))!important}
+.gametools{height:31px!important;gap:5px!important;margin:0!important}
+.gametools .utility{min-height:30px!important;font-size:10px!important;padding:2px 3px!important;
+ border:1px solid #a4bfffaf!important;border-radius:10px!important;
+ background:linear-gradient(135deg,#2d6dbcb2,#6638b59c)!important;
+ box-shadow:inset 0 2px 1px #ffffff7b,inset 0 -2px 3px #0006!important}
+.gametools .utility.share{flex:0 0 32px!important;font-size:18px!important}
+footer{height:11px!important;min-height:0!important;font-size:9px!important;padding:0 3px!important}
+footer span{display:none!important}
+footer .privacybtn{font-size:9px!important;padding:0 4px!important}
+.toast{background:linear-gradient(120deg,#26387eed,#612e8ded)!important;border-color:#b4e7ff!important;box-shadow:0 0 16px #8bd6ff8c}
+/* Falling block mode: same glass crystal palette, full-screen board and tiny status. */
+.blockfall-overlay{background:radial-gradient(circle at 20% 10%,#572badc8,transparent 48%),radial-gradient(circle at 78% 85%,#0f70b5ba,transparent 58%),#060a26!important;overflow:hidden}
+.blockfall-overlay::before{content:"";position:absolute;inset:-20%;pointer-events:none;opacity:.44;
+ background:radial-gradient(circle at 18% 20%,#e281ff6c,transparent 35%),radial-gradient(circle at 80% 70%,#49b6ff76,transparent 35%);
+ animation:nova-nebula-drift 18s ease-in-out infinite alternate}
+.fall-panel{z-index:1;gap:4px!important;padding:5px 7px 6px!important;border-color:#91dfff!important;
+ background:linear-gradient(160deg,#121b4cdb,#251046dd 60%,#0a1844dd)!important;
+ box-shadow:inset 0 0 19px #7567ff22,0 0 24px #458aff77!important}
+.fall-header{min-height:34px!important;gap:5px!important}
+.fall-header h2{font-size:clamp(17px,4.2vw,21px)!important;line-height:1.05!important;margin:0!important;color:#ddfaff!important}
+.fall-eyebrow,.fall-header small{font-size:8px!important;letter-spacing:.3px!important}
+.fall-header-actions{gap:4px!important}
+.fall-header-actions button{height:34px!important;width:34px!important;border-radius:10px!important;
+ border-color:#abe4ff!important;background:linear-gradient(145deg,#3479d8,#8a4be1)!important;
+ box-shadow:inset 0 2px 2px #fffa,0 0 11px #668cff89!important}
+.fall-hud{min-height:42px!important;padding:3px 4px!important;gap:3px!important;
+ grid-template-columns:1fr .8fr .85fr 46px!important;
+ border-color:#8fb6ffad!important;
+ background:linear-gradient(110deg,#1542859c,#532a8691)!important;
+ box-shadow:inset 0 1px 1px #ffffff7e!important}
+.fall-hud>div{gap:1px!important}
+.fall-hud span{font-size:8px!important}
+.fall-hud strong{font-size:clamp(12px,3.3vw,16px)!important;color:#f4f9ff!important}
+.fall-next #fallNext{min-height:22px!important;gap:1px!important}
+.fall-mini{border:1px solid #ffffffae!important;box-shadow:inset 0 2px 1px #fff9,0 0 4px #4ddfff78!important}
+.fall-fever-compact{min-height:12px;display:flex;align-items:center;gap:6px;padding:0 2px}
+.fall-fever-compact span{font-size:9px;flex:0 0 78px;color:#f9d6ff;text-shadow:0 0 8px #f568ff}
+.fall-fever-track{height:5px;flex:1;overflow:hidden;background:#181d5288;border:1px solid #a2d8ff82;border-radius:9px}
+.fall-fever-track i{display:block;height:100%;width:0;border-radius:9px;
+ background:linear-gradient(90deg,#39f7e6,#b867ff,#ff65cf);box-shadow:0 0 9px #ff8ee5;transition:width .18s ease}
+.fall-board-holder{flex:1 1 0!important;min-height:0!important;overflow:hidden}
+.fall-board{position:relative;isolation:isolate;gap:1px!important;padding:3px!important;border-radius:12px!important;
+ border:2px solid #85e9ff!important;background:linear-gradient(160deg,#091638ec,#1c1048e8)!important;
+ box-shadow:0 0 17px #388fff98,inset 0 0 18px #1b459b9b!important;overflow:hidden}
+.fall-cell{border:1px solid #6473b62b!important;border-radius:3px!important;background:#1e2856a2!important;min-width:0;min-height:0}
+.fall-cell.fall-filled{position:relative;overflow:hidden;border:1px solid #ffffffb4!important;
+ background:linear-gradient(155deg,#fffdf4c0 0%,#ffffff24 22%,transparent 40%),linear-gradient(140deg,var(--piece-color),#312a79) !important;
+ box-shadow:inset 0 2px 2px #fffcd1,inset 0 -3px 5px #040f50a8,0 0 8px var(--piece-color)!important;
+ transition:background-color .09s ease,filter .09s ease}
+.fall-cell.fall-filled::after{content:"";position:absolute;top:7%;left:9%;width:78%;height:20%;border-radius:70%;
+ background:linear-gradient(180deg,#fffc,#fff0);pointer-events:none}
+.fall-cell.fall-ghost{background:#35bbff33!important;border:1px dashed #abebffb3!important}
+.fall-board.fall-line-burst::before{content:"";position:absolute;inset:0;z-index:5;pointer-events:none;
+ background:linear-gradient(0deg,transparent 7%,#d2faffb8 50%,transparent 90%);
+ animation:fall-glass-burst .48s ease-out both}
+@keyframes fall-glass-burst{0%{opacity:0;transform:scaleY(.03)}38%{opacity:1;transform:scaleY(.14)}100%{opacity:0;transform:scaleY(1.1)}}
+.fall-tip{min-height:14px!important;font-size:9px!important;line-height:1.2!important}
+.fall-result-inner{border:1px solid #b3f3ff!important;background:linear-gradient(145deg,#203b86ed,#58237de5)!important;
+ box-shadow:0 0 28px #5aa6ff87,inset 0 2px 1px #ffffff8f!important}
+.fall-result button{border:1px solid #ffffff8c!important;box-shadow:inset 0 2px 1px #ffffffa3,0 7px 18px #25186c!important}
+@media(max-height:670px){.shell{gap:3px!important}.topbar{height:32px!important}
+ .brandlogo{height:26px!important;width:26px!important}.brand{font-size:17px!important}
+ .neon-duo-modes{height:31px!important}.scorebar{height:29px!important}
+ .pieces{height:50px!important}.gametools{height:28px!important}
+ .fall-header{min-height:31px!important}.fall-hud{min-height:38px!important}
+ .fall-tip{min-height:12px!important}}
+@media(prefers-reduced-motion:reduce){body::before,body::after,.blockfall-overlay::before,
+ .fall-board.fall-line-burst::before{animation:none!important}
+ .fall-fever-track i,.fall-cell{transition:none!important}}
