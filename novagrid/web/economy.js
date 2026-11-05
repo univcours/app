@@ -1,3 +1,4 @@
+import {drawTray,seededRng,hasMove} from './engine.js';
 /* Points-only economy. No money checkout or paid advantage in public leaderboards. */
 export const OFFERS=Object.freeze([
  Object.freeze({id:'heart',label:'❤️',cost:120}),
@@ -33,4 +34,18 @@ export function clearForShield(board,limit=6){
  filled.sort((a,b)=>Math.abs(a[0]-4)+Math.abs(a[1]-4)-Math.abs(b[0]-4)-Math.abs(b[1]-4));
  for(const [r,c] of filled.slice(0,Math.max(1,Math.min(18,limit))))next[r][c]=0;
  return next;
+}
+
+/* A heart gives a genuine last chance; it does not reset the score or bypass scoring. */
+export function reviveWithHeart(state){
+ if(!state||state.mode!=='classic'||!state.over||!Array.isArray(state.board))return null;
+ let board=clearForShield(state.board,18);
+ if(!board)board=state.board.map(row=>row.slice());
+ let rng=seededRng(((state.seed||1234567)^(Math.imul((state.moves||0)+1,2654435761)))>>>0);
+ let tray=drawTray(rng,board,state.moves||0);
+ if(!hasMove(board,tray)){
+  board=board.map(row=>row.map(()=>0));
+  tray=drawTray(rng,board,state.moves||0);
+ }
+ return {...state,board,tray,combo:0,over:false,assisted:true,fever:{meter:0,activeMoves:0}};
 }
