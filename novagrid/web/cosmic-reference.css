@@ -180,3 +180,14 @@ html[data-grid="portrait"] .cell{aspect-ratio:1/1!important}
  html[data-grid="portrait"] .pieces{margin-top:0!important}
  html[data-grid="portrait"] .boardwrap{margin-top:1px!important;margin-bottom:1px!important}
 }
+
+
+/* Fix inherited square CSS dimensions: a 10×12 board must be 20% taller. */
+html[data-grid="portrait"] .boardwrap{
+ height:calc(var(--board-size) * 12 / 10)!important;
+ aspect-ratio:10 / 12!important;
+}
+html[data-grid="portrait"] .board{
+ height:100%!important;
+ aspect-ratio:10 / 12!important;
+}
