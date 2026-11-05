@@ -1,4 +1,5 @@
 import {intensityForMoves,intensityLabel} from './progressive.js';
+import {advanceFever} from './fever.js';
 import {initializeAds,gameFinished,maybeShowInterstitialOnReplay} from './ads.js';
 import {SIZE,makeGame,runMove,canPlace,hasMove} from './engine.js';
 import {shapeDimensions,projectDragPoint,dragLift} from './drag.js';
@@ -21,6 +22,25 @@ try{progress=normalizeProgress(JSON.parse(localStorage.getItem('nova.candy.progr
 const tr=k=>T[lang][k]||T.en[k]||k;
 const storage={get(k){try{return localStorage.getItem(k)}catch{return null}},set(k,v){try{localStorage.setItem(k,v)}catch{}}};
 const audio=createGameAudio({effectsEnabled:storage.get('nova.effects')!=='off',musicEnabled:storage.get('nova.music')!=='off'});
+let puzzlePaused=false;
+function togglePuzzlePause(force){
+ puzzlePaused=typeof force==='boolean'?force:!puzzlePaused;
+ $('pauseOverlay').hidden=!puzzlePaused;
+ $('pauseMain').textContent=puzzlePaused?'▶':'Ⅱ';
+ $('pauseMain').setAttribute('aria-label',puzzlePaused?'Resume game':'Pause game');
+ if(puzzlePaused)cancelDrag();
+}
+$('settingsOpen').addEventListener('click',()=>{
+ const menu=$('settingsMenu');menu.hidden=!menu.hidden;
+ $('settingsOpen').setAttribute('aria-expanded',String(!menu.hidden));
+});
+$('pauseMain').addEventListener('click',()=>togglePuzzlePause());
+$('pauseResume').addEventListener('click',()=>togglePuzzlePause(false));
+const sky=document.createElement('div');
+sky.className='nova-sky';
+sky.setAttribute('aria-hidden','true');
+sky.innerHTML='<i class="nova-planet"></i><i class="nova-galaxy"></i><i class="nova-orbit"></i><i class="nova-orbit alt"></i><i class="nova-stars"></i>';
+document.body.prepend(sky);
 function renderAudioButtons(){
  const fx=$('soundBtn'),music=$('musicBtn');
  fx.textContent=audio.effectsEnabled?'🔊':'🔇';
@@ -100,7 +120,7 @@ function renderBoard(){const board=$('board');board.textContent='';const frag=do
 function updateHighlights(){const cells=$('board').children;for(let r=0;r<SIZE;r++)for(let c=0;c<SIZE;c++)cells[r*SIZE+c].className=cellClass(r,c);}
 function makePiece(shape){const rows=Math.max(...shape.map(v=>v[0]))+1,cols=Math.max(...shape.map(v=>v[1]))+1;const g=document.createElement('span');g.className='piecegrid';g.style.gridTemplateColumns=`repeat(${cols},var(--micro-size,14px))`;g.style.gridTemplateRows=`repeat(${rows},var(--micro-size,14px))`;const occupied=new Set(shape.map(([r,c])=>`${r},${c}`));for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){const b=document.createElement('span');b.className='micro'+(occupied.has(`${r},${c}`)?' candy-'+((r*7+c*3+(state.stageLevel||0)*2)%6):' blank');g.append(b);}return g;}
 function selectPiece(index){
- if(!state.tray[index]||state.over)return;
+ if(puzzlePaused||!state.tray[index]||state.over)return;
  selected=index;hover=null;
  [...$('pieces').children].forEach((el,i)=>el.classList.toggle('selected',i===index));
  $('message').textContent=tr('selected');
@@ -135,7 +155,7 @@ function dragGhost(shape){
  return el;
 }
 function startDrag(e,index){
- if(!e.isPrimary || e.button!==0 || drag || state.over || !state.tray[index])return;
+ if(puzzlePaused||!e.isPrimary || e.button!==0 || drag || state.over || !state.tray[index])return;
  e.preventDefault();
  audio.unlock();
  drag={id:e.pointerId,index,startX:e.clientX,startY:e.clientY,active:false,
@@ -201,9 +221,19 @@ function cancelDrag(){
  const d=clearDrag();
  if(d){hover=null;if(state)updateHighlights();}
 }
-function render(){document.documentElement.dataset.sector=state.mode==='stage'?stageConfig(state.stageLevel).sectorId:'classic';document.documentElement.lang=lang;document.documentElement.dir=lang==='ar'?'rtl':'ltr';const intensity=intensityForMoves(state.moves||0);const chip=$('intensityChip');if(chip){chip.textContent='⚡ '+intensity+'/9';chip.title=intensityLabel(intensity,lang);chip.setAttribute('aria-label',chip.title);}document.querySelectorAll('[data-i18n]').forEach(el=>{el.textContent=tr(el.dataset.i18n)});$('languageBtn').textContent=lang.toUpperCase()+'⌄';$('score').textContent=state.score.toLocaleString();$('best').textContent=Math.max(best(),state.score).toLocaleString();$('combo').textContent='×'+state.combo;$('undoBtn').disabled=state.usedUndo||!undoSnapshot||state.over;$('message').textContent=selected>=0?tr('selected'):tr('hint');renderAudioButtons();updateStageHUD();const dailyDot=$('dailyDot');if(dailyDot)dailyDot.style.display=storage.get('nova.daily.completed.'+today())?'none':'block';renderBoard();renderPieces();}
+function render(){document.documentElement.dataset.sector=state.mode==='stage'?stageConfig(state.stageLevel).sectorId:'classic';document.documentElement.lang=lang;document.documentElement.dir=lang==='ar'?'rtl':'ltr';const intensity=intensityForMoves(state.moves||0);const chip=$('intensityChip');if(chip){chip.textContent='⚡ '+intensity+'/9';chip.title=intensityLabel(intensity,lang);chip.setAttribute('aria-label',chip.title);}document.querySelectorAll('[data-i18n]').forEach(el=>{el.textContent=tr(el.dataset.i18n)});$('languageBtn').textContent=lang.toUpperCase()+'⌄';$('score').textContent=state.score.toLocaleString();$('best').textContent=Math.max(best(),state.score).toLocaleString();$('combo').textContent='×'+state.combo;$('undoBtn').disabled=state.usedUndo||!undoSnapshot||state.over;$('message').textContent=selected>=0?tr('selected'):tr('hint');renderAudioButtons();updateStageHUD();const dailyDot=$('dailyDot');if(dailyDot)dailyDot.style.display=storage.get('nova.daily.completed.'+today())?'none':'block';
+ const feverPercent=Math.max(0,Math.min(100,Number(state.fever)||0));
+ $('novaFeverFill').style.width=feverPercent+'%';
+ $('novaFeverText').textContent=feverPercent+'%';
+ renderBoard();renderPieces();}
 function notify(text){$('toast').textContent=text;$('toast').classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').classList.remove('show'),1800);}
-function placeAt(row,col){if(state.over)return;audio.unlock();if(selected<0){notify(tr('hint'));return;}const snapshot=JSON.parse(JSON.stringify(state));const result=runMove(state,selected,row,col);if(!result){notify(tr('invalid'));audio.effect('invalid');return;}if(!state.usedUndo)undoSnapshot=snapshot;state=result.state;selected=-1;hover=null;
+function placeAt(row,col){if(puzzlePaused||state.over)return;audio.unlock();if(selected<0){notify(tr('hint'));return;}const snapshot=JSON.parse(JSON.stringify(state));const result=runMove(state,selected,row,col);if(!result){notify(tr('invalid'));audio.effect('invalid');return;}if(!state.usedUndo)undoSnapshot=snapshot;state=result.state;selected=-1;hover=null;
+ if(state.mode==='classic'){
+  const fever=advanceFever(snapshot,result.groups,state.combo,result.gained);
+  state.fever=fever.fever;state.feverTurns=fever.feverTurns;
+  if(fever.bonus)state.score+=fever.bonus;
+  if(fever.activated){audio.effect('candy');notify('⚡ NOVA FEVER!');}
+ }
  if(state.mode==='stage'){
   state.clears=(snapshot.clears||0)+result.groups;
   state.rows=(snapshot.rows||0)+result.rows;
@@ -228,7 +258,9 @@ function placeAt(row,col){if(state.over)return;audio.unlock();if(selected<0){not
   try{navigator.vibrate?.(special.kind==='bomb'?[26,40,55]:special.kind==='rocket'?[15,24,22]:[12,16,12]);}catch{} 
  }else if(result.groups){notify('🍬 '+tr('nice')+' +'+result.gained);audio.effect('clear');}
  else audio.effect('place');
- render();if(special)arcadeEffect($('candyFxLayer'),special);
+ render();
+ if(special)arcadeEffect($('candyFxLayer'),special);
+ else if(result.groups>0)arcadeEffect($('candyFxLayer'),{kind:'combo',center:[row,col],combo:state.combo,bonus:result.gained,groups:result.groups});
  if(state.over){
   if(state.won)audio.effect('victory');else if(state.mode==='stage')audio.effect('gameover');
   gameFinished();if(state.mode==='daily')storage.set('nova.daily.completed.'+today(),'1');
@@ -289,7 +321,7 @@ $('musicBtn').addEventListener('click',()=>{
 });
 $('languageBtn').addEventListener('click',()=>{lang=['en','fr','ar'][(['en','fr','ar'].indexOf(lang)+1)%3];storage.set('nova.lang',lang);render();if(falling?.visible)falling.render();});
 $('shareBtn').addEventListener('click',async()=>{const text=`✦ NovaGrid ${state.mode==='daily'?today():''} — ${state.score} points!`;try{if(navigator.share)await navigator.share({text});else if(navigator.clipboard){await navigator.clipboard.writeText(text);notify(tr('copy'));}else notify(text);}catch{}});
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){cancelDrag();galaxy?.close();$('dialog').hidden=true;selected=-1;hover=null;render();}if(/^[1-3]$/.test(e.key)&&state.tray[Number(e.key)-1]){selected=Number(e.key)-1;render();}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(puzzlePaused){togglePuzzlePause(false);return;}cancelDrag();galaxy?.close();$('dialog').hidden=true;selected=-1;hover=null;render();}if(/^[1-3]$/.test(e.key)&&state.tray[Number(e.key)-1]){selected=Number(e.key)-1;render();}});
 state=readGame('classic');
 falling=createBlockfallUI({
  onFinish:()=>{gameFinished();return 0;},
