@@ -1,3 +1,4 @@
+import {intensityForMoves,maxPieceCells} from './progressive.js';
 /* NovaGrid original block-placement puzzle engine — deterministic and dependency-free. */
 export const SIZE = 9;
 export const PATTERNS = [
@@ -37,18 +38,29 @@ export function place(board,shape,row,col){
  for(const key of clear){const [r,c]=key.split(',').map(Number);b[r][c]=0;}
  return {board:b,groups,rows,columns,squares,cleared:clear.size,placed:shape.length};
 }
-export function drawTray(rng,board){
- const options=PATTERNS.map(p=>p.map(cell=>[...cell]));
+export function drawTray(rng,board,moves=0){
+ const intensity=intensityForMoves(moves);
+ const cap=maxPieceCells(intensity);
+ const options=PATTERNS.filter(p=>p.length<=cap).map(p=>p.map(cell=>[...cell]));
  // Offer at least one playable piece where available, but not an automatic win.
  const playable=options.filter(p=>anyPlacement(board,p));
  const tray=Array.from({length:3},()=>options[Math.floor(rng()*options.length)]);
- if(playable.length>0 && !tray.some(p=>anyPlacement(board,p)))tray[Math.floor(rng()*3)]=playable[Math.floor(rng()*playable.length)];
+ // During the first 36 moves, offer at least two playable options to build confidence.
+ if(playable.length>0){
+  const minimum=intensity<=2?2:1;
+  const existing=tray.filter(p=>anyPlacement(board,p)).length;
+  for(let k=existing;k<minimum;k++){
+   const index=tray.findIndex(p=>!anyPlacement(board,p));
+   if(index<0)break;
+   tray[index]=playable[Math.floor(rng()*playable.length)];
+  }
+ }
  return tray.map(p=>p.map(x=>[...x]));
 }
 export function makeGame(mode='classic',date=new Date().toISOString().slice(0,10)){
  const seed=mode==='daily'?hashDate(date):Math.floor(Math.random()*4294967295);
  const rng=seededRng(seed),board=emptyBoard();
- return {mode,date,seed,round:1,board,tray:drawTray(rng,board),score:0,combo:0,moves:0,usedUndo:false,over:false};
+ return {mode,date,seed,round:1,board,tray:drawTray(rng,board,0),score:0,combo:0,moves:0,usedUndo:false,over:false};
 }
 export function runMove(state,trayIndex,row,col){
  const shape=state.tray[trayIndex],result=place(state.board,shape,row,col);
@@ -59,8 +71,8 @@ export function runMove(state,trayIndex,row,col){
  next.score+=gained;
  if(next.tray.every(x=>x===null)){
  // Replay deterministic series by advancing the RNG once per generated tray.
- const rng=seededRng(state.seed);let tray=drawTray(rng,emptyBoard());
- for(let i=0;i<Math.floor(next.moves/3);i++)tray=drawTray(rng,next.board);
+ const rng=seededRng(state.seed);let tray=drawTray(rng,emptyBoard(),0);
+ for(let i=0;i<Math.floor(next.moves/3);i++)tray=drawTray(rng,next.board,(i+1)*3);
  next.tray=tray;
  }
  next.over=!hasMove(next.board,next.tray);
