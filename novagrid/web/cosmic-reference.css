@@ -191,3 +191,5 @@ html[data-grid="portrait"] .board{
  height:100%!important;
  aspect-ratio:10 / 12!important;
 }
+
+.nova-sky{background-image:url('./nova-deep-space.svg');background-position:center;background-size:cover;background-repeat:no-repeat}
