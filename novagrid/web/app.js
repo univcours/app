@@ -1,5 +1,6 @@
 import {intensityForMoves,intensityLabel} from './progressive.js';
 import {advanceFever} from './fever.js';
+import {GLASS_COLS,GLASS_ROWS,makeGlassGame,isGlassBoard,canPlaceGlass,runGlassMove} from './glass-engine.js';
 import {initializeAds,gameFinished,maybeShowInterstitialOnReplay} from './ads.js';
 import {SIZE,makeGame,runMove,canPlace,hasMove} from './engine.js';
 import {shapeDimensions,projectDragPoint,dragLift} from './drag.js';
@@ -61,8 +62,14 @@ function renderAudioButtons(){
  music.title=music.getAttribute('aria-label');
 }
 function saveProgress(){storage.set('nova.candy.progress.v1',JSON.stringify(progress));}
-function readGame(mode){try{const s=JSON.parse(storage.get(`nova.${mode}`));if(s&&s.board?.length===9&&s.tray?.length===3&&s.mode===mode&&(!s.date||mode!=='daily'||s.date===today()))return s;}catch{}return makeGame(mode,today());}
-function store(){storage.set(state.mode==='stage'?'nova.candy.stage.current':`nova.${state.mode}`,JSON.stringify(state));}
+function readGame(mode){
+ if(mode==='classic'){
+  try{const old=JSON.parse(storage.get('nova.classic.glass.v1'));
+   if(old?.mode==='classic'&&!old.over&&isGlassBoard(old.board)&&old.tray?.length===3)return old;}catch{}
+  return makeGlassGame();
+ }
+ try{const s=JSON.parse(storage.get(`nova.${mode}`));if(s&&s.board?.length===9&&s.tray?.length===3&&s.mode===mode&&(!s.date||mode!=='daily'||s.date===today()))return s;}catch{}return makeGame(mode,today());}
+function store(){storage.set(state.mode==='classic'?'nova.classic.glass.v1':state.mode==='stage'?'nova.candy.stage.current':`nova.${state.mode}`,JSON.stringify(state));}
 function bestKey(){return state.mode==='stage'?`nova.best.candy.${state.stageLevel}`:`nova.best.${state.mode}`;}
 function best(){return Number(storage.get(bestKey())||0);}
 function setMode(mode){
@@ -110,14 +117,14 @@ function cellClass(r,c){
  if(selected>=0&&state.tray[selected]&&hover){
   const shape=state.tray[selected];
   if(shape.some(([dr,dc])=>hover[0]+dr===r&&hover[1]+dc===c)){
-   const valid=canPlace(state.board,shape,hover[0],hover[1]);
+   const valid=state.mode==='classic'?canPlaceGlass(state.board,shape,hover[0],hover[1]):canPlace(state.board,shape,hover[0],hover[1]);
    cl+=valid?' preview':(filled?' blocked':' invalid');
   }
  }
  return cl;
 }
-function renderBoard(){const board=$('board');board.textContent='';const frag=document.createDocumentFragment();for(let r=0;r<SIZE;r++)for(let c=0;c<SIZE;c++){const el=document.createElement('button');el.type='button';el.className=cellClass(r,c);el.dataset.r=r;el.dataset.c=c;el.setAttribute('role','gridcell');el.setAttribute('aria-label',`Row ${r+1}, column ${c+1}: ${state.board[r][c]?'filled':'empty'}`);el.addEventListener('click',()=>placeAt(r,c));el.addEventListener('pointerenter',()=>{if(selected>=0){hover=[r,c];updateHighlights();}});frag.append(el);}board.append(frag);}
-function updateHighlights(){const cells=$('board').children;for(let r=0;r<SIZE;r++)for(let c=0;c<SIZE;c++)cells[r*SIZE+c].className=cellClass(r,c);}
+function renderBoard(){const board=$('board');board.textContent='';const frag=document.createDocumentFragment();const rows=state.board.length,cols=state.board[0].length;board.setAttribute('aria-label',`${cols} by ${rows} puzzle board`);for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){const el=document.createElement('button');el.type='button';el.className=cellClass(r,c);el.dataset.r=r;el.dataset.c=c;el.setAttribute('role','gridcell');el.setAttribute('aria-label',`Row ${r+1}, column ${c+1}: ${state.board[r][c]?'filled':'empty'}`);el.addEventListener('click',()=>placeAt(r,c));el.addEventListener('pointerenter',()=>{if(selected>=0){hover=[r,c];updateHighlights();}});frag.append(el);}board.append(frag);}
+function updateHighlights(){const cells=$('board').children,rows=state.board.length,cols=state.board[0].length;for(let r=0;r<rows;r++)for(let c=0;c<cols;c++)cells[r*cols+c].className=cellClass(r,c);}
 function makePiece(shape){const rows=Math.max(...shape.map(v=>v[0]))+1,cols=Math.max(...shape.map(v=>v[1]))+1;const g=document.createElement('span');g.className='piecegrid';g.style.gridTemplateColumns=`repeat(${cols},var(--micro-size,14px))`;g.style.gridTemplateRows=`repeat(${rows},var(--micro-size,14px))`;const occupied=new Set(shape.map(([r,c])=>`${r},${c}`));for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){const b=document.createElement('span');b.className='micro'+(occupied.has(`${r},${c}`)?' candy-'+((r*7+c*3+(state.stageLevel||0)*2)%6):' blank');g.append(b);}return g;}
 function selectPiece(index){
  if(puzzlePaused||!state.tray[index]||state.over)return;
@@ -178,11 +185,11 @@ function moveDrag(e){
  }
  const rect=$('board').getBoundingClientRect();
  const shape=state.tray[d.index],{rows,cols}=shapeDimensions(shape);
- const step=rect.width/SIZE;
+ const step=rect.width/state.board[0].length;
  d.lift=dragLift(step);
- d.target=projectDragPoint(e.clientX,e.clientY,rect,shape,d.lift,SIZE);
+ d.target=projectDragPoint(e.clientX,e.clientY,rect,shape,d.lift,state.board[0].length,state.board.length);
  hover=d.target?[d.target.row,d.target.col]:null;
- const valid=!!d.target&&canPlace(state.board,shape,d.target.row,d.target.col);
+ const valid=!!d.target&&(state.mode==='classic'?canPlaceGlass(state.board,shape,d.target.row,d.target.col):canPlace(state.board,shape,d.target.row,d.target.col));
  const size=Math.max(17,step-2);
  d.ghost.style.gridTemplateColumns=`repeat(${cols},${size}px)`;
  d.ghost.style.gridTemplateRows=`repeat(${rows},${size}px)`;
@@ -208,7 +215,7 @@ function endDrag(e){
  // Calculate final position even if the finger was released between move events.
  if(drag.active)moveDrag(e);
  const d=clearDrag();
- if(d.active&&d.target&&canPlace(state.board,state.tray[d.index],d.target.row,d.target.col)){
+ if(d.active&&d.target&&(state.mode==='classic'?canPlaceGlass(state.board,state.tray[d.index],d.target.row,d.target.col):canPlace(state.board,state.tray[d.index],d.target.row,d.target.col))){
   selected=d.index;hover=null;placeAt(d.target.row,d.target.col);
  }else{
   selectPiece(d.index);
@@ -221,13 +228,13 @@ function cancelDrag(){
  const d=clearDrag();
  if(d){hover=null;if(state)updateHighlights();}
 }
-function render(){document.documentElement.dataset.sector=state.mode==='stage'?stageConfig(state.stageLevel).sectorId:'classic';document.documentElement.lang=lang;document.documentElement.dir=lang==='ar'?'rtl':'ltr';const intensity=intensityForMoves(state.moves||0);const chip=$('intensityChip');if(chip){chip.textContent='⚡ '+intensity+'/9';chip.title=intensityLabel(intensity,lang);chip.setAttribute('aria-label',chip.title);}document.querySelectorAll('[data-i18n]').forEach(el=>{el.textContent=tr(el.dataset.i18n)});$('languageBtn').textContent=lang.toUpperCase()+'⌄';$('score').textContent=state.score.toLocaleString();$('best').textContent=Math.max(best(),state.score).toLocaleString();$('combo').textContent='×'+state.combo;$('undoBtn').disabled=state.usedUndo||!undoSnapshot||state.over;$('message').textContent=selected>=0?tr('selected'):tr('hint');renderAudioButtons();updateStageHUD();const dailyDot=$('dailyDot');if(dailyDot)dailyDot.style.display=storage.get('nova.daily.completed.'+today())?'none':'block';
+function render(){document.documentElement.dataset.grid=state.mode==='classic'?'portrait':'square';document.documentElement.dataset.sector=state.mode==='stage'?stageConfig(state.stageLevel).sectorId:'classic';document.documentElement.lang=lang;document.documentElement.dir=lang==='ar'?'rtl':'ltr';const intensity=intensityForMoves(state.moves||0);const chip=$('intensityChip');if(chip){chip.textContent='⚡ '+intensity+'/9';chip.title=intensityLabel(intensity,lang);chip.setAttribute('aria-label',chip.title);}document.querySelectorAll('[data-i18n]').forEach(el=>{el.textContent=tr(el.dataset.i18n)});$('languageBtn').textContent=lang.toUpperCase()+'⌄';$('score').textContent=state.score.toLocaleString();$('best').textContent=Math.max(best(),state.score).toLocaleString();$('combo').textContent='×'+state.combo;$('undoBtn').disabled=state.usedUndo||!undoSnapshot||state.over;$('message').textContent=selected>=0?tr('selected'):tr('hint');renderAudioButtons();updateStageHUD();const dailyDot=$('dailyDot');if(dailyDot)dailyDot.style.display=storage.get('nova.daily.completed.'+today())?'none':'block';
  const feverPercent=Math.max(0,Math.min(100,Number(state.fever)||0));
  $('novaFeverFill').style.width=feverPercent+'%';
  $('novaFeverText').textContent=feverPercent+'%';
  renderBoard();renderPieces();}
 function notify(text){$('toast').textContent=text;$('toast').classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').classList.remove('show'),1800);}
-function placeAt(row,col){if(puzzlePaused||state.over)return;audio.unlock();if(selected<0){notify(tr('hint'));return;}const snapshot=JSON.parse(JSON.stringify(state));const result=runMove(state,selected,row,col);if(!result){notify(tr('invalid'));audio.effect('invalid');return;}if(!state.usedUndo)undoSnapshot=snapshot;state=result.state;selected=-1;hover=null;
+function placeAt(row,col){if(puzzlePaused||state.over)return;audio.unlock();if(selected<0){notify(tr('hint'));return;}const snapshot=JSON.parse(JSON.stringify(state));const result=state.mode==='classic'?runGlassMove(state,selected,row,col):runMove(state,selected,row,col);if(!result){notify(tr('invalid'));audio.effect('invalid');return;}if(!state.usedUndo)undoSnapshot=snapshot;state=result.state;selected=-1;hover=null;
  if(state.mode==='classic'){
   const fever=advanceFever(snapshot,result.groups,state.combo,result.gained);
   state.fever=fever.fever;state.feverTurns=fever.feverTurns;
@@ -295,7 +302,7 @@ function showEnd(){
  }
  $('dialogScore').textContent=state.score.toLocaleString();$('dialog').hidden=false;
 }
-function restart(){cancelDrag();audio.effect('new');state=state.mode==='stage'?startStage(state.stageLevel):makeGame(state.mode,today());selected=-1;undoSnapshot=null;lastEarned=0;store();$('dialog').hidden=true;render();}
+function restart(){cancelDrag();audio.effect('new');state=state.mode==='stage'?startStage(state.stageLevel):state.mode==='classic'?makeGlassGame():makeGame(state.mode,today());selected=-1;undoSnapshot=null;lastEarned=0;store();$('dialog').hidden=true;render();}
 $('undoBtn').addEventListener('click',()=>{if(!undoSnapshot||state.usedUndo)return;state={...undoSnapshot,usedUndo:true};undoSnapshot=null;audio.unlock();audio.effect('undo');selected=-1;hover=null;store();render();notify(tr('undoUsed'));});
 $('newBtn').addEventListener('click',()=>{if(state.moves>0&&!window.confirm(tr('newConfirm')))return;restart();});
 $('dialogPlay').addEventListener('click',async()=>{const btn=$('dialogPlay');btn.disabled=true;try{await maybeShowInterstitialOnReplay();}finally{btn.disabled=false;if(state.mode==='stage'&&state.won){$('dialog').hidden=true;galaxy?.open(state.stageLevel+1);}else restart();}});$('dialogClose').addEventListener('click',()=>$('dialog').hidden=true);
@@ -356,7 +363,9 @@ function fitBoard(){
   gap:parseFloat(css.rowGap)||0,
   // IMPORTANT: scorebar and gametools have CLASS names, not IDs.
   fixedHeights:[height(score),height(hint),height(tray),height(actions)],
-  margin:12
+  margin:12,
+  aspectRows:state.board.length,
+  aspectCols:state.board[0].length
  });
  document.documentElement.style.setProperty('--board-size',size+'px');
  const shell=document.getElementById('gameShell');
