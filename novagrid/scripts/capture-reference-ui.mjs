@@ -66,6 +66,16 @@ try{
   if(!board||board.width<300)throw Error('Playfield too small in 393 px portrait: '+board?.width);
   if(actual.filled===0)throw Error('Failed to play any block into the actual grid.');
   if(actual.gameModes.join(',')!=='classic,blockfall')throw Error('Unexpected game modes');
+  // Screenshot and assert the second playable mode, not a promotional mockup.
+  await page.locator('[data-mode="blockfall"]').click();
+  await page.waitForSelector('#blockfallOverlay:not([hidden]) #fallBoard .fall-cell',{timeout:10000});
+  await page.waitForTimeout(250);
+  const fallCells=await page.locator('#fallBoard .fall-cell').count();
+  const fallRect=await page.locator('#fallBoard').boundingBox();
+  const blockfallPath=resolve('visual-qa/novagrid-blockfall-actual.png');
+  await page.screenshot({path:blockfallPath,fullPage:false});
+  console.log(JSON.stringify({blockfallPath,fallCells,fallRect},null,2));
+  if(fallCells!==180||!fallRect||fallRect.width<195)throw Error('Blockfall visual layout is broken');
   await context.close();
  }finally{await browser.close();}
 }finally{await new Promise(r=>server.close(r));}
