@@ -102,7 +102,7 @@ function lockPiece(state,config){
  const board=state.board.map(row=>[...row]),a=state.active;
  for(const [r,c] of a.cells)board[a.row+r][a.col+c]=a.type;
  const clear=clearFallLines(board),combo=clear.cleared>0?state.combo+1:0;
- const gained=[0,120,340,580,950][clear.cleared]||1200;
+ const gained=[0,120,340,580,950][clear.cleared]??1200;
  const score=state.score+gained*(config.tier+1)+Math.max(0,combo-1)*35+(state.softPoints||0);
  const next={...state,board:clear.board,score,lines:state.lines+clear.cleared,
   drops:state.drops+1,combo,bestCombo:Math.max(state.bestCombo,combo),
