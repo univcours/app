@@ -1,0 +1,80 @@
+/* NovaGrid single-screen arcade polish: retain maximum 9x9 play area. */
+html.no-banner #gameShell{gap:4px;padding:4px 7px 2px!important}
+.topbar{height:40px;min-height:40px}
+.identity{gap:5px}.brandlogo{width:32px;height:32px;border-radius:9px}
+.brand{font-size:clamp(17px,5vw,23px)}
+.topactions{gap:3px}
+.iconbtn,.language,.top-mini{height:32px;min-width:32px;padding:0 4px;border-radius:10px;
+ border:1px solid #9adfff9e;color:#f1f8ff;font-size:14px;background:linear-gradient(145deg,#9fcfff73,#3f46acaa 48%,#5c219f);
+ box-shadow:inset 0 2px 2px #ffffffa0,inset 0 -2px 4px #142658a8,0 0 10px #3dc8ff62}
+.top-mini{font-size:15px;font-weight:950}
+.modes{height:30px!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:5px}
+.mode{border:1px solid #a1eaff9d;border-radius:10px;font-size:11px;padding:3px 4px;
+ background:linear-gradient(150deg,#6feaff55,#783ecdbb);color:#eafdff;box-shadow:inset 0 2px 2px #fff8}
+.mode>span:first-child{font-size:14px}
+.gamecard{gap:4px!important;padding:5px!important;border-radius:14px;border:1px solid #7ad9ffba;
+ background:linear-gradient(150deg,#182451d6,#2f195aba);box-shadow:inset 0 1px 0 #fff5,0 0 23px #355cff2f}
+.scorebar{height:35px!important;position:relative;padding-left:35px!important;padding-bottom:5px;gap:2px}
+.scorebox{min-width:41px;gap:0}.scorebox span{font-size:9px}.scorebox strong{font-size:clamp(15px,4vw,22px)}
+.scoreline{height:22px}
+.intensity-chip{font-size:9px!important;padding:5px 2px!important}
+.fever-hud{position:absolute;bottom:0;left:8px;right:8px;height:3px;background:#ffffff29;
+ overflow:visible;border-radius:12px;box-shadow:inset 0 0 4px #090e27;pointer-events:none}
+.fever-hud i{display:block;width:0;height:100%;border-radius:inherit;
+ background:linear-gradient(90deg,#4ffff5,#f66dff,#fff7a2);box-shadow:0 0 6px #67fff7;transition:width .25s ease-out}
+.fever-hud span{position:absolute;right:2px;bottom:5px;font-size:8px;letter-spacing:.5px;color:#ffdef8;opacity:.85}
+.fever-hud.active i{background:linear-gradient(90deg,#ffdf62,#ff59a9,#fff7aa);animation:fever-glow .45s ease-in-out infinite alternate}
+.fever-hud.active span{color:#fff09b;font-weight:900}
+.boardwrap{border:2px solid #82f5ff!important;border-radius:13px!important;padding:3px!important;
+ box-shadow:0 0 16px #33c8ff89,inset 0 0 15px #8f43ff90!important}
+.board .cell{border-radius:clamp(3px,1vw,7px);transition:transform .11s ease,filter .16s ease}
+.board .cell.block{box-shadow:inset 0 2px 4px #ffffff9b,inset 0 -3px 5px #1a1242b0,0 0 5px #8dd8ff7a}
+.board .cell.block:active{transform:scale(.97)}
+.gamehint{height:13px!important;font-size:9px!important;line-height:1.1;opacity:.8}
+.pieces{height:clamp(48px,8.3dvh,69px)!important;gap:4px}
+.piece{border:1px solid #a1eeff9d;border-radius:11px;background:linear-gradient(145deg,#64d9ff40,#a764ff56);
+ box-shadow:inset 0 2px 2px #ffffff87,inset 0 -2px 4px #1f144c8e,0 4px 12px #03042a52;
+ transition:transform .14s ease,box-shadow .14s ease}
+.piece:active{transform:translateY(1px) scale(.98)}
+.gametools{height:32px!important;gap:4px}
+.utility{height:32px;padding:3px!important;font-size:10px!important;border-radius:9px;
+ border:1px solid #8eeaff94;background:linear-gradient(140deg,#6ecaff48,#9456ff75);
+ box-shadow:inset 0 2px 2px #fff8,0 3px 9px #060c2e7e}
+.utility.share{flex:0 0 34px;font-size:16px}
+.utility.booster{flex:0 0 53px;font-size:13px}
+.utility:active,.iconbtn:active,.top-mini:active{transform:scale(.96)}
+footer{height:10px!important;font-size:8px}.privacybtn{font-size:9px}
+body:before,body:after{content:'';position:fixed;pointer-events:none;z-index:0;opacity:.28;will-change:transform}
+body:before{inset:-25%;background:
+ radial-gradient(circle at 18% 23%,#70a8ff 0 1px,transparent 3px),
+ radial-gradient(circle at 68% 37%,#ffa2ff 0 2px,transparent 4px),
+ radial-gradient(circle at 45% 78%,#b8ffff 0 1px,transparent 3px),
+ radial-gradient(ellipse at 80% 30%,#9c4bff55,transparent 45%);
+ animation:nova-nebula 19s ease-in-out infinite alternate}
+body:after{inset:10% -30%;background:radial-gradient(ellipse at 30% 48%,#42f4ed24,transparent 55%),radial-gradient(ellipse at 85% 55%,#e747ff3b,transparent 45%);
+ animation:nova-nebula 28s ease-in-out infinite alternate-reverse}
+#gameShell{position:relative;z-index:1}
+@keyframes nova-nebula{from{transform:translate3d(-2%,0,0) rotate(-3deg)}to{transform:translate3d(3%,-2%,0) rotate(4deg)}}
+@keyframes fever-glow{from{box-shadow:0 0 4px #ff8eed}to{box-shadow:0 0 15px #ffe685}}
+.nova-side-overlay{position:fixed;inset:0;z-index:60;display:grid;place-items:center;background:#07091cd9;padding:calc(env(safe-area-inset-top) + 12px) 10px calc(env(safe-area-inset-bottom) + 12px)}
+.nova-side-overlay[hidden]{display:none}
+.nova-side-dialog{width:min(100%,420px);max-height:94%;overflow-y:auto;padding:14px;border-radius:20px;
+ border:1px solid #90edff;background:linear-gradient(150deg,#172a5f,#321854 60%,#1e2a63);
+ box-shadow:0 18px 65px #03071fc7,0 0 22px #6e5af588}
+.nova-side-dialog header{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.nova-side-dialog h2{font-size:22px;margin:0;color:#d9f8ff}
+.nova-side-dialog h3{font-size:13px;color:#d9eaff}
+.nova-side-dialog header button{border:1px solid #a5e6ff88;background:#ffffff24;color:white;border-radius:10px;padding:8px 12px}
+.nova-wallet-line{padding:11px;border:1px solid #ffecab78;border-radius:11px;background:#ffffff18;font-size:13px;font-weight:800;text-align:center}
+.nova-offers{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.nova-glass-btn{min-height:51px;border:1px solid #a9f5ffb8;border-radius:11px;padding:9px;color:white;font-size:12px;font-weight:850;
+ background:linear-gradient(145deg,#57e7f58d,#9a4be5b8);box-shadow:inset 0 2px 2px #fff8,0 4px 12px #03041d77}
+.nova-glass-btn:disabled{opacity:.44}.nova-ad-btn{width:100%;margin-top:10px}
+.nova-records{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin:10px 0}
+.nova-records div{padding:9px;border-radius:11px;border:1px solid #bad8ff6c;background:#ffffff16;font-size:12px}
+.nova-history-line,.nova-panel-note{color:#d1d9f6;font-size:11px;line-height:1.5}
+.nova-history-line{border-bottom:1px solid #ffffff2b;padding:3px}
+#novaPanelFeedback{display:block;min-height:14px;color:#fff0ac;font-size:11px;margin-top:7px}
+.heart-continue[hidden]{display:none}
+.heart-continue{border:1px solid #ffa0d5;background:linear-gradient(120deg,#bf387c,#754be8);box-shadow:inset 0 1px #fff8}
+@media(prefers-reduced-motion:reduce){body:before,body:after{animation:none}.fever-hud.active i{animation:none}.fever-hud i{transition:none}}
