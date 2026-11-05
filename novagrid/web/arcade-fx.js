@@ -9,10 +9,10 @@ export function arcadeEffect(layer,event){
  const [row,col]=event.center||[4,4],left=(col+.5)*100/9,top=(row+.5)*100/9;
  const icon=document.createElement('span');icon.className='candy-fx-icon '+event.kind;
  icon.style.left=left+'%';icon.style.top=top+'%';
- icon.textContent=event.kind==='rocket'?'🚀':event.kind==='bomb'?'💥':'✨';
+ icon.textContent=event.kind==='rocket'?'🚀':event.kind==='bomb'?'💥':'✦';
  layer.append(icon);
- const count=event.kind==='bomb'?18:event.kind==='rocket'?14:11;
- const size=event.kind==='bomb'?115:75;
+ const count=event.kind==='combo'?26:event.kind==='bomb'?18:event.kind==='rocket'?14:11;
+ const size=event.kind==='combo'?Math.min(175,70+Number(event.groups||1)*30):event.kind==='bomb'?115:75;
  const frag=document.createDocumentFragment();
  for(let i=0;i<count;i++){
   const spark=document.createElement('i');spark.className='candy-fx-spark';
@@ -23,6 +23,13 @@ export function arcadeEffect(layer,event){
   frag.append(spark);
  }
  layer.append(frag);
+ if(event.kind==='combo'){
+  const ring=document.createElement('span');ring.className='nova-combo-ring';layer.append(ring);
+  const text=document.createElement('span');text.className='nova-combo-announce';
+  const label=document.createElement('span');label.textContent='COMBO ×'+Math.max(1,Number(event.combo)||1)+'!';
+  const bonus=document.createElement('small');bonus.textContent='+'+Math.max(0,Number(event.bonus)||0).toLocaleString();
+  text.append(label,bonus);layer.append(text);
+ }
  if(event.kind==='rocket'){
   const beam=document.createElement('span');
   beam.className='candy-fx-beam '+(event.direction||'row');
@@ -31,5 +38,5 @@ export function arcadeEffect(layer,event){
  }
  const previous=layer._arcadeTimer;
  if(previous)clearTimeout(previous);
- layer._arcadeTimer=setTimeout(()=>{layer.replaceChildren();layer._arcadeTimer=null;},850);
+ layer._arcadeTimer=setTimeout(()=>{layer.replaceChildren();layer._arcadeTimer=null;},1000);
 }
