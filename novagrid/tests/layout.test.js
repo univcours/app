@@ -25,18 +25,20 @@ test('handles very short viewport without negative dimensions',()=>{
 });
 
 import {readFileSync} from 'node:fs';
-test('game navigation has endless Classic, Daily and Blockfall without stages',()=>{
+test('game navigation shows only Block Puzzle and endless Blockfall',()=>{
  const html=readFileSync(new URL('../web/index.html',import.meta.url),'utf8');
  const tabs=[...html.matchAll(/data-mode="([^"]+)"/g)].map(m=>m[1]);
- assert.deepEqual(tabs,['classic','daily','blockfall']);
+ assert.deepEqual(tabs,['classic','blockfall']);
  assert.doesNotMatch(html,/id="stageHud"|id="stageMapButton"/);
- const css=readFileSync(new URL('../web/galaxy.css',import.meta.url),'utf8');
- assert.match(css,/grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
+ const css=readFileSync(new URL('../web/neon-duo.css',import.meta.url),'utf8');
+ assert.match(css,/grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
+ assert.match(html,/neon-duo\.css/);
+ assert.doesNotMatch(html,/data-mode="daily"/);
 });
-test('Blockfall stays a bonus game while Classic is an endless launch mode',()=>{
+test('Blockfall is a second endless game while Classic is an endless Block Puzzle',()=>{
  const code=readFileSync(new URL('../web/app.js',import.meta.url),'utf8');
  assert.match(code,/btn\.dataset\.mode==='blockfall'/);
- assert.match(code,/falling\?\.open\(12001\)/);
+ assert.match(code,/falling\?\.open\(12001,\{endless:true\}\)/);
  assert.match(code,/nova\.candy\.progress\.v1/);
  assert.doesNotMatch(code,/unlockedSectors\[6\]/);
 });
