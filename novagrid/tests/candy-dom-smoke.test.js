@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {JSDOM} from 'jsdom';
 
-test('Candy Arcade boots, locks Stage 2+3, lets player move, and bonus game opens',async()=>{
+test('Endless NovaGrid boots directly, lets player move, and bonus game opens',async()=>{
  const html=readFileSync(new URL('../web/index.html',import.meta.url),'utf8');
  const dom=new JSDOM(html,{url:'https://novagrid.local/',pretendToBeVisual:true});
  const w=dom.window;
@@ -15,18 +15,10 @@ test('Candy Arcade boots, locks Stage 2+3, lets player move, and bonus game open
  Object.defineProperty(globalThis,'getComputedStyle',{configurable:true,value:w.getComputedStyle.bind(w)});
  try{
   await import('../web/app.js');
-  const gallery=w.document.querySelector('#galaxyOverlay');
-  assert.ok(gallery);
-  assert.equal(gallery.hidden,false,'new users see three-stage selection on first launch');
-  const cards=[...w.document.querySelectorAll('.candy-stage-card')];
-  assert.equal(cards.length,3);
-  assert.equal(cards[0].getAttribute('aria-disabled'),'false');
-  assert.equal(cards[1].getAttribute('aria-disabled'),'true');
-  assert.equal(cards[2].getAttribute('aria-disabled'),'true');
-  cards[1].click();
-  assert.equal(gallery.hidden,false,'a locked stage cannot be played');
-  cards[0].click();
-  assert.equal(gallery.hidden,true);
+  assert.equal(w.document.querySelector('#galaxyOverlay'),null,'no stage map on launch');
+  assert.equal(w.document.querySelector('#stageHud'),null,'no stage progress bar');
+  assert.equal(w.document.querySelector('.mode.active')?.dataset.mode,'classic');
+  assert.equal(w.document.querySelector('#intensityChip')?.textContent,'⚡ 1/9');
   assert.equal(w.document.querySelectorAll('#board .cell').length,81);
   const piece=w.document.querySelector('#pieces .piece:not([disabled])');
   assert.ok(piece,'gameplay must display a selectable shape');
@@ -34,7 +26,7 @@ test('Candy Arcade boots, locks Stage 2+3, lets player move, and bonus game open
   const targets=[...w.document.querySelectorAll('#board .cell')];
   targets[0].click();
   assert.ok(Number(w.document.querySelector('#score').textContent.replace(/,/g,''))>0,'real placement updates score');
-  assert.ok(w.document.querySelector('#stageProgressFill'));
+  assert.equal(w.document.querySelector('#stageProgressFill'),null);
   assert.ok(w.document.querySelector('#candyFxLayer'));
   const mode=[...w.document.querySelectorAll('[data-mode]')].find(x=>x.dataset.mode==='blockfall');
   assert.ok(mode);
