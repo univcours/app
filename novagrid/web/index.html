@@ -1,14 +1,19 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"><meta name="theme-color" content="#090d21"><meta name="description" content="NovaGrid — the original daily cosmic block puzzle. Play offline."><title>NovaGrid</title><link rel="icon" href="logo.webp" type="image/webp"><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="view.css"><link rel="stylesheet" href="galaxy.css"><link rel="stylesheet" href="no-banner.css"><link rel="stylesheet" href="falling.css"><link rel="stylesheet" href="candy-arcade.css"><link rel="stylesheet" href="continuous.css"><link rel="stylesheet" href="neon-duo.css"></head>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"><meta name="theme-color" content="#090d21"><meta name="description" content="NovaGrid — the original daily cosmic block puzzle. Play offline."><title>NovaGrid</title><link rel="icon" href="logo.webp" type="image/webp"><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="view.css"><link rel="stylesheet" href="galaxy.css"><link rel="stylesheet" href="no-banner.css"><link rel="stylesheet" href="falling.css"><link rel="stylesheet" href="candy-arcade.css"><link rel="stylesheet" href="continuous.css"><link rel="stylesheet" href="neon-duo.css"><link rel="stylesheet" href="cosmic-reference.css"></head>
 <body>
 <main class="shell" id="gameShell">
- <header class="topbar">
-  <div class="identity"><img class="brandlogo" src="logo.webp" alt="NovaGrid logo"/><div class="brandgroup"><div class="brand">NovaGrid</div></div></div>
-  <div class="topactions"><button class="iconbtn" id="soundBtn" aria-label="Sound effects" title="Sound effects">🔊</button><button class="iconbtn" id="musicBtn" aria-label="Mute background music" title="Background music">♫</button><button class="language" id="languageBtn" aria-label="Change language">EN⌄</button></div>
+ <header class="topbar nova-reference-header">
+  <button class="nova-header-btn" id="settingsOpen" type="button" aria-label="Settings" aria-expanded="false">⚙</button>
+  <div class="nova-title">NovaGrid<span class="nova-title-star">✦</span></div>
+  <button class="nova-header-btn" id="pauseMain" type="button" aria-label="Pause game">Ⅱ</button>
+  <div class="nova-settings" id="settingsMenu" hidden>
+   <div class="nova-settings-title">SETTINGS</div>
+   <div class="topactions"><button class="iconbtn" id="soundBtn" aria-label="Sound effects">🔊</button><button class="iconbtn" id="musicBtn" aria-label="Music">♫</button><button class="language" id="languageBtn" aria-label="Language">EN⌄</button></div>
+  </div>
  </header>
  <nav class="modes neon-duo-modes" aria-label="Game modes"><button class="mode active" data-mode="classic" type="button"><span>✦</span><span data-i18n="classic">Block Puzzle</span></button><button class="mode" data-mode="blockfall" type="button" aria-label="Blockfall — falling blocks"><span>▥</span><span data-i18n="blockfall">Blockfall</span></button></nav>
  <section class="gamecard" id="gamecard">
-  <div class="scorebar"><div class="intensity-chip" id="intensityChip" aria-live="polite">⚡ 1/9</div><div class="scorebox"><span data-i18n="score">SCORE</span><strong id="score">0</strong></div><div class="scoreline"></div><div class="scorebox"><span data-i18n="best">BEST</span><strong id="best">0</strong></div><div class="scoreline"></div><div class="scorebox"><span data-i18n="streak">COMBO</span><strong id="combo">×0</strong></div></div>
+  <div class="scorebar"><div class="intensity-chip" id="intensityChip" aria-live="polite">⚡ 1/9</div><div class="scorebox"><span data-i18n="score">SCORE</span><strong id="score">0</strong></div><div class="scoreline"></div><div class="scorebox"><span data-i18n="best">BEST</span><strong id="best">0</strong></div><div class="scoreline"></div><div class="scorebox"><span data-i18n="streak">COMBO</span><strong id="combo">×0</strong></div><div class="nova-fever"><small>FEVER</small><div class="nova-fever-rail"><i id="novaFeverFill"></i></div><b id="novaFeverText">0%</b></div></div>
   <div class="boardwrap"><div id="board" class="board" role="grid" aria-label="9 by 9 puzzle board"></div><div class="boardshade" aria-hidden="true"></div><div id="candyFxLayer" class="candy-fx" aria-hidden="true"></div></div>
   <div class="gamehint" id="message" aria-live="polite" data-i18n="hint">Select a shape, then tap the grid</div>
   <div class="pieces" id="pieces" aria-label="Choose a puzzle piece"></div>
@@ -16,6 +21,7 @@
  </section>
  <footer><span>NovaGrid</span><a class="privacybtn" href="privacy.html" aria-label="NovaGrid privacy policy">Privacy</a><button id="privacyBtn" class="privacybtn" type="button" hidden>Ad choices</button><span>© 2026</span></footer>
 </main>
+<div id="pauseOverlay" class="nova-pause-overlay" hidden><div class="nova-pause-dialog"><strong>Ⅱ PAUSED</strong><button id="pauseResume" type="button">▶ RESUME</button></div></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <div class="overlay" id="dialog" hidden><div class="modal" role="dialog" aria-modal="true" aria-labelledby="dialogTitle"><div class="modalicon">✦</div><h2 id="dialogTitle"></h2><p id="dialogBody"></p><div class="finalscore" id="dialogScore"></div><button class="primary" id="dialogPlay" data-i18n="playAgain">Play again</button><button class="ghost" id="dialogClose" data-i18n="close">Close</button></div></div>
 <script type="module" src="app.js"></script>
