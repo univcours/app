@@ -39,7 +39,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: novagrid-actual-mobile-screen
-          path: novagrid/visual-qa/novagrid-actual-mobile.png
+          path: novagrid/visual-qa/*.png
           retention-days: 14
           if-no-files-found: error
       - name: Generate Android project
