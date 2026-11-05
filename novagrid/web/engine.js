@@ -1,4 +1,5 @@
 import {intensityForMoves,maxPieceCells} from './progressive.js';
+import {advanceFever} from './fever.js';
 /* NovaGrid original block-placement puzzle engine — deterministic and dependency-free. */
 export const SIZE = 9;
 export const PATTERNS = [
@@ -60,15 +61,19 @@ export function drawTray(rng,board,moves=0){
 export function makeGame(mode='classic',date=new Date().toISOString().slice(0,10)){
  const seed=mode==='daily'?hashDate(date):Math.floor(Math.random()*4294967295);
  const rng=seededRng(seed),board=emptyBoard();
- return {mode,date,seed,round:1,board,tray:drawTray(rng,board,0),score:0,combo:0,moves:0,usedUndo:false,over:false};
+ return {mode,date,seed,round:1,board,tray:drawTray(rng,board,0),score:0,combo:0,moves:0,usedUndo:false,over:false,fever:{meter:0,activeMoves:0},clears:0,assisted:false};
 }
 export function runMove(state,trayIndex,row,col){
  const shape=state.tray[trayIndex],result=place(state.board,shape,row,col);
  if(!result)return null;
  const next={...state,board:result.board,tray:state.tray.map((s,i)=>i===trayIndex?null:s),moves:state.moves+1};
  next.combo=result.groups?state.combo+1:0;
- const gained=result.placed+result.groups*(18+Math.min(7,next.combo)*5)+Math.max(0,result.groups-1)*22;
+ next.clears=(state.clears||0)+result.groups;
+ const phase=advanceFever(state.fever,result.groups,next.combo);
+ next.fever=phase.fever;
+ const gained=(result.placed+result.groups*(18+Math.min(7,next.combo)*5)+Math.max(0,result.groups-1)*22)*phase.multiplier;
  next.score+=gained;
+ next.lastFeverTriggered=phase.activated;
  if(next.tray.every(x=>x===null)){
  // Replay deterministic series by advancing the RNG once per generated tray.
  const rng=seededRng(state.seed);let tray=drawTray(rng,emptyBoard(),0);
@@ -76,5 +81,5 @@ export function runMove(state,trayIndex,row,col){
  next.tray=tray;
  }
  next.over=!hasMove(next.board,next.tray);
- return {state:next,gained,groups:result.groups,rows:result.rows,columns:result.columns,squares:result.squares,cleared:result.cleared};
+ return {state:next,gained,groups:result.groups,rows:result.rows,columns:result.columns,squares:result.squares,cleared:result.cleared,feverActivated:phase.activated,feverMultiplier:phase.multiplier};
 }
