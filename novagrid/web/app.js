@@ -56,11 +56,11 @@ function setMode(mode='classic'){
  cancelDrag();state=readGame();selected=-1;undoSnapshot=null;undoWallet=null;
  audio.setStage(0);
  document.querySelectorAll('[data-mode]').forEach(b=>b.classList.toggle('active',b.dataset.mode==='classic'));
- render();
+ render();if(state.over)showEnd();
 }
 function saveBest(){if(state.score>best())storage.set('nova.best.classic',String(state.score));}
 function cellClass(r,c){
- const filled=!!state.board[r][c],candy=(r*7+c*3+(state.stageLevel||0)*2)%6;
+ const filled=!!state.board[r][c],candy=(r*7+c*3+Math.floor((state.moves||0)/3)*2)%6;
  const inRegion=(Math.floor(r/3)+Math.floor(c/3))%2===0;
  let cl=filled?'cell block candy-'+candy:'cell'+(inRegion?' region':'');
  if(selected>=0&&state.tray[selected]&&hover){
@@ -74,7 +74,7 @@ function cellClass(r,c){
 }
 function renderBoard(){const board=$('board');board.textContent='';const frag=document.createDocumentFragment();for(let r=0;r<SIZE;r++)for(let c=0;c<SIZE;c++){const el=document.createElement('button');el.type='button';el.className=cellClass(r,c);el.dataset.r=r;el.dataset.c=c;el.setAttribute('role','gridcell');el.setAttribute('aria-label',`Row ${r+1}, column ${c+1}: ${state.board[r][c]?'filled':'empty'}`);el.addEventListener('click',()=>placeAt(r,c));el.addEventListener('pointerenter',()=>{if(selected>=0){hover=[r,c];updateHighlights();}});frag.append(el);}board.append(frag);}
 function updateHighlights(){const cells=$('board').children;for(let r=0;r<SIZE;r++)for(let c=0;c<SIZE;c++)cells[r*SIZE+c].className=cellClass(r,c);}
-function makePiece(shape){const rows=Math.max(...shape.map(v=>v[0]))+1,cols=Math.max(...shape.map(v=>v[1]))+1;const g=document.createElement('span');g.className='piecegrid';g.style.gridTemplateColumns=`repeat(${cols},var(--micro-size,14px))`;g.style.gridTemplateRows=`repeat(${rows},var(--micro-size,14px))`;const occupied=new Set(shape.map(([r,c])=>`${r},${c}`));for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){const b=document.createElement('span');b.className='micro'+(occupied.has(`${r},${c}`)?' candy-'+((r*7+c*3+(state.stageLevel||0)*2)%6):' blank');g.append(b);}return g;}
+function makePiece(shape){const rows=Math.max(...shape.map(v=>v[0]))+1,cols=Math.max(...shape.map(v=>v[1]))+1;const g=document.createElement('span');g.className='piecegrid';g.style.gridTemplateColumns=`repeat(${cols},var(--micro-size,14px))`;g.style.gridTemplateRows=`repeat(${rows},var(--micro-size,14px))`;const occupied=new Set(shape.map(([r,c])=>`${r},${c}`));for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){const b=document.createElement('span');b.className='micro'+(occupied.has(`${r},${c}`)?' candy-'+((r*7+c*3+Math.floor((state.moves||0)/3)*2)%6):' blank');g.append(b);}return g;}
 function selectPiece(index){
  if(!state.tray[index]||state.over)return;
  selected=index;hover=null;
