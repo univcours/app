@@ -2,10 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {AD_POLICY,getAdsStatus} from '../web/ads.js';
-test('only Interstitial is enabled in current build',()=>{
+test('Interstitial and voluntary Rewarded are enabled but banners remain disabled',()=>{
  assert.equal(AD_POLICY.banner,false);
  assert.equal(AD_POLICY.interstitial,true);
- assert.equal(AD_POLICY.rewarded,false);
+ assert.equal(AD_POLICY.rewarded,true);
  assert.equal(AD_POLICY.rewardedInterstitial,false);
  assert.match(getAdsStatus().banner,/disabled/);
 });
