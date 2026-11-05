@@ -69,6 +69,17 @@ try{
   // Screenshot and assert the second playable mode, not a promotional mockup.
   await page.locator('[data-mode="blockfall"]').click();
   await page.waitForSelector('#blockfallOverlay:not([hidden]) #fallBoard .fall-cell',{timeout:10000});
+  // Build a real colorful stack for review without changing game physics.
+  await page.evaluate(()=>{
+   const press=key=>document.dispatchEvent(new KeyboardEvent('keydown',{bubbles:true,cancelable:true,key}));
+   for(let turn=0;turn<12;turn++){
+    const shifts=turn%4;
+    const side=turn%2===0?'ArrowLeft':'ArrowRight';
+    for(let i=0;i<shifts;i++)press(side);
+    press(' ');
+    if(!document.querySelector('#fallResult')?.hidden)break;
+   }
+  });
   await page.waitForTimeout(250);
   const fallCells=await page.locator('#fallBoard .fall-cell').count();
   const fallRect=await page.locator('#fallBoard').boundingBox();
