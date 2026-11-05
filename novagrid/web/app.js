@@ -1,3 +1,4 @@
+import {intensityForMoves,intensityLabel} from './progressive.js';
 import {initializeAds,gameFinished,maybeShowInterstitialOnReplay} from './ads.js';
 import {SIZE,makeGame,runMove,canPlace,hasMove} from './engine.js';
 import {shapeDimensions,projectDragPoint,dragLift} from './drag.js';
@@ -45,7 +46,7 @@ function store(){storage.set(state.mode==='stage'?'nova.candy.stage.current':`no
 function bestKey(){return state.mode==='stage'?`nova.best.candy.${state.stageLevel}`:`nova.best.${state.mode}`;}
 function best(){return Number(storage.get(bestKey())||0);}
 function setMode(mode){
- if(!['classic','daily','stage'].includes(mode))return;
+ if(!['classic','daily'].includes(mode))return;
  cancelDrag();
  if(mode==='stage'){
   let saved=null;try{saved=JSON.parse(storage.get('nova.candy.stage.current'));}catch{}
@@ -72,7 +73,7 @@ function launchStage(level){
 }
 function updateStageHUD(){
  const hud=$('stageHud');
- if(state?.mode!=='stage'){hud.hidden=true;return;}
+ if(!hud||state?.mode!=='stage'){if(hud)hud.hidden=true;return;}
  hud.hidden=false;
  const cfg=stageConfig(state.stageLevel);
  $('stageTitle').textContent=SECTORS[cfg.sector].icon+' '+state.stageLevel+' · '+(SECTORS[cfg.sector].name[lang]||SECTORS[cfg.sector].name.en)+(cfg.boss?' · 💥 '+state.bossHp+'/'+cfg.bossHp:'');
@@ -200,7 +201,7 @@ function cancelDrag(){
  const d=clearDrag();
  if(d){hover=null;if(state)updateHighlights();}
 }
-function render(){document.documentElement.dataset.sector=state.mode==='stage'?stageConfig(state.stageLevel).sectorId:'classic';document.documentElement.lang=lang;document.documentElement.dir=lang==='ar'?'rtl':'ltr';document.querySelectorAll('[data-i18n]').forEach(el=>{el.textContent=tr(el.dataset.i18n)});$('languageBtn').textContent=lang.toUpperCase()+'⌄';$('score').textContent=state.score.toLocaleString();$('best').textContent=Math.max(best(),state.score).toLocaleString();$('combo').textContent='×'+state.combo;$('undoBtn').disabled=state.usedUndo||!undoSnapshot||state.over;$('message').textContent=selected>=0?tr('selected'):tr('hint');renderAudioButtons();updateStageHUD();$('dailyDot').style.display=storage.get('nova.daily.completed.'+today())?'none':'block';renderBoard();renderPieces();}
+function render(){document.documentElement.dataset.sector=state.mode==='stage'?stageConfig(state.stageLevel).sectorId:'classic';document.documentElement.lang=lang;document.documentElement.dir=lang==='ar'?'rtl':'ltr';const intensity=intensityForMoves(state.moves||0);const chip=$('intensityChip');if(chip){chip.textContent='⚡ '+intensity+'/9';chip.title=intensityLabel(intensity,lang);chip.setAttribute('aria-label',chip.title);}document.querySelectorAll('[data-i18n]').forEach(el=>{el.textContent=tr(el.dataset.i18n)});$('languageBtn').textContent=lang.toUpperCase()+'⌄';$('score').textContent=state.score.toLocaleString();$('best').textContent=Math.max(best(),state.score).toLocaleString();$('combo').textContent='×'+state.combo;$('undoBtn').disabled=state.usedUndo||!undoSnapshot||state.over;$('message').textContent=selected>=0?tr('selected'):tr('hint');renderAudioButtons();updateStageHUD();$('dailyDot').style.display=storage.get('nova.daily.completed.'+today())?'none':'block';renderBoard();renderPieces();}
 function notify(text){$('toast').textContent=text;$('toast').classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').classList.remove('show'),1800);}
 function placeAt(row,col){if(state.over)return;audio.unlock();if(selected<0){notify(tr('hint'));return;}const snapshot=JSON.parse(JSON.stringify(state));const result=runMove(state,selected,row,col);if(!result){notify(tr('invalid'));audio.effect('invalid');return;}if(!state.usedUndo)undoSnapshot=snapshot;state=result.state;selected=-1;hover=null;
  if(state.mode==='stage'){
@@ -272,9 +273,9 @@ document.querySelectorAll('[data-mode]').forEach(btn=>btn.addEventListener('clic
   return;
  }
  setMode(btn.dataset.mode);
- if(btn.dataset.mode==='stage')galaxy?.open(state.stageLevel);
+ 
 }));
-$('stageMapButton').addEventListener('click',()=>galaxy?.open(state.stageLevel));
+
 $('soundBtn').addEventListener('click',()=>{
  audio.unlock();audio.setEffects(!audio.effectsEnabled);
  storage.set('nova.effects',audio.effectsEnabled?'on':'off');
@@ -291,24 +292,12 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){cancelDrag();galaxy
 state=readGame('classic');
 falling=createBlockfallUI({
  onFinish:()=>{gameFinished();return 0;},
- onExit:level=>{setMode('stage');galaxy?.open(level);},
+ onExit:()=>{setMode('classic');},
  getLanguage:()=>lang,
  onSound:kind=>{audio.unlock();audio.effect(kind||'pick');},
  onAdBreak:maybeShowInterstitialOnReplay
 });
-galaxy=createGalaxyUI({
- getProgress:()=>progress,
- setProgress:p=>{progress=p;saveProgress();updateStageHUD();},
- getState:()=>falling?.visible?falling.state:state,
- onStage:launchStage,
- getLanguage:()=>lang,
- onSound:()=>{audio.unlock();audio.effect('pick');}
-});
-setMode('stage');
-if(storage.get('nova.candy.intro')!=='done'){
- storage.set('nova.candy.intro','done');
- galaxy.open(1);
-}
+setMode('classic');
 
 void initializeAds();
 
