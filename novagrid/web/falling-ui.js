@@ -3,7 +3,7 @@ import {FALL_WIDTH,FALL_HEIGHT,FALL_PALETTE,fallingConfig,fallingObjective,makeF
 import {createSwipeTracker} from './swipe.js';
 
 export function createBlockfallUI({onFinish,onExit,getLanguage,onSound,onAdBreak}){
- let game=null,config=null,interval=null,paused=false,reported=false,active=false,gesture=null,earned=0;
+ let game=null,config=null,interval=null,paused=false,reported=false,active=false,gesture=null,earned=0,endless=false;
  const el=document.createElement('section');
  el.id='blockfallOverlay';el.className='blockfall-overlay';el.hidden=true;
  el.innerHTML='<div class="fall-panel" role="dialog" aria-modal="true" aria-labelledby="fallTitle">'+
@@ -13,6 +13,7 @@ export function createBlockfallUI({onFinish,onExit,getLanguage,onSound,onAdBreak
  '<div><span id="fallLinesLabel"></span><strong id="fallLines">0</strong></div>'+
  '<div><span id="fallGoalLabel"></span><strong id="fallGoal"></strong></div>'+
  '<div class="fall-next"><span id="fallNextLabel"></span><div id="fallNext"></div></div></div>'+
+ '<div class="fall-fever-compact"><span id="fallFeverLabel">FEVER</span><div class="fall-fever-track"><i id="fallFeverFill"></i></div></div>'+
  '<div class="fall-board-holder"><div id="fallBoard" class="fall-board" role="grid" aria-label="10 by 18 falling blocks"></div></div>'+
  
  '<div class="fall-tip" id="fallTip"></div>'+
@@ -25,10 +26,10 @@ export function createBlockfallUI({onFinish,onExit,getLanguage,onSound,onAdBreak
   ar:{title:'ساحة القطع الهابطة',stage:'مرحلة',score:'النقاط',lines:'الصفوف',goal:'الهدف',next:'التالية',win:'كملتي المرحلة!',lose:'عاود المحاولة!',back:'رجوع للمجرات',retry:'إعادة المحاولة',tip:'سحب يمين ويسار للتحريك · سحب لتحت للنزول · ضغطة خفيفة للتدوير',kinds:{lines:'صفوف',score:'نقاط',drops:'قطع',combos:'سلاسل'}}
  };
  const t=()=>labels[getLanguage()]||labels.en;
- function key(){return 'nova.blockfall.stage.'+game.stageLevel;}
+ function key(){return endless?'nova.blockfall.endless.v1':'nova.blockfall.stage.'+game.stageLevel;}
  function persist(){if(!game)return;try{localStorage.setItem(key(),JSON.stringify(game));}catch{}}
  function clearTimer(){if(interval!==null){clearInterval(interval);interval=null;}}
- function syncTimer(){clearTimer();if(active&&!paused&&!game.over&&!document.hidden)interval=setInterval(()=>perform('tick'),config.interval);}
+ function syncTimer(){clearTimer();if(active&&!paused&&!game.over&&!document.hidden)interval=setInterval(()=>perform('tick'),endless?Math.max(175,config.interval-Math.floor(game.drops/16)*27):config.interval);}
  function fitBoard(){
   if(!active)return;
   const rect=get('fallBoard').parentElement.getBoundingClientRect();
@@ -53,12 +54,17 @@ export function createBlockfallUI({onFinish,onExit,getLanguage,onSound,onAdBreak
   if(!game||!active)return;
   const words=t();
   get('fallTitle').textContent='▥ '+words.title;
-  get('fallStage').textContent=getLanguage()==='ar'?'🎮 وضع أركاد إضافي':getLanguage()==='fr'?'🎮 Mode arcade bonus':'🎮 Bonus Arcade mode';
+  el.classList.toggle('fall-endless',endless);
+  get('fallStage').textContent=endless?(getLanguage()==='ar'?'∞ لعب مستمر':getLanguage()==='fr'?'∞ Jeu sans fin':'∞ Endless arcade'):(getLanguage()==='ar'?'🎮 وضع أركاد إضافي':getLanguage()==='fr'?'🎮 Mode arcade bonus':'🎮 Bonus Arcade mode');
   for(const [k,v] of [['fallScoreLabel','score'],['fallLinesLabel','lines'],['fallGoalLabel','goal'],['fallNextLabel','next']])
    get(k).textContent=words[v];
   get('fallScore').textContent=game.score.toLocaleString();
   get('fallLines').textContent=game.lines.toLocaleString();
-  get('fallGoal').textContent=fallingObjective(game,config)+'/'+config.goal+' '+words.kinds[config.kind];
+  get('fallGoalLabel').textContent=endless?(getLanguage()==='ar'?'سلسلة': 'COMBO'):words.goal;
+  get('fallGoal').textContent=endless?'×'+game.combo:fallingObjective(game,config)+'/'+config.goal+' '+words.kinds[config.kind];
+  const fever=Math.min(100,(game.combo*24+game.lines*5)%101);
+  get('fallFeverLabel').textContent='⚡ FEVER '+fever+'%';
+  get('fallFeverFill').style.width=fever+'%';
   get('fallTip').textContent=paused?(getLanguage()==='ar'?'⏸ اللعب متوقف':getLanguage()==='fr'?'⏸ Jeu en pause':'⏸ Paused'):words.tip;
   get('fallPause').textContent=paused?'▶':'Ⅱ';
   drawNext();
@@ -82,9 +88,9 @@ export function createBlockfallUI({onFinish,onExit,getLanguage,onSound,onAdBreak
   clearTimer();
   if(!reported){reported=true;persist();earned=Number(onFinish?.(game)||0);}
   const words=t();get('fallResult').hidden=false;
-  get('fallResultTitle').textContent=game.won?words.win:words.lose;
-  get('fallResultDetails').textContent=words.score+': '+game.score+' · '+words.lines+': '+game.lines+' · '+words.goal+': '+fallingObjective(game,config)+'/'+config.goal+(game.won?' · ✦ +'+earned+' Nova Points':'');
-  get('fallResultAction').textContent=game.won?words.back:words.retry;
+  get('fallResultTitle').textContent=endless?(getLanguage()==='ar'?'نهاية الجولة!':getLanguage()==='fr'?'Fin de partie !':'Run complete!'):(game.won?words.win:words.lose);
+  get('fallResultDetails').textContent=words.score+': '+game.score+' · '+words.lines+': '+game.lines+(endless?' · COMBO ×'+game.bestCombo:' · '+words.goal+': '+fallingObjective(game,config)+'/'+config.goal+(game.won?' · ✦ +'+earned+' Nova Points':''));
+  get('fallResultAction').textContent=endless?(getLanguage()==='ar'?'العب من جديد':getLanguage()==='fr'?'Rejouer':'Play again'):(game.won?words.back:words.retry);
  }
  function perform(action){
   if(!active||paused||game.over)return;
@@ -100,6 +106,11 @@ export function createBlockfallUI({onFinish,onExit,getLanguage,onSound,onAdBreak
    else if(game.drops!==prior.drops)onSound?.('place');
    else if(action!=='tick')onSound?.('pick');
    persist();render();
+   if(endless&&game.drops!==prior.drops)syncTimer();
+   if(game.lastClear>0&&game.drops!==prior.drops){
+    const board=get('fallBoard');board.classList.remove('fall-line-burst');
+    void board.offsetWidth;board.classList.add('fall-line-burst');
+   }
   }
  }
  function pause(){if(!active||game.over)return;paused=!paused;gesture=null;syncTimer();render();}
@@ -109,10 +120,11 @@ export function createBlockfallUI({onFinish,onExit,getLanguage,onSound,onAdBreak
   persist();active=false;gesture=null;clearTimer();el.hidden=true;get('fallResult').hidden=true;
   if(withNavigation)onExit?.(level);
  }
- function open(level){
+ function open(level,options={}){
   if(active)exit(false);
-  config=fallingConfig(level);
-  let saved=null;try{saved=JSON.parse(localStorage.getItem('nova.blockfall.stage.'+level));}catch{}
+  endless=options.endless===true;
+  config=endless?{...fallingConfig(level),kind:'score',goal:Number.MAX_SAFE_INTEGER}:fallingConfig(level);
+  let saved=null;try{saved=JSON.parse(localStorage.getItem(endless?'nova.blockfall.endless.v1':'nova.blockfall.stage.'+level));}catch{}
   if(saved?.mode==='falling'&&saved.stageLevel===level&&!saved.over&&saved.board?.length===FALL_HEIGHT&&
    saved.board.every(row=>Array.isArray(row)&&row.length===FALL_WIDTH)&&saved.active?.cells?.length===4)game=saved;
   else game=makeFallingState(level);
@@ -126,7 +138,8 @@ export function createBlockfallUI({onFinish,onExit,getLanguage,onSound,onAdBreak
  get('fallClose').addEventListener('click',()=>exit());
  get('fallPause').addEventListener('click',pause);
  get('fallResultAction').addEventListener('click',async()=>{
-  if(game.won){await onAdBreak?.();exit();}else reset();
+  if(endless){await onAdBreak?.();reset();}
+  else if(game.won){await onAdBreak?.();exit();}else reset();
  });
  // Move the live piece while the finger moves, not only on pointer release.
  // Pixel-to-cell thresholds adapt to any phone size and preserve fractional drag.
