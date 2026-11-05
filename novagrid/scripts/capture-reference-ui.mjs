@@ -28,15 +28,25 @@ try{
   await page.goto('http://127.0.0.1:'+server.address().port+'/',{waitUntil:'domcontentloaded'});
   await page.waitForSelector('#board .cell',{timeout:12000});
   await page.evaluate(async()=>{
-   for(let move=0;move<18;move++){
+   // Use valid positions only. Repeated invalid clicks trigger a real Toast,
+   // making the screenshot differ from normal gameplay.
+   for(let move=0;move<16;move++){
     const score=()=>Number((document.querySelector('#score')?.textContent||'0').replaceAll(',',''));
     let played=false;
+    const cells=[...document.querySelectorAll('#board .cell')];
+    const rows=12,cols=10;
     for(const piece of document.querySelectorAll('#pieces .piece:not([disabled])')){
-     piece.dispatchEvent(new MouseEvent('click',{bubbles:true,detail:0}));
-     for(const cell of document.querySelectorAll('#board .cell')){
-      const old=score();
-      cell.click();
-      if(score()>old){played=true;break;}
+     const grid=piece.querySelector('.piecegrid');
+     const width=Number(grid?.style.gridTemplateColumns.match(/repeat\((\d+),/)?.[1]);
+     if(!width)continue;
+     const shape=[...grid.children].flatMap((cell,i)=>cell.classList.contains('blank')?[]:[[Math.floor(i/width),i%width]]);
+     if(!shape.length)continue;
+     for(let r=0;r<rows&&!played;r++)for(let col=0;col<cols&&!played;col++){
+      const valid=shape.every(([dr,dc])=>r+dr<rows&&col+dc<cols&&!cells[(r+dr)*cols+col+dc]?.classList.contains('block'));
+      if(!valid)continue;
+      piece.dispatchEvent(new MouseEvent('click',{bubbles:true,detail:0}));
+      const old=score();cells[r*cols+col].click();
+      if(score()>old)played=true;
      }
      if(played)break;
     }
