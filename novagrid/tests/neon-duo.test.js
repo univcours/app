@@ -37,3 +37,12 @@ test('production 1.0 package and test app IDs stay separate',()=>{
  assert.equal(config.appId,'com.novagrid.cosmicpuzzle');
  assert.match(build,/com\.novagrid\.cosmicpuzzle\.candytest/);
 });
+
+
+test('Blockfall gives no fake line-clear bonus for simply dropping a piece',()=>{
+ const config={...fallingConfig(12001),goal:Number.MAX_SAFE_INTEGER};
+ const start=makeFallingState(12001);
+ const after=hardDropFalling(start,config);
+ assert.equal(after.lines,0);
+ assert.ok(after.score<100, 'a non-clearing first drop must not earn 1200 points: '+after.score);
+});
