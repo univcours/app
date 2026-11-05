@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {JSDOM} from 'jsdom';
 
-test('NovaGrid boots with two neon games, keeps its 9x9 grid and opens endless Blockfall',async()=>{
+test('NovaGrid boots with two neon games, keeps its full-screen 10x12 grid and opens endless Blockfall',async()=>{
  const html=readFileSync(new URL('../web/index.html',import.meta.url),'utf8');
  const dom=new JSDOM(html,{url:'https://novagrid.local/',pretendToBeVisual:true});
  const w=dom.window;
@@ -17,7 +17,7 @@ test('NovaGrid boots with two neon games, keeps its 9x9 grid and opens endless B
   await import('../web/app.js');
   const modes=[...w.document.querySelectorAll('.neon-duo-modes [data-mode]')];
   assert.deepEqual(modes.map(el=>el.dataset.mode),['classic','blockfall']);
-  assert.equal(w.document.querySelectorAll('#board .cell').length,81);
+  assert.equal(w.document.querySelectorAll('#board .cell').length,120);
   const piece=w.document.querySelector('#pieces .piece:not([disabled])');
   assert.ok(piece,'an initial puzzle piece is available');
   piece.dispatchEvent(new w.MouseEvent('click',{bubbles:true,detail:0}));
@@ -35,6 +35,6 @@ test('NovaGrid boots with two neon games, keeps its 9x9 grid and opens endless B
   assert.equal(w.document.querySelector('#fallResult').hidden,true,'endless play does not stop after two pieces');
   w.document.querySelector('#fallClose').click();
   assert.equal(overlay.hidden,true);
-  assert.equal(w.document.querySelectorAll('#board .cell').length,81,'original 9x9 game is still available');
+  assert.equal(w.document.querySelectorAll('#board .cell').length,120,'10x12 puzzle remains available');
  }finally{dom.window.close();}
 });
