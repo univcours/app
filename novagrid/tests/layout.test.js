@@ -31,13 +31,13 @@ test('game navigation shows only endless Classic and bonus Blockfall',()=>{
  assert.deepEqual(tabs,['classic','blockfall']);
  assert.doesNotMatch(html,/data-mode="daily"|data-mode="stage"/);
  assert.doesNotMatch(html,/id="stageHud"|id="stageMapButton"/);
- const css=readFileSync(new URL('../web/continuous.css',import.meta.url),'utf8');
+ const css=readFileSync(new URL('../web/arcade-polish.css',import.meta.url),'utf8');
  assert.match(css,/grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
 });
 test('Blockfall stays a bonus game while Classic is an endless launch mode',()=>{
  const code=readFileSync(new URL('../web/app.js',import.meta.url),'utf8');
  assert.match(code,/btn\.dataset\.mode==='blockfall'/);
  assert.match(code,/falling\?\.open\(12001\)/);
- assert.match(code,/nova\.candy\.progress\.v1/);
+ assert.match(code,/nova\\.wallet\\.v1/);
  assert.doesNotMatch(code,/unlockedSectors\[6\]/);
 });
