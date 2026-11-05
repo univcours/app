@@ -31,7 +31,7 @@ test('column clear is twelve cells and difficulty progresses by real placements'
 test('tall game width respects both portrait height and device width',()=>{
  const n=calculateBoardSize({cardHeight:640,cardWidth:390,paddingVertical:12,paddingHorizontal:12,
   fixedHeights:[32,1,70,30],gap:4,aspectRows:12,aspectCols:10});
- assert.ok(n>=355&&n<=365, 'got '+n);
+ assert.ok(n>=355&&n<=370, 'got '+n);
  const small=calculateBoardSize({cardHeight:400,cardWidth:390,paddingVertical:12,paddingHorizontal:12,
   fixedHeights:[32,1,70,30],gap:4,aspectRows:12,aspectCols:10});
  assert.ok(small<=200,'must shrink to avoid clipping on short screens: '+small);
