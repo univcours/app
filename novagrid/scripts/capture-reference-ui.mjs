@@ -1,0 +1,61 @@
+/* Screenshot the REAL compiled game in headless Chrome (not an illustration).
+ * Requires playwright-core and Chrome on the CI runner; never ships to the app.
+ */
+import {createServer} from 'node:http';
+import {readFile,stat,mkdir} from 'node:fs/promises';
+import {resolve,extname,join,normalize} from 'node:path';
+import {pathToFileURL} from 'node:url';
+const root=resolve('dist'),output=resolve('visual-qa/novagrid-actual-mobile.png');
+const mime={'.html':'text/html','.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.webp':'image/webp','.png':'image/png','.json':'application/json'};
+const server=createServer(async(req,res)=>{
+ try{
+  const pathname=decodeURIComponent(new URL(req.url,'http://localhost').pathname);
+  const path=resolve(root,'.'+(pathname==='/'?'/index.html':pathname));
+  if(!path.startsWith(root+'/')&&path!==root){res.writeHead(403).end();return;}
+  const info=await stat(path);if(!info.isFile()){res.writeHead(404).end();return;}
+  res.setHeader('Content-Type',(mime[extname(path)]||'application/octet-stream')+'; charset=utf-8');
+  res.end(await readFile(path));
+ }catch{res.writeHead(404).end();}
+});
+await new Promise(r=>server.listen(0,'127.0.0.1',r));
+try{
+ const {chromium}=await import('playwright-core');
+ const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_PATH||'/usr/bin/google-chrome',args:['--no-sandbox','--disable-dev-shm-usage']});
+ try{
+  const context=await browser.newContext({viewport:{width:393,height:852},deviceScaleFactor:2,isMobile:true,hasTouch:true});
+  const page=await context.newPage();
+  const exceptions=[];page.on('pageerror',e=>exceptions.push(String(e)));
+  await page.goto('http://127.0.0.1:'+server.address().port+'/',{waitUntil:'domcontentloaded'});
+  await page.waitForSelector('#board .cell',{timeout:12000});
+  await page.evaluate(async()=>{
+   for(let move=0;move<18;move++){
+    const score=()=>Number((document.querySelector('#score')?.textContent||'0').replaceAll(',',''));
+    let played=false;
+    for(const piece of document.querySelectorAll('#pieces .piece:not([disabled])')){
+     piece.dispatchEvent(new MouseEvent('click',{bubbles:true,detail:0}));
+     for(const cell of document.querySelectorAll('#board .cell')){
+      const old=score();
+      cell.click();
+      if(score()>old){played=true;break;}
+     }
+     if(played)break;
+    }
+    if(!played||document.querySelector('#dialog')?.hidden===false)break;
+   }
+  });
+  await page.waitForTimeout(500);
+  await mkdir(resolve('visual-qa'),{recursive:true});
+  await page.screenshot({path:output,fullPage:false});
+  const board=await page.locator('#board').boundingBox();
+  const actual=await page.evaluate(()=>({score:document.querySelector('#score')?.textContent,
+   filled:document.querySelectorAll('#board .cell.block').length,
+   board:document.querySelector('#board')?.getBoundingClientRect().width,
+   gameModes:[...document.querySelectorAll('[data-mode]')].map(x=>x.dataset.mode)}));
+  console.log(JSON.stringify({output,board,actual,pageErrors:exceptions},null,2));
+  if(exceptions.length)throw Error('Mobile page exception: '+exceptions.join(' | '));
+  if(!board||board.width<300)throw Error('Playfield too small in 393 px portrait: '+board?.width);
+  if(actual.filled===0)throw Error('Failed to play any block into the actual grid.');
+  if(actual.gameModes.join(',')!=='classic,blockfall')throw Error('Unexpected game modes');
+  await context.close();
+ }finally{await browser.close();}
+}finally{await new Promise(r=>server.close(r));}
