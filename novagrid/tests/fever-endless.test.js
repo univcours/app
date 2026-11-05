@@ -1,0 +1,22 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {advanceFever,feverDisplay} from '../web/fever.js';
+import {makeGame,runMove,emptyBoard} from '../web/engine.js';
+test('Fever is earned by real groups and gives limited doubled score',()=>{
+ let f={meter:0,activeMoves:0},activation=false;
+ for(let i=0;i<5;i++){const next=advanceFever(f,1,i+1);f=next.fever;if(next.activated)activation=true;}
+ assert.equal(activation,true);
+ assert.equal(feverDisplay(f).active,true);
+ for(let i=0;i<4;i++){const n=advanceFever(f,0,0);assert.equal(n.multiplier,2);f=n.fever;}
+ assert.equal(feverDisplay(f).active,false);
+ assert.equal(advanceFever(f,0,0).multiplier,1);
+});
+test('Fever does not trigger for idle placements, multiplier never arises from points bought',()=>{
+ let f={meter:0,activeMoves:0};
+ for(let i=0;i<200;i++)f=advanceFever(f,0,0).fever;
+ assert.deepEqual(f,{meter:0,activeMoves:0});
+});
+test('endless session remains on the same board mode after a valid placement',()=>{
+ const s=makeGame('classic');const m=runMove(s,0,0,0);
+ assert.ok(m);assert.equal(m.state.mode,'classic');assert.equal(m.state.over,false);
+ assert.equal(m.state.board.length,emptyBoard().length);assert.ok('fever' in m.state);
+});
