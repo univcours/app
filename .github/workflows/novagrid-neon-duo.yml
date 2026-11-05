@@ -31,6 +31,17 @@ jobs:
         env:
           ADMOB_LIVE_ADS: 'false'
         run: npm run build
+      - name: Capture REAL game screenshot in mobile Chrome
+        run: |
+          npm install --no-save --no-audit --no-fund playwright-core@1.58.2
+          node scripts/capture-reference-ui.mjs
+      - name: Upload actual mobile game screenshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: novagrid-actual-mobile-screen
+          path: novagrid/visual-qa/novagrid-actual-mobile.png
+          retention-days: 14
+          if-no-files-found: error
       - name: Generate Android project
         run: npx cap add android
       - name: Sync web assets and isolate beta debug package
