@@ -107,7 +107,7 @@ function lockPiece(state,config){
  const next={...state,board:clear.board,score,lines:state.lines+clear.cleared,
   drops:state.drops+1,combo,bestCombo:Math.max(state.bestCombo,combo),
   softPoints:0,nextIndex:state.nextIndex+1,nextType:pieceAt(state.stageLevel,state.nextIndex+1)};
- const success=fallingObjective(next,config)>=config.goal;
+ const success=!config.endless&&fallingObjective(next,config)>=config.goal;
  if(success)return {...next,active:null,won:true,over:true,lastClear:clear.cleared};
  const active=spawnPiece(clear.board,state.stageLevel,state.nextIndex);
  return {...next,active,won:false,over:!active,lastClear:clear.cleared};
