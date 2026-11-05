@@ -111,7 +111,7 @@ function updateStageHUD(){
 
 function saveBest(){if(state.score>best())storage.set(bestKey(),String(state.score));}
 function cellClass(r,c){
- const filled=!!state.board[r][c],candy=(r*7+c*3+(state.stageLevel||0)*2)%6;
+ const filled=!!state.board[r][c],candy=state.mode==='classic'&&filled?(state.board[r][c]-1)%6:(r*7+c*3+(state.stageLevel||0)*2)%6;
  const inRegion=(Math.floor(r/3)+Math.floor(c/3))%2===0;
  let cl=filled?'cell block candy-'+candy:'cell'+(inRegion?' region':'');
  if(selected>=0&&state.tray[selected]&&hover){
