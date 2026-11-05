@@ -21,5 +21,5 @@ test('Capacitor and web display name both match NovaGrid',()=>{
  const html=readFileSync(new URL('../web/index.html',import.meta.url),'utf8');
  assert.equal(cfg.appName,'NovaGrid');
  assert.match(html,/<title>NovaGrid<\/title>/);
- assert.match(html,/<div class="brand">NovaGrid<\/div>/);
+ assert.match(html,/<div class="nova-title">NovaGrid/);
 });
