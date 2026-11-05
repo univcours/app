@@ -74,6 +74,6 @@ test('Candy skin, real visuals, audio effects and AdMob safe interstitial bridge
  for(const color of ['candy-0','candy-1','candy-2','candy-3','candy-4','candy-5'])assert.ok(css.includes('.'+color));
  for(const name of ['rocket','bomb','candy','victory'])assert.ok(sound.includes("kind==='"+name+"'"));
  assert.match(app,/arcadeEffect/);
- assert.match(ads,/interstitial:true,rewarded:false/);
+ assert.match(ads,/interstitial:true,rewarded:true/);
  assert.match(ads,/Date\.now\(\)-last<180000/);
 });
