@@ -1,11 +1,13 @@
 import {intensityForMoves,intensityLabel} from './progressive.js';
-import {initializeAds,gameFinished,maybeShowInterstitialOnReplay} from './ads.js';
+import {initializeAds,gameFinished,maybeShowInterstitialOnReplay,showOptionalReward} from './ads.js';
 import {SIZE,makeGame,runMove,canPlace,hasMove} from './engine.js';
 import {shapeDimensions,projectDragPoint,dragLift} from './drag.js';
 import {createGameAudio} from './audio.js';
 import {arcadeEffect} from './arcade-fx.js';
-import {stageConfig,startStage,stageWon,stageFailed,rankStage,awardStage,stageObjectiveText,initialProgress,normalizeProgress,isStageUnlocked,applySectorTurn,TOTAL_STAGES,SECTORS} from './stages.js';
-import {createGalaxyUI} from './galaxy-ui.js';
+import {createArcadePanels} from './arcade-panels.js';
+import {normalizeWallet,earnForClear,earnCoins,buyWithPoints,spendBooster,clearForShield,reviveWithHeart} from './economy.js';
+import {normalizeStats,recordFinished} from './player-stats.js';
+import {feverDisplay} from './fever.js';
 import {calculateBoardSize} from './layout.js';
 import {createBlockfallUI} from './falling-ui.js';
 const T={
@@ -15,11 +17,14 @@ const T={
 };
 const $=id=>document.getElementById(id);const today=()=>new Date().toLocaleDateString('en-CA',{timeZone:'UTC'});
 let lang='en';try{lang=localStorage.getItem('nova.lang')||((navigator.language||'en').slice(0,2));}catch{}if(!T[lang])lang='en';
-let state,selected=-1,hover=null,undoSnapshot=null,toastTimer=0,drag=null;
-let progress=initialProgress(),galaxy=null,falling=null,lastEarned=0;
-try{progress=normalizeProgress(JSON.parse(localStorage.getItem('nova.candy.progress.v1')||'null'));}catch{}
+let state,selected=-1,hover=null,undoSnapshot=null,undoWallet=null,toastTimer=0,drag=null;
+let falling=null,panels=null,wallet=normalizeWallet(null),stats=normalizeStats(null);
 const tr=k=>T[lang][k]||T.en[k]||k;
 const storage={get(k){try{return localStorage.getItem(k)}catch{return null}},set(k,v){try{localStorage.setItem(k,v)}catch{}}};
+try{wallet=normalizeWallet(JSON.parse(storage.get('nova.wallet.v1')||'null'));}catch{}
+try{stats=normalizeStats(JSON.parse(storage.get('nova.stats.v1')||'null'));}catch{}
+const saveWallet=()=>{storage.set('nova.wallet.v1',JSON.stringify(wallet));panels?.refresh();};
+const saveStats=()=>{storage.set('nova.stats.v1',JSON.stringify(stats));panels?.refresh();};
 const audio=createGameAudio({effectsEnabled:storage.get('nova.effects')!=='off',musicEnabled:storage.get('nova.music')!=='off'});
 function renderAudioButtons(){
  const fx=$('soundBtn'),music=$('musicBtn');
@@ -40,49 +45,20 @@ function renderAudioButtons(){
  fx.title=fx.getAttribute('aria-label');
  music.title=music.getAttribute('aria-label');
 }
-function saveProgress(){storage.set('nova.candy.progress.v1',JSON.stringify(progress));}
-function readGame(mode){try{const s=JSON.parse(storage.get(`nova.${mode}`));if(s&&s.board?.length===9&&s.tray?.length===3&&s.mode===mode&&(!s.date||mode!=='daily'||s.date===today()))return s;}catch{}return makeGame(mode,today());}
-function store(){storage.set(state.mode==='stage'?'nova.candy.stage.current':`nova.${state.mode}`,JSON.stringify(state));}
-function bestKey(){return state.mode==='stage'?`nova.best.candy.${state.stageLevel}`:`nova.best.${state.mode}`;}
-function best(){return Number(storage.get(bestKey())||0);}
-function setMode(mode){
- if(!['classic','daily'].includes(mode))return;
- cancelDrag();
- if(mode==='stage'){
-  let saved=null;try{saved=JSON.parse(storage.get('nova.candy.stage.current'));}catch{}
-  state=saved?.mode==='stage'&&isStageUnlocked(progress,saved.stageLevel)&&saved.board?.length===9&&saved.tray?.length===3&&!saved.over?saved:startStage(progress.unlocked);
- }else state=readGame(mode);
- selected=-1;undoSnapshot=null;audio.setStage(mode==='stage'?state.stageLevel:0);
- document.querySelectorAll('[data-mode]').forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));
+function readGame(){
+ try{const s=JSON.parse(storage.get('nova.classic'));if(s&&s.board?.length===9&&s.tray?.length===3&&s.mode==='classic')return s;}catch{}
+ return makeGame('classic',today());
+}
+function store(){storage.set('nova.classic',JSON.stringify(state));}
+function best(){return Number(storage.get('nova.best.classic')||0);}
+function setMode(mode='classic'){
+ if(mode!=='classic')return;
+ cancelDrag();state=readGame();selected=-1;undoSnapshot=null;undoWallet=null;
+ audio.setStage(0);
+ document.querySelectorAll('[data-mode]').forEach(b=>b.classList.toggle('active',b.dataset.mode==='classic'));
  render();
 }
-function launchStage(level){
- if(!isStageUnlocked(progress,level))return;
- cancelDrag();lastEarned=0;audio.setStage(level);
- if(stageConfig(level).sectorId==='blockfall'){
-  storage.set('nova.blockfall.lastLevel',String(level));
-  document.querySelectorAll('[data-mode]').forEach(b=>b.classList.toggle('active',b.dataset.mode==='blockfall'));
-  falling?.open(level);
-  return;
- }
- let saved=null;try{saved=JSON.parse(storage.get('nova.candy.stage.current'));}catch{}
- state=saved?.mode==='stage'&&saved.stageLevel===level&&!saved.over&&saved.board?.length===9&&saved.tray?.length===3?saved:startStage(level);
- selected=-1;undoSnapshot=null;
- document.querySelectorAll('[data-mode]').forEach(b=>b.classList.toggle('active',b.dataset.mode==='stage'));
- render();store();
-}
-function updateStageHUD(){
- const hud=$('stageHud');
- if(!hud||state?.mode!=='stage'){if(hud)hud.hidden=true;return;}
- hud.hidden=false;
- const cfg=stageConfig(state.stageLevel);
- $('stageTitle').textContent=SECTORS[cfg.sector].icon+' '+state.stageLevel+' · '+(SECTORS[cfg.sector].name[lang]||SECTORS[cfg.sector].name.en)+(cfg.boss?' · 💥 '+state.bossHp+'/'+cfg.bossHp:'');
- $('stageStats').textContent=stageObjectiveText(state,lang);
- $('stageCoins').textContent='✦ '+progress.coins;
- $('stageProgressFill').style.width=Math.min(100,Math.round(state.score/cfg.scoreTarget*100))+'%';
-}
-
-function saveBest(){if(state.score>best())storage.set(bestKey(),String(state.score));}
+function saveBest(){if(state.score>best())storage.set('nova.best.classic',String(state.score));}
 function cellClass(r,c){
  const filled=!!state.board[r][c],candy=(r*7+c*3+(state.stageLevel||0)*2)%6;
  const inRegion=(Math.floor(r/3)+Math.floor(c/3))%2===0;
@@ -201,81 +177,110 @@ function cancelDrag(){
  const d=clearDrag();
  if(d){hover=null;if(state)updateHighlights();}
 }
-function render(){document.documentElement.dataset.sector=state.mode==='stage'?stageConfig(state.stageLevel).sectorId:'classic';document.documentElement.lang=lang;document.documentElement.dir=lang==='ar'?'rtl':'ltr';const intensity=intensityForMoves(state.moves||0);const chip=$('intensityChip');if(chip){chip.textContent='⚡ '+intensity+'/9';chip.title=intensityLabel(intensity,lang);chip.setAttribute('aria-label',chip.title);}document.querySelectorAll('[data-i18n]').forEach(el=>{el.textContent=tr(el.dataset.i18n)});$('languageBtn').textContent=lang.toUpperCase()+'⌄';$('score').textContent=state.score.toLocaleString();$('best').textContent=Math.max(best(),state.score).toLocaleString();$('combo').textContent='×'+state.combo;$('undoBtn').disabled=state.usedUndo||!undoSnapshot||state.over;$('message').textContent=selected>=0?tr('selected'):tr('hint');renderAudioButtons();updateStageHUD();$('dailyDot').style.display=storage.get('nova.daily.completed.'+today())?'none':'block';renderBoard();renderPieces();}
+function render(){
+ document.documentElement.dataset.sector='classic';
+ document.documentElement.lang=lang;
+ document.documentElement.dir=lang==='ar'?'rtl':'ltr';
+ const intensity=intensityForMoves(state.moves||0);
+ const chip=$('intensityChip');chip.textContent='⚡ '+intensity+'/9';chip.title=intensityLabel(intensity,lang);chip.setAttribute('aria-label',chip.title);
+ const fever=feverDisplay(state.fever);
+ $('feverFill').style.width=fever.meter+'%';
+ $('feverHud').classList.toggle('active',fever.active);
+ $('feverLabel').textContent=fever.active?'FEVER ×2':'FEVER';
+ for(const el of document.querySelectorAll('[data-i18n]'))el.textContent=tr(el.dataset.i18n);
+ $('languageBtn').textContent=lang.toUpperCase()+'⌄';
+ $('score').textContent=state.score.toLocaleString();
+ $('best').textContent=Math.max(best(),state.score).toLocaleString();
+ $('combo').textContent='×'+state.combo;
+ $('undoBtn').disabled=state.usedUndo||!undoSnapshot||state.over;
+ $('shieldCount').textContent=wallet.shield;
+ $('shieldBtn').disabled=state.over||wallet.shield<1||!state.board.some(row=>row.some(Boolean));
+ $('message').textContent=selected>=0?tr('selected'):tr('hint');
+ renderAudioButtons();renderBoard();renderPieces();
+}
 function notify(text){$('toast').textContent=text;$('toast').classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').classList.remove('show'),1800);}
-function placeAt(row,col){if(state.over)return;audio.unlock();if(selected<0){notify(tr('hint'));return;}const snapshot=JSON.parse(JSON.stringify(state));const result=runMove(state,selected,row,col);if(!result){notify(tr('invalid'));audio.effect('invalid');return;}if(!state.usedUndo)undoSnapshot=snapshot;state=result.state;selected=-1;hover=null;
- if(state.mode==='stage'){
-  state.clears=(snapshot.clears||0)+result.groups;
-  state.rows=(snapshot.rows||0)+result.rows;
-  state.columns=(snapshot.columns||0)+result.columns;
-  state.squares=(snapshot.squares||0)+result.squares;
-  state.cellsCleared=(snapshot.cellsCleared||0)+result.cleared;
-  state.clearingMoves=(snapshot.clearingMoves||0)+(result.groups>0?1:0);
-  state.maxCombo=Math.max(snapshot.maxCombo||0,state.combo||0);
-  // Win after real score + special challenges; no artificial game-over required.
-  state=applySectorTurn(state,result);
-  if(stageWon(state)){
-   state.won=true;state.over=true;
-   const awarded=awardStage(progress,state.stageLevel,state);
-   progress=awarded.progress;lastEarned=awarded.earned;saveProgress();
-  }else if(state.over&&stageFailed(state)){state.won=false;}
- }
+function placeAt(row,col){
+ if(state.over)return;
+ audio.unlock();
+ if(selected<0){notify(tr('hint'));return;}
+ const snapshot=JSON.parse(JSON.stringify(state)),walletBefore={...wallet};
+ const result=runMove(state,selected,row,col);
+ if(!result){notify(tr('invalid'));audio.effect('invalid');return;}
+ if(!state.usedUndo){undoSnapshot=snapshot;undoWallet=walletBefore;}
+ state=result.state;selected=-1;hover=null;
+ const income=earnForClear(result,state.combo);
+ if(income){wallet=earnCoins(wallet,income);saveWallet();}
  saveBest();store();
- const special=state.mode==='stage'?state.specialEvent:null;
- if(special){
-  audio.effect(special.kind);
-  notify((special.kind==='rocket'?'🚀 ROCKET RUSH!':special.kind==='bomb'?'💣 CANDY BOOM!':'🍬 CANDY POP!')+' +'+(special.bonus||result.gained));
-  try{navigator.vibrate?.(special.kind==='bomb'?[26,40,55]:special.kind==='rocket'?[15,24,22]:[12,16,12]);}catch{} 
- }else if(result.groups){notify('🍬 '+tr('nice')+' +'+result.gained);audio.effect('clear');}
- else audio.effect('place');
- render();if(special)arcadeEffect($('candyFxLayer'),special);
+ if(result.feverActivated){
+  notify('⚡ NOVA FEVER ×2!');audio.effect('victory');
+  arcadeEffect($('candyFxLayer'),{kind:'bomb',center:[row,col]});
+ }else if(result.groups){
+  notify('✦ '+tr('nice')+' +'+result.gained);
+  audio.effect(result.groups>=2?'rocket':'candy');
+  arcadeEffect($('candyFxLayer'),{kind:result.groups>=3?'bomb':result.groups>=2?'rocket':'candy',center:[row,col],direction:result.rows?'row':'column'});
+  try{navigator.vibrate?.(result.groups>=2?[18,20,28]:12);}catch{}
+ }else audio.effect('place');
+ if(intensityForMoves(state.moves)!==intensityForMoves(snapshot.moves)){
+  audio.setStage(Math.min(3,Math.ceil(intensityForMoves(state.moves)/3)));
+  notify('⚡ '+intensityLabel(intensityForMoves(state.moves),lang));
+ }
+ render();
  if(state.over){
-  if(state.won)audio.effect('victory');else if(state.mode==='stage')audio.effect('gameover');
-  gameFinished();if(state.mode==='daily')storage.set('nova.daily.completed.'+today(),'1');
-  // Ignore an old victory timer if the player has already restarted or
-  // entered another mode. Otherwise a stale modal appears over a new game.
-  const finishedState=state;
-  setTimeout(()=>{if(state===finishedState&&state.over)showEnd();},special?650:360);
+  audio.effect('gameover');gameFinished();
+  if(!state.recordedFinished){
+   stats=recordFinished(stats,{...state,intensity:intensityForMoves(state.moves)});
+   state.recordedFinished=true;saveStats();store();
+  }
+  const finished=state;
+  setTimeout(()=>{if(state===finished&&state.over)showEnd();},500);
  }
 }
 function showEnd(){
- $('dialog').classList.toggle('candy-win',state.mode==='stage'&&!!state.won);
- if(state.mode==='stage'){
-  const win=!!state.won;
-  const messages={
-   en:[win?'Stage complete!':'Try again!','Earned ','Nova Points', 'Galaxy map','Retry'],
-   fr:[win?'Niveau réussi !':'Réessayez !','Gagné ','Points Nova','Carte galactique','Réessayer'],
-   ar:[win?'أكملت المرحلة!':'حاول من جديد!','ربحت ','نقاط نوفا','خريطة المجرات','إعادة المحاولة']
-  };
-  const [title,earned,points,map,retry]=messages[lang]||messages.en;
-  const winTitles={
-   en:['🍬 SWEET VICTORY!','🚀 ROCKET MASTER!','🏆 CANDY CHAMPION!'],
-   fr:['🍬 VICTOIRE SUCRÉE !','🚀 MAÎTRE DES FUSÉES !','🏆 CHAMPION CANDY !'],
-   ar:['🍬 انتصار حلو!','🚀 سيد الصواريخ!','🏆 بطل القنابل!']
-  };
-  $('dialogTitle').textContent=win?winTitles[lang][state.stageLevel-1]:title;
-  $('dialogBody').textContent=win?'★'.repeat(progress.completed[state.stageLevel]||1)+' · '+earned+lastEarned+' '+points:
-   '✦ '+stageObjectiveText(state,lang)+' · '+(lang==='ar'?'نفس المرحلة حتى تنجح':lang==='fr'?'Ce niveau reste verrouillé':'Replay this level to unlock the next');
-  $('dialogPlay').textContent=win?map:retry;
- }else{
-  $('dialogTitle').textContent=tr('gameOver');$('dialogBody').textContent=tr('gameOverBody');
-  $('dialogPlay').textContent=tr('playAgain');
- }
- $('dialogScore').textContent=state.score.toLocaleString();$('dialog').hidden=false;
+ $('dialogTitle').textContent=tr('gameOver');
+ $('dialogBody').textContent=tr('gameOverBody');
+ $('dialogPlay').textContent=tr('playAgain');
+ $('dialogScore').textContent=state.score.toLocaleString();
+ $('heartContinue').hidden=!state.over||wallet.heart<1;
+ $('dialog').hidden=false;
 }
-function restart(){cancelDrag();audio.effect('new');state=state.mode==='stage'?startStage(state.stageLevel):makeGame(state.mode,today());selected=-1;undoSnapshot=null;lastEarned=0;store();$('dialog').hidden=true;render();}
-$('undoBtn').addEventListener('click',()=>{if(!undoSnapshot||state.usedUndo)return;state={...undoSnapshot,usedUndo:true};undoSnapshot=null;audio.unlock();audio.effect('undo');selected=-1;hover=null;store();render();notify(tr('undoUsed'));});
+function restart(){
+ cancelDrag();audio.effect('new');state=makeGame('classic',today());
+ selected=-1;undoSnapshot=null;undoWallet=null;store();$('dialog').hidden=true;render();
+}
+$('undoBtn').addEventListener('click',()=>{
+ if(!undoSnapshot||state.usedUndo)return;
+ state={...undoSnapshot,usedUndo:true};undoSnapshot=null;
+ if(undoWallet){wallet=normalizeWallet(undoWallet);saveWallet();undoWallet=null;}
+ audio.unlock();audio.effect('undo');selected=-1;hover=null;store();render();notify(tr('undoUsed'));
+});
+$('shieldBtn').addEventListener('click',()=>{
+ if(state.over)return;
+ const board=clearForShield(state.board,6);
+ if(!board)return;
+ const outcome=spendBooster(wallet,'shield');
+ if(!outcome.ok){panels?.show('shop');return;}
+ wallet=outcome.wallet;saveWallet();state={...state,board,assisted:true};
+ undoSnapshot=null;undoWallet=null;store();render();
+ audio.unlock();audio.effect('rocket');arcadeEffect($('candyFxLayer'),{kind:'rocket',center:[4,4],direction:'row'});
+ notify(lang==='ar'?'🛡️ تفتحات مساحة جديدة':lang==='fr'?'🛡️ Espace libéré':'🛡️ Shield cleared blocks');
+});
+$('heartContinue').addEventListener('click',()=>{
+ const recovered=reviveWithHeart(state);
+ if(!recovered)return;
+ const outcome=spendBooster(wallet,'heart');if(!outcome.ok)return;
+ wallet=outcome.wallet;saveWallet();state=recovered;selected=-1;undoSnapshot=null;undoWallet=null;
+ store();$('dialog').hidden=true;audio.unlock();audio.effect('victory');render();
+});
 $('newBtn').addEventListener('click',()=>{if(state.moves>0&&!window.confirm(tr('newConfirm')))return;restart();});
-$('dialogPlay').addEventListener('click',async()=>{const btn=$('dialogPlay');btn.disabled=true;try{await maybeShowInterstitialOnReplay();}finally{btn.disabled=false;if(state.mode==='stage'&&state.won){$('dialog').hidden=true;galaxy?.open(state.stageLevel+1);}else restart();}});$('dialogClose').addEventListener('click',()=>$('dialog').hidden=true);
+$('dialogPlay').addEventListener('click',async()=>{
+ const btn=$('dialogPlay');btn.disabled=true;
+ try{await maybeShowInterstitialOnReplay();}finally{btn.disabled=false;restart();}
+});
+$('dialogClose').addEventListener('click',()=>{$('dialog').hidden=true;});
 document.querySelectorAll('[data-mode]').forEach(btn=>btn.addEventListener('click',()=>{
- if(btn.dataset.mode==='blockfall'){
-  falling?.open(12001); // independent bonus mode, not a campaign stage
-  return;
- }
- setMode(btn.dataset.mode);
- 
+ if(btn.dataset.mode==='blockfall'){falling?.open(12001);return;}
+ setMode('classic');
 }));
-
 $('soundBtn').addEventListener('click',()=>{
  audio.unlock();audio.setEffects(!audio.effectsEnabled);
  storage.set('nova.effects',audio.effectsEnabled?'on':'off');
@@ -286,19 +291,32 @@ $('musicBtn').addEventListener('click',()=>{
  storage.set('nova.music',audio.musicEnabled?'on':'off');
  renderAudioButtons();
 });
-$('languageBtn').addEventListener('click',()=>{lang=['en','fr','ar'][(['en','fr','ar'].indexOf(lang)+1)%3];storage.set('nova.lang',lang);render();if(falling?.visible)falling.render();});
-$('shareBtn').addEventListener('click',async()=>{const text=`✦ NovaGrid ${state.mode==='daily'?today():''} — ${state.score} points!`;try{if(navigator.share)await navigator.share({text});else if(navigator.clipboard){await navigator.clipboard.writeText(text);notify(tr('copy'));}else notify(text);}catch{}});
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){cancelDrag();galaxy?.close();$('dialog').hidden=true;selected=-1;hover=null;render();}if(/^[1-3]$/.test(e.key)&&state.tray[Number(e.key)-1]){selected=Number(e.key)-1;render();}});
-state=readGame('classic');
+$('languageBtn').addEventListener('click',()=>{lang=['en','fr','ar'][(['en','fr','ar'].indexOf(lang)+1)%3];storage.set('nova.lang',lang);render();if(falling?.visible)falling.render();panels?.refresh();});
+$('shareBtn').addEventListener('click',async()=>{const text=`✦ NovaGrid — ${state.score} points!`;try{if(navigator.share)await navigator.share({text});else if(navigator.clipboard){await navigator.clipboard.writeText(text);notify(tr('copy'));}else notify(text);}catch{}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){cancelDrag();$('dialog').hidden=true;selected=-1;hover=null;render();}if(/^[1-3]$/.test(e.key)&&state.tray[Number(e.key)-1]){selected=Number(e.key)-1;render();}});
+state=readGame();
 falling=createBlockfallUI({
- onFinish:()=>{gameFinished();return 0;},
+ onFinish:game=>{gameFinished();stats=recordFinished(stats,{...game,mode:'falling',intensity:Math.min(9,1+Math.floor(game.drops/8))});saveStats();
+  const earned=Math.min(150,Math.max(0,Math.floor(game.lines*12)));if(earned){wallet=earnCoins(wallet,earned);saveWallet();}return earned;},
  onExit:()=>{setMode('classic');},
  getLanguage:()=>lang,
  onSound:kind=>{audio.unlock();audio.effect(kind||'pick');},
  onAdBreak:maybeShowInterstitialOnReplay
 });
+panels=createArcadePanels({
+ getWallet:()=>wallet,getStats:()=>stats,getLanguage:()=>lang,
+ onBuy:id=>{const result=buyWithPoints(wallet,id);if(!result.ok)return false;wallet=result.wallet;saveWallet();render();audio.unlock();audio.effect('pick');return true;},
+ onReward:async()=>{
+  const key='nova.rewarded.'+today(),count=Number(storage.get(key)||0);
+  if(count>=3)return false;
+  const rewarded=await showOptionalReward();
+  if(!rewarded)return false;
+  storage.set(key,String(count+1));wallet=earnCoins(wallet,50);saveWallet();render();return true;
+ }
+});
+$('shopOpen').addEventListener('click',()=>panels.show('shop'));
+$('statsOpen').addEventListener('click',()=>panels.show('stats'));
 setMode('classic');
-
 void initializeAds();
 
 /* Keep 9x9 board fully visible without page scrolling.
