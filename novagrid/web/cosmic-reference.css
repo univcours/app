@@ -154,3 +154,29 @@ footer{height:10px!important}
  .nova-sky::before,.nova-sky .nova-galaxy,.nova-sky .nova-orbit,.nova-sky .nova-stars,
  .nova-combo-announce,.nova-combo-ring{animation:none!important}
  .nova-fever-rail>i{transition:none!important}}
+
+
+/* Tall authentic puzzle board: no stretch or decorative unplayable cells. */
+html[data-grid="portrait"] .board{
+ grid-template-columns:repeat(10,minmax(0,1fr))!important;
+ grid-template-rows:repeat(12,minmax(0,1fr))!important;
+ aspect-ratio:10/12!important;
+ width:100%!important;
+}
+html[data-grid="portrait"] .boardwrap{
+ margin:4px auto 5px!important;
+ max-width:calc(100vw - 20px)!important;
+}
+html[data-grid="portrait"] .gamecard{
+ justify-content:flex-start!important;
+ gap:5px!important;
+}
+html[data-grid="portrait"] .pieces{margin-top:4px!important}
+html[data-grid="portrait"] .gametools{margin-top:2px!important}
+html[data-grid="portrait"] .gamehint{height:1px!important}
+html[data-grid="portrait"] .cell{aspect-ratio:1/1!important}
+@media(max-height:690px){
+ html[data-grid="portrait"] .gamecard{gap:2px!important}
+ html[data-grid="portrait"] .pieces{margin-top:0!important}
+ html[data-grid="portrait"] .boardwrap{margin-top:1px!important;margin-bottom:1px!important}
+}
