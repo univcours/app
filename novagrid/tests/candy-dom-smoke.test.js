@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {JSDOM} from 'jsdom';
 
-test('Candy Arcade boots, locks Stage 2+3, lets player move, and bonus game opens',async()=>{
+test('NovaGrid boots with two neon games, keeps its 9x9 grid and opens endless Blockfall',async()=>{
  const html=readFileSync(new URL('../web/index.html',import.meta.url),'utf8');
  const dom=new JSDOM(html,{url:'https://novagrid.local/',pretendToBeVisual:true});
  const w=dom.window;
@@ -15,32 +15,26 @@ test('Candy Arcade boots, locks Stage 2+3, lets player move, and bonus game open
  Object.defineProperty(globalThis,'getComputedStyle',{configurable:true,value:w.getComputedStyle.bind(w)});
  try{
   await import('../web/app.js');
-  const gallery=w.document.querySelector('#galaxyOverlay');
-  assert.ok(gallery);
-  assert.equal(gallery.hidden,false,'new users see three-stage selection on first launch');
-  const cards=[...w.document.querySelectorAll('.candy-stage-card')];
-  assert.equal(cards.length,3);
-  assert.equal(cards[0].getAttribute('aria-disabled'),'false');
-  assert.equal(cards[1].getAttribute('aria-disabled'),'true');
-  assert.equal(cards[2].getAttribute('aria-disabled'),'true');
-  cards[1].click();
-  assert.equal(gallery.hidden,false,'a locked stage cannot be played');
-  cards[0].click();
-  assert.equal(gallery.hidden,true);
+  const modes=[...w.document.querySelectorAll('.neon-duo-modes [data-mode]')];
+  assert.deepEqual(modes.map(el=>el.dataset.mode),['classic','blockfall']);
   assert.equal(w.document.querySelectorAll('#board .cell').length,81);
   const piece=w.document.querySelector('#pieces .piece:not([disabled])');
-  assert.ok(piece,'gameplay must display a selectable shape');
+  assert.ok(piece,'an initial puzzle piece is available');
   piece.dispatchEvent(new w.MouseEvent('click',{bubbles:true,detail:0}));
-  const targets=[...w.document.querySelectorAll('#board .cell')];
-  targets[0].click();
+  const cells=[...w.document.querySelectorAll('#board .cell')];
+  cells[0].click();
   assert.ok(Number(w.document.querySelector('#score').textContent.replace(/,/g,''))>0,'real placement updates score');
-  assert.ok(w.document.querySelector('#stageProgressFill'));
-  assert.ok(w.document.querySelector('#candyFxLayer'));
-  const mode=[...w.document.querySelectorAll('[data-mode]')].find(x=>x.dataset.mode==='blockfall');
-  assert.ok(mode);
-  mode.click();
-  assert.equal(w.document.querySelector('#blockfallOverlay').hidden,false);
+  modes[1].click();
+  const overlay=w.document.querySelector('#blockfallOverlay');
+  assert.ok(overlay&&!overlay.hidden,'falling mode opens');
+  assert.equal(w.document.querySelectorAll('#fallBoard .fall-cell').length,180);
+  assert.match(w.document.querySelector('#fallStage').textContent,/Endless arcade/);
+  assert.equal(w.document.querySelector('#fallResult').hidden,true);
+  w.document.dispatchEvent(new w.KeyboardEvent('keydown',{bubbles:true,key:' '}));
+  w.document.dispatchEvent(new w.KeyboardEvent('keydown',{bubbles:true,key:' '}));
+  assert.equal(w.document.querySelector('#fallResult').hidden,true,'endless play does not stop after two pieces');
   w.document.querySelector('#fallClose').click();
-  assert.equal(w.document.querySelector('#blockfallOverlay').hidden,true);
+  assert.equal(overlay.hidden,true);
+  assert.equal(w.document.querySelectorAll('#board .cell').length,81,'original 9x9 game is still available');
  }finally{dom.window.close();}
 });
