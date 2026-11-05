@@ -1,0 +1,156 @@
+/*
+ NovaGrid reference-matching pass: based on user's 920x~1600 Cosmic Combo Blast.
+ This does not paint a static gameplay screenshot: the board, HUD and animations
+ remain interactive real game state.
+*/
+:root{--glass-blue:#1cf0ff;--glass-purple:#c63aff;--glass-gold:#ffe74f;--glass-pink:#ff4dbb;--glass-green:#20ffbf}
+html,body{background:#060320!important}
+body{background:radial-gradient(circle at 51% 8%,#5022a1b8,transparent 40%),#08051e!important}
+.nova-sky{position:fixed;z-index:0;pointer-events:none;inset:0;overflow:hidden;isolation:isolate}
+.nova-sky::before{content:"";position:absolute;inset:-15%;opacity:.94;
+ background:
+ radial-gradient(ellipse 45% 24% at 50% 10%,#a446e568,transparent 82%),
+ radial-gradient(ellipse 36% 21% at 90% 19%,#e434cd70,transparent 77%),
+ radial-gradient(ellipse 38% 24% at 5% 60%,#146bff84,transparent 79%),
+ radial-gradient(ellipse 55% 30% at 50% 96%,#6a28e2b3,transparent 80%);
+ animation:novaNebulaPulse 19s ease-in-out infinite alternate}
+.nova-sky .nova-planet{position:absolute;left:-25vw;top:-19vw;width:81vw;aspect-ratio:1;border-radius:50%;opacity:.72;
+ background:radial-gradient(ellipse at 72% 73%,#d4c5ff2c 1%,#23177855 29%,#0c1846 58%,transparent 70%);
+ box-shadow:inset -8px -17px 12px #14aaff33,0 0 26px #ab5fff42;
+ transform:rotate(-23deg)}
+.nova-sky .nova-galaxy{position:absolute;right:-19vw;top:-23vw;width:74vw;aspect-ratio:1;border-radius:50%;
+ background:repeating-conic-gradient(from 30deg,#cb32ff14 0 12deg,transparent 13deg 35deg);
+ filter:blur(5px);animation:novaGalaxyTurn 85s linear infinite}
+.nova-sky .nova-orbit{position:absolute;top:20%;left:-21%;width:145%;height:38%;border-radius:50%;
+ border-top:1.5px solid #50caffaa;box-shadow:0 -3px 8px #07a9ff77;
+ transform:rotate(-22deg);opacity:.47;animation:novaOrbitSway 19s ease-in-out infinite alternate}
+.nova-sky .nova-orbit.alt{top:38%;left:-34%;width:160%;border-color:#e98aff78;transform:rotate(25deg);
+ box-shadow:0 -2px 12px #f957dd66;animation-delay:-9s}
+.nova-sky .nova-stars{position:absolute;inset:0;
+ background-image:radial-gradient(2px 2px at 16% 16%,#ffffffd4,transparent),
+ radial-gradient(2px 2px at 62% 9%,#ffffffbb,transparent),
+ radial-gradient(1px 1px at 45% 66%,#ffffffcf,transparent),
+ radial-gradient(1px 1px at 81% 86%,#ffffffa8,transparent),
+ radial-gradient(2px 2px at 7% 43%,#64efffe1,transparent),
+ radial-gradient(2px 2px at 77% 51%,#c7aafff0,transparent);
+ background-size:270px 325px;animation:novaStarDrift 38s linear infinite}
+@keyframes novaNebulaPulse{from{transform:translate3d(-2%,1%,0) scale(1)}to{transform:translate3d(3%,-3%,0) scale(1.14)}}
+@keyframes novaGalaxyTurn{to{transform:rotate(360deg)}}
+@keyframes novaOrbitSway{to{translate:3% -4%;opacity:.85}}
+@keyframes novaStarDrift{to{background-position:35px -170px}}
+/* The actual screenshot has the logo centered between tiny setting and pause buttons. */
+.shell{position:relative;z-index:1;padding:3px 4px 2px!important;gap:3px!important;max-width:520px!important}
+.nova-reference-header{height:38px!important;min-height:38px!important;display:grid!important;grid-template-columns:40px 1fr 40px!important;
+ position:relative;align-items:center;justify-items:center;padding:0 5px!important}
+.nova-header-btn{display:grid;place-items:center;height:34px;width:34px;min-width:34px;padding:0;
+ border:1.5px solid #a8eaff!important;border-radius:10px!important;background:linear-gradient(140deg,#2e6de5b0,#13296dce)!important;
+ font-size:20px;color:#f9fcff;text-shadow:0 0 8px #fff;
+ box-shadow:inset 0 2px 2px #fff9,inset 0 -2px 3px #172c88ab,0 0 10px #3ae8ffba!important}
+.nova-header-btn:active{transform:translateY(2px)}
+.nova-title{font-size:clamp(22px,6vw,30px);font-weight:1000;letter-spacing:-1px;font-style:italic;
+ background:linear-gradient(180deg,#fff 17%,#f1caff 40%,#8ecbff 80%,#fff);
+ background-clip:text;-webkit-background-clip:text;color:transparent;
+ filter:drop-shadow(0 0 5px #9d69ff);text-shadow:0 0 9px #c37aff38;line-height:1}
+.nova-title-star{font-size:15px;vertical-align:top;color:#fff}
+.nova-settings[hidden],.nova-pause-overlay[hidden]{display:none!important}
+.nova-settings{position:absolute;z-index:12;left:2px;top:40px;border:1px solid #a0e9ff;border-radius:15px;
+ background:linear-gradient(130deg,#122763f2,#411776f4);padding:10px;box-shadow:0 10px 30px #000b,0 0 18px #4d81ff7c}
+.nova-settings-title{color:#effaff;font-weight:900;letter-spacing:1px;font-size:10px;margin:0 0 8px}
+.nova-settings .topactions{display:flex!important;gap:9px}
+.nova-pause-overlay{position:fixed;inset:0;z-index:80;background:#05051bbd;display:grid;place-items:center;backdrop-filter:blur(9px)}
+.nova-pause-dialog{min-width:min(84vw,300px);padding:24px;display:grid;gap:18px;text-align:center;border:2px solid #aaf7ff;
+ border-radius:22px;background:linear-gradient(155deg,#2256a4f1,#3e1584f1);
+ box-shadow:0 0 45px #4879ff9a,inset 0 2px 3px #fff8}
+.nova-pause-dialog strong{font-size:24px;color:#f4faff;text-shadow:0 0 15px #bd72ff}
+.nova-pause-dialog button{border:1px solid #b6f8ff;border-radius:12px;color:white;font-weight:900;
+ background:linear-gradient(110deg,#17adf3,#a23aff);box-shadow:inset 0 2px #ffffffb3,0 0 15px #33d5ff8a;padding:14px}
+/* Reference HUD: one very small row, then board starts immediately */
+.neon-duo-modes{height:30px!important}
+.neon-duo-modes .mode{border-radius:10px!important;font-size:11px!important}
+.gamecard{flex:1 1 0!important;gap:2px!important;padding:4px!important;border-radius:16px!important;
+ background:linear-gradient(152deg,#090e36ab,#240a56a8 65%,#061239b3)!important;
+ border:1px solid #87cfff88!important;box-shadow:inset 0 0 26px #4121a366,0 0 18px #786aff33!important}
+.scorebar{position:relative!important;padding-left:0!important;margin:0!important;height:32px!important;
+ display:grid!important;grid-template-columns:38px 1fr 1fr minmax(96px,1.35fr)!important;gap:5px!important}
+.scorebar .intensity-chip{position:static!important;transform:none!important;margin:0!important;padding:4px 2px!important;
+ font-size:9px!important;text-align:center!important;border:0!important;box-shadow:none!important;background:#15235d70!important}
+.scorebar .scorebox{min-width:0!important;gap:0!important}
+.scorebar .scorebox>span{font-size:8px!important;letter-spacing:.1px!important}
+.scorebar .scorebox strong{font-size:16px!important;font-variant-numeric:tabular-nums}
+.scorebar .scoreline,.scorebar .scorebox:has(#best){display:none!important}
+.nova-fever{display:grid;grid-template-columns:1fr auto;grid-template-rows:auto 6px;align-items:center;column-gap:4px;min-width:0}
+.nova-fever small{font-weight:850;font-size:8px;color:#ffd8ff;line-height:1}
+.nova-fever b{font-size:9px;font-variant-numeric:tabular-nums;color:#f8e9ff}
+.nova-fever-rail{grid-column:span 2;height:6px;border-radius:9px;background:#050a36;border:1px solid #b496ffb3;overflow:hidden;
+ box-shadow:inset 0 0 3px #222}
+.nova-fever-rail>i{display:block;height:100%;width:0;border-radius:9px;
+ background:linear-gradient(90deg,#2dffff,#cf5aff 55%,#ff61b1);
+ box-shadow:0 0 9px #f67aff;transition:width .23s ease}
+.boardwrap{position:relative;flex:0 0 auto!important;width:var(--board-size)!important;
+ border:2px solid #a0f7ff!important;border-radius:16px!important;padding:4px!important;
+ background:linear-gradient(155deg,#080824ee,#22083bf7)!important;
+ box-shadow:inset 0 0 16px #292578df,0 0 2px #fff,0 0 16px #009effdd,0 0 21px #e133ef7d!important}
+.board{gap:2px!important}
+.board .cell{border-radius:7px!important}
+.board .cell:not(.block):not(.preview){background:linear-gradient(145deg,#142052bb,#190e3add)!important;
+ border:1px solid #92a2ff2c!important;box-shadow:inset 0 2px 3px #0003!important}
+.board .cell.block,.micro:not(.blank){
+ --cube-color:var(--candy-base,#35cdff);
+ border:1.5px solid #e8ffffdf!important;border-radius:clamp(5px,1.8vw,9px)!important;
+ background:
+ linear-gradient(168deg,#ffffffed 0%,#ffffffb3 6%,#ffffff20 24%,#00000028 82%,#fff8 100%),
+ linear-gradient(130deg,var(--candy-light,#c5ffff),var(--cube-color) 50%,var(--candy-dark,#2157cf))!important;
+ box-shadow:inset 0 2px 2px #ffffffee,inset 2px 0 2px #ffffffbb,
+ inset -3px -4px 3px #0917448a,0 0 4px #ffffffb8,0 0 12px var(--candy-glow,#51d9ffcc)!important;
+ overflow:hidden;position:relative}
+.board .cell.block::before,.micro:not(.blank)::before{
+ content:""!important;position:absolute!important;left:9%!important;top:4%!important;
+ width:78%!important;height:22%!important;border-radius:90%!important;
+ background:linear-gradient(#ffffffff,#ffffff00)!important;opacity:.92!important;pointer-events:none}
+.board .cell.block::after,.micro:not(.blank)::after{content:""!important;position:absolute!important;inset:8%!important;
+ border-radius:5px!important;border:1px solid #ffffff83!important;box-shadow:inset 0 0 5px #ffffff8a!important;pointer-events:none}
+.board .cell.preview{background:linear-gradient(145deg,#c8ffff,#18e9c7)!important;box-shadow:0 0 13px #22ffeeb8!important}
+.candy-0{--candy-light:#ffcaff!important;--candy-base:#ff40b2!important;--candy-dark:#af165d!important;--candy-glow:#ff30b9e7!important}
+.candy-1{--candy-light:#ffff9d!important;--candy-base:#ffca1d!important;--candy-dark:#c15d03!important;--candy-glow:#ffd92de7!important}
+.candy-2{--candy-light:#fff6aa!important;--candy-base:#ff9a19!important;--candy-dark:#bd3500!important;--candy-glow:#ff9c34e7!important}
+.candy-3{--candy-light:#caffc7!important;--candy-base:#00efa9!important;--candy-dark:#026e77!important;--candy-glow:#00ffd3e5!important}
+.candy-4{--candy-light:#d3ffff!important;--candy-base:#04d6ff!important;--candy-dark:#0565c8!important;--candy-glow:#05d8ffe9!important}
+.candy-5{--candy-light:#ffd3ff!important;--candy-base:#a13aff!important;--candy-dark:#4e079b!important;--candy-glow:#a038fff2!important}
+.pieces{height:clamp(60px,9.5dvh,78px)!important;gap:2px!important;border:1.5px solid #94e6ffab!important;
+ border-radius:17px!important;padding:4px!important;box-shadow:inset 0 2px 6px #e5f5ff26,0 0 12px #54afff74;
+ background:linear-gradient(115deg,#0a2954bc,#341456aa)!important}
+.piece{background:transparent!important;border:0!important;box-shadow:none!important;border-radius:10px!important}
+.piece:not(:last-child){border-right:1px solid #a0a9ff5e!important}
+.piece.selected{background:#6c50ed50!important;box-shadow:0 0 12px #91eaff69!important}
+.micro{border-radius:3px!important}
+.gametools{height:30px!important}
+.utility{font-size:10px!important;border-radius:9px!important}
+footer{height:10px!important}
+/* Multi-shard Combo Blast, earned by actually clearing rows/columns. */
+.candy-fx{overflow:hidden!important;isolation:isolate}
+.candy-fx-icon.combo{font-size:clamp(34px,12vw,65px)!important;z-index:2;text-shadow:0 0 20px #ffe88e,0 0 35px #ff64ef}
+.nova-combo-announce{position:absolute;top:47%;left:50%;transform:translate(-50%,-50%);
+ font-style:italic;font-weight:1000;white-space:nowrap;text-align:center;
+ font-size:clamp(23px,7vw,47px);letter-spacing:-1px;color:#fff1ad;
+ text-shadow:0 2px 1px #832663,0 0 10px #ffcc36,0 0 24px #ff53d9,0 0 32px #55e7ff;
+ z-index:10;animation:novaComboBurst .85s cubic-bezier(.16,.9,.4,1) both;pointer-events:none}
+.nova-combo-announce small{display:block;margin-top:3px;font-size:.50em;color:#fff7e0}
+.nova-combo-ring{position:absolute;left:50%;top:50%;width:68%;aspect-ratio:1;border:2px solid #ffdc79;
+ border-radius:50%;box-shadow:0 0 25px #ff5eff,0 0 8px #fff inset;
+ transform:translate(-50%,-50%);animation:novaComboRing .72s ease-out both;pointer-events:none}
+@keyframes novaComboBurst{0%{opacity:0;scale:.35}30%{opacity:1;scale:1.18}65%{opacity:1;scale:1}100%{opacity:0;scale:1.3}}
+@keyframes novaComboRing{0%{opacity:1;scale:.25}100%{opacity:0;scale:1.75}}
+/* Blockfall uses the same precious-glass material. */
+.fall-cell.fall-filled{border:1.5px solid #e9ffffe0!important;
+ background:linear-gradient(155deg,#fffffff0,#ffffff36 25%,transparent 45%,#00000045 95%),var(--piece-color)!important;
+ box-shadow:inset 0 2px 2px #fffed9,inset 2px 0 2px #ffffffbf,inset -3px -4px 3px #051b5399,
+ 0 0 3px #fff,0 0 11px var(--piece-color)!important}
+.fall-cell.fall-filled::after{inset:9%!important;width:82%!important;height:20%!important;left:9%!important;top:5%!important}
+.fall-board{border:2px solid #81eaff!important;box-shadow:inset 0 0 15px #3030d091,0 0 14px #04aeffeb,0 0 22px #bf3aff65!important}
+@media(max-height:690px){.nova-reference-header{height:33px!important;min-height:33px!important}
+ .scorebar{height:27px!important}.pieces{height:52px!important}.neon-duo-modes{height:28px!important}
+ .gametools{height:28px!important}}
+@media(prefers-reduced-motion:reduce){
+ .nova-sky::before,.nova-sky .nova-galaxy,.nova-sky .nova-orbit,.nova-sky .nova-stars,
+ .nova-combo-announce,.nova-combo-ring{animation:none!important}
+ .nova-fever-rail>i{transition:none!important}}
