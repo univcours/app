@@ -30,8 +30,8 @@ test('game navigation has endless Classic, Daily and Blockfall without stages',(
  const tabs=[...html.matchAll(/data-mode="([^"]+)"/g)].map(m=>m[1]);
  assert.deepEqual(tabs,['classic','daily','blockfall']);
  assert.doesNotMatch(html,/id="stageHud"|id="stageMapButton"/);
- const css=readFileSync(new URL('../web/galaxy.css',import.meta.url),'utf8');
- assert.match(css,/grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
+ const css=readFileSync(new URL('../web/continuous.css',import.meta.url),'utf8');
+ assert.match(css,/grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
 });
 test('Blockfall stays a bonus game while Classic is an endless launch mode',()=>{
  const code=readFileSync(new URL('../web/app.js',import.meta.url),'utf8');
