@@ -59,6 +59,16 @@ func _capture() -> void:
   printerr("Real 3D crystal texture is empty.")
   quit(1)
   return
+ # Reject the exact transparent-3D regression seen during the first pass.
+ var visible_pixels:int = 0
+ for yy in range(0,crystal_image.get_height(),4):
+  for xx in range(0,crystal_image.get_width(),4):
+   if crystal_image.get_pixel(xx,yy).a > .25:
+    visible_pixels += 1
+ if visible_pixels < 250:
+  printerr("Rendered 3D crystal is invisible: only %d visible sample pixels" % visible_pixels)
+  quit(1)
+  return
  err = crystal_image.save_png("res://build/novagrid-3d-crystal-proof.png")
  if err != OK:
   printerr("3D crystal proof cannot be saved: ",err)
