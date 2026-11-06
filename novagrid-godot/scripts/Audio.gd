@@ -68,7 +68,7 @@ func _compose(fast:bool) -> AudioStreamWAV:
  var count := int(float(RATE)*beat*float(steps))
  var data := PackedByteArray()
  data.resize(count*2)
- var roots: Array[float] = [196.0,174.61,155.56,174.61] if fast else [220.0,196.0,174.61,196.0]
+ var roots: Array = [196.0,174.61,155.56,174.61] if fast else [220.0,196.0,174.61,196.0]
  var arp_order := [0,2,1,3,1,2,0,2]
  for i in count:
   var t := float(i)/float(RATE)
