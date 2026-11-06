@@ -15,6 +15,7 @@ var falling
 var audio
 var font: Font
 var gem_styles: Array = []
+var panel_styles: Dictionary = {}
 var mode := 0
 var paused := false
 var selected := -1
@@ -178,14 +179,17 @@ func _label(text:String,pos:Vector2,size:int=16,color:Color=Color.WHITE,
  draw_string(font,pos,text,alignment,width,size,color)
 
 func _glass_panel(rect:Rect2,fill:Color=Color("#17225b"),outline:Color=Color("#7deaff")) -> void:
- var panel := StyleBoxFlat.new()
- panel.bg_color=fill
- panel.border_color=outline
- panel.set_corner_radius_all(10)
- panel.set_border_width_all(1)
- panel.shadow_color=Color(.04,.25,.88,.24)
- panel.shadow_size=3
- draw_style_box(panel,rect)
+ var key:String=fill.to_html(true)+":"+outline.to_html(true)
+ if not panel_styles.has(key):
+  var panel := StyleBoxFlat.new()
+  panel.bg_color=fill
+  panel.border_color=outline
+  panel.set_corner_radius_all(10)
+  panel.set_border_width_all(1)
+  panel.shadow_color=Color(.04,.25,.88,.24)
+  panel.shadow_size=3
+  panel_styles[key]=panel
+ draw_style_box(panel_styles[key],rect)
  draw_line(rect.position+Vector2(11,2),Vector2(rect.end.x-11,rect.position.y+2),Color(1,1,1,.39),1.0,true)
 
 func _button(rect:Rect2,title:String,active:bool=false,small:bool=false) -> void:
