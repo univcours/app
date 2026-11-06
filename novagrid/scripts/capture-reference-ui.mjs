@@ -66,6 +66,31 @@ try{
   if(!board||board.width<300)throw Error('Playfield too small in 393 px portrait: '+board?.width);
   if(actual.filled===0)throw Error('Failed to play any block into the actual grid.');
   if(actual.gameModes.join(',')!=='classic,blockfall')throw Error('Unexpected game modes');
+  /* Web Chrome cannot draw Android's native AdMob ad.
+     Simulate its RESERVATION only to verify the playable area does not
+     overlap an ad on both game modes. This screenshot is not proof of ad fill. */
+  await page.evaluate(()=>{
+   const root=document.documentElement;
+   root.classList.remove('no-banner');root.classList.add('native-ad-layout');
+   root.style.setProperty('--native-ad-reserve','64px');
+   root.style.setProperty('--native-ad-height','52px');
+   const dock=document.querySelector('#novaBannerDock');
+   dock.hidden=false;dock.setAttribute('aria-hidden','false');
+   document.dispatchEvent(new Event('nova:ads-layout'));
+  });
+  await page.waitForTimeout(120);
+  const duoLayout=await page.evaluate(()=>{
+   const rect=id=>{const b=document.querySelector(id).getBoundingClientRect();
+    return {top:b.top,bottom:b.bottom,left:b.left,right:b.right,width:b.width,height:b.height};};
+   return {dock:rect('#novaBannerDock'),shell:rect('#gameShell'),board:rect('.boardwrap'),card:rect('#gamecard')};
+  });
+  if(duoLayout.shell.bottom>duoLayout.dock.top+1 ||
+     duoLayout.board.bottom>duoLayout.card.bottom+1 ||
+     duoLayout.board.bottom>duoLayout.dock.top+1)
+    throw Error('Bottom ad dock overlaps or clips Block Puzzle: '+JSON.stringify(duoLayout));
+  const dockScreenshot=resolve('visual-qa/novagrid-puzzle-banner-dock-simulated.png');
+  await page.screenshot({path:dockScreenshot,fullPage:false});
+  console.log(JSON.stringify({dockScreenshot,duoLayout},null,2));
   // Screenshot and assert the second playable mode, not a promotional mockup.
   await page.locator('[data-mode="blockfall"]').click();
   await page.waitForSelector('#blockfallOverlay:not([hidden]) #fallBoard .fall-cell',{timeout:10000});
@@ -85,7 +110,15 @@ try{
   const fallRect=await page.locator('#fallBoard').boundingBox();
   const blockfallPath=resolve('visual-qa/novagrid-blockfall-actual.png');
   await page.screenshot({path:blockfallPath,fullPage:false});
-  console.log(JSON.stringify({blockfallPath,fallCells,fallRect},null,2));
+  const fallBottom=await page.evaluate(()=>({
+    dockTop:document.querySelector('#novaBannerDock').getBoundingClientRect().top,
+    fieldBottom:document.querySelector('#fallBoard').getBoundingClientRect().bottom,
+    overlayBottom:document.querySelector('#blockfallOverlay').getBoundingClientRect().bottom
+  }));
+  if(fallBottom.fieldBottom>fallBottom.dockTop+1 ||
+     fallBottom.overlayBottom>fallBottom.dockTop+1)
+   throw Error('Bottom ad dock overlaps Blockfall: '+JSON.stringify(fallBottom));
+  console.log(JSON.stringify({blockfallPath,fallCells,fallRect,fallBottom},null,2));
   if(fallCells!==180||!fallRect||fallRect.width<195)throw Error('Blockfall visual layout is broken');
   await context.close();
  }finally{await browser.close();}
