@@ -200,6 +200,7 @@ export function createBlockfallUI({onFinish,onExit,getLanguage,onSound,onAdBreak
  },true);
  document.addEventListener('visibilitychange',()=>{if(!active)return;if(document.hidden){paused=true;gesture=null;clearTimer();}else render();});
  window.addEventListener('resize',()=>{if(active)requestAnimationFrame(fitBoard);});
+ document.addEventListener('nova:ads-layout',()=>{if(active)requestAnimationFrame(fitBoard);});
  if('ResizeObserver' in window)new ResizeObserver(()=>{if(active)fitBoard();}).observe(get('fallBoard').parentElement);
  return {open,close:()=>exit(),get visible(){return active&&!el.hidden;},get state(){return game;},render};
 }
