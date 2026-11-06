@@ -363,8 +363,9 @@ func _draw_shockwaves() -> void:
   color.a=clampf((1.0-pct)*1.4,0,1)
   var pos:Vector2=heading["pos"]
   var message:String=heading["text"]
-  _label(message,pos+Vector2(1.6,2.0),20,Color(.14,.08,.27,color.a*.66),HORIZONTAL_ALIGNMENT_CENTER,1)
-  _label(message,pos,20,color,HORIZONTAL_ALIGNMENT_CENTER,1)
+  var label_at:=pos-Vector2(150.0,0.0)
+  _label(message,label_at+Vector2(1.6,2.0),20,Color(.14,.08,.27,color.a*.66),HORIZONTAL_ALIGNMENT_CENTER,300.0)
+  _label(message,label_at,20,color,HORIZONTAL_ALIGNMENT_CENTER,300.0)
 
 func _draw_fragments() -> void:
  for f in fragments:
