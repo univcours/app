@@ -39,8 +39,8 @@ func _tone(freq:float,length:float,amplitude:float,glide:float) -> AudioStreamWA
   var progress := t/length
   var env := pow(1.0-progress,2.3)*minf(1.0,t*300.0)
   var phase := TAU*freq*t*(1.0+(glide-1.0)*0.25*progress)
-  var signal := sin(phase)*0.76+sin(2.0*phase)*0.19+sin(3.0*phase)*0.05
-  bytes.encode_s16(i*2,int(clampf(signal*amplitude*env,-1.0,1.0)*32760.0))
+  var wave_sample := sin(phase)*0.76+sin(2.0*phase)*0.19+sin(3.0*phase)*0.05
+  bytes.encode_s16(i*2,int(clampf(wave_sample*amplitude*env,-1.0,1.0)*32760.0))
  var sample := AudioStreamWAV.new()
  sample.format = AudioStreamWAV.FORMAT_16_BITS
  sample.mix_rate = rate
