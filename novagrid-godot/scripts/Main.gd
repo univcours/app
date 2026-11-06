@@ -4,6 +4,7 @@ extends Node2D
 const PuzzleScript = preload("res://scripts/Puzzle.gd")
 const FallingScript = preload("res://scripts/Falling.gd")
 const AudioScript = preload("res://scripts/Audio.gd")
+const VisualsScript = preload("res://scripts/Visuals.gd")
 
 const GEM_COLORS = [
  Color("#192850"), Color("#ff46af"), Color("#ffcc3b"), Color("#31d9fa"),
@@ -13,6 +14,7 @@ const SKY = Color("#070923")
 var puzzle
 var falling
 var audio
+var visuals
 var font: Font
 var gem_styles: Array = []
 var panel_styles: Dictionary = {}
@@ -29,6 +31,8 @@ var clock := 0.0
 var banner_height := 0.0 # Reserved only after native ad renderer reports success.
 var stars: Array = []
 var fragments: Array = []
+var shockwaves: Array = []
+var headlines: Array = []
 var flash := 0.0
 var shake := 0.0
 
@@ -38,6 +42,9 @@ func _ready() -> void:
  audio = AudioScript.new()
  add_child(audio)
  font = ThemeDB.fallback_font
+ visuals = VisualsScript.new()
+ add_child(visuals)
+ visuals.configure(GEM_COLORS)
  for gem in GEM_COLORS:
   var style := StyleBoxFlat.new()
   style.bg_color = gem.lightened(.10)
@@ -63,6 +70,21 @@ func _process(delta:float) -> void:
  clock += delta
  flash = maxf(0.0,flash-delta*2.1)
  shake = maxf(0.0,shake-delta*3.0)
+ for idx in range(shockwaves.size()-1,-1,-1):
+  var ring:Dictionary = shockwaves[idx]
+  ring["age"] = float(ring["age"]) + delta
+  if float(ring["age"]) >= float(ring["duration"]):
+   shockwaves.remove_at(idx)
+  else:
+   shockwaves[idx] = ring
+ for idx in range(headlines.size()-1,-1,-1):
+  var heading:Dictionary = headlines[idx]
+  heading["age"] = float(heading["age"]) + delta
+  heading["pos"] = Vector2(heading["pos"]) - Vector2(0,delta*44.0)
+  if float(heading["age"]) > 1.15:
+   headlines.remove_at(idx)
+  else:
+   headlines[idx] = heading
  for idx in range(fragments.size()-1,-1,-1):
   var f: Dictionary = fragments[idx]
   f["life"] = float(f["life"])-delta
@@ -133,10 +155,14 @@ func _draw() -> void:
  _draw_sky(layout)
  _draw_header(layout)
  _draw_tabs(layout)
+ var impact := Vector2(sin(clock*67.0),cos(clock*79.0))*shake*9.0
+ draw_set_transform(impact)
  if mode==0:
   _draw_puzzle(layout)
  else:
   _draw_falling(layout)
+ draw_set_transform(Vector2.ZERO)
+ _draw_shockwaves()
  _draw_fragments()
  if flash>0:
   draw_rect(Rect2(Vector2.ZERO,layout["viewport"]),Color(0.6,0.9,1.0,flash*0.15),true)
@@ -148,30 +174,21 @@ func _draw() -> void:
   draw_line(r.position,Vector2(r.end.x,r.position.y),Color("#78dfff"),2.0)
 
 func _draw_sky(layout:Dictionary) -> void:
+ # The real galaxy/nebula is rendered by GPU shader behind this CanvasItem.
+ # These deterministic orbiting stars add crisp foreground parallax.
  var bounds:Vector2 = layout["viewport"]
- draw_rect(Rect2(Vector2.ZERO,bounds),SKY,true)
- # Vivid but low-contrast nebula under the gameplay board.
- for i in 14:
-  var radius:float = 220.0-float(i)*11.0
-  var center := Vector2(bounds.x*0.1+sin(clock*0.06)*13,bounds.y*0.20)
-  draw_circle(center,radius,Color(0.24,0.12,0.62,0.009))
-  center = Vector2(bounds.x*0.9+cos(clock*0.07)*18,bounds.y*0.72)
-  draw_circle(center,radius,Color(0.08,0.38,0.91,0.009))
-  center = Vector2(bounds.x*.55,bounds.y*.93)
-  draw_circle(center,radius,Color(.72,.14,.68,.006))
  for item in stars:
-  var x:float = float(item["x"])*bounds.x
-  var y:float = fposmod(float(item["y"])*bounds.y+clock*(4.0+float(item["radius"])*3.0),bounds.y)
-  var brightness:float = .55+.32*sin(clock*1.3+float(item["phase"]))
-  draw_circle(Vector2(x,y),float(item["radius"]),Color(.79,.89,1.0,brightness))
- # Moving stellar orbit.
- var center := Vector2(bounds.x*.49,bounds.y*.34)
+  var x:float = float(item["x"])*bounds.x+sin(clock*.11+float(item["phase"]))*4.0
+  var y:float = fposmod(float(item["y"])*bounds.y+clock*(3.0+float(item["radius"])*2.3),bounds.y)
+  var brightness:float = .33+.47*sin(clock*.87+float(item["phase"]))
+  draw_circle(Vector2(x,y),float(item["radius"]),Color(.74,.91,1.0,maxf(.11,brightness)))
+ var center := Vector2(bounds.x*.49,bounds.y*.37)
  var previous := Vector2.ZERO
  for i in 81:
   var angle:float = float(i)/80.0*TAU
-  var point := center+Vector2(cos(angle)*bounds.x*.77,sin(angle)*bounds.y*.15)
+  var point := center+Vector2(cos(angle)*bounds.x*.81,sin(angle)*bounds.y*.15)
   if i>0:
-   draw_line(previous,point,Color(.19,.66,.96,.085),1.2,true)
+   draw_line(previous,point,Color(.31,.66,1.0,.065),1.2,true)
   previous=point
 
 func _label(text:String,pos:Vector2,size:int=16,color:Color=Color.WHITE,
@@ -190,18 +207,21 @@ func _glass_panel(rect:Rect2,fill:Color=Color("#17225b"),outline:Color=Color("#7
   panel.shadow_size=3
   panel_styles[key]=panel
  draw_style_box(panel_styles[key],rect)
- draw_line(rect.position+Vector2(11,2),Vector2(rect.end.x-11,rect.position.y+2),Color(1,1,1,.39),1.0,true)
+ draw_line(rect.position+Vector2(11,2),Vector2(rect.end.x-11,rect.position.y+2),Color(1,1,1,.63),1.2,true)
+ draw_line(rect.position+Vector2(11,4),Vector2(rect.end.x-11,rect.position.y+4),Color(.70,.88,1.0,.21),1.0,true)
+ draw_circle(rect.position+Vector2(9,9),2.1,Color(1,1,1,.34))
 
 func _button(rect:Rect2,title:String,active:bool=false,small:bool=false) -> void:
- var fill := Color(.16,.37,.74,.87) if active else Color(.13,.17,.43,.9)
- _glass_panel(rect,fill,Color("#a3ecff") if active else Color("#658bcf"))
+ var fill := Color(.13,.43,.78,.80) if active else Color(.15,.18,.45,.83)
+ _glass_panel(rect,fill,Color("#a3f7ff") if active else Color("#859de8"))
  var fontsize:int = 12 if small else 14
  _label(title,Vector2(rect.position.x,rect.position.y+rect.size.y*.64),fontsize,
   Color.WHITE,HORIZONTAL_ALIGNMENT_CENTER,rect.size.x)
 
 func _draw_header(layout:Dictionary) -> void:
  var w:float = layout["viewport"].x
- _label("N O V A G R I D",Vector2(0,38),25,Color("#ecf7ff"),HORIZONTAL_ALIGNMENT_CENTER,w)
+ _label("N O V A G R I D",Vector2(0,39),25,Color(.12,.72,1.0,.52),HORIZONTAL_ALIGNMENT_CENTER,w)
+ _label("N O V A G R I D",Vector2(0,37),25,Color("#f1f6ff"),HORIZONTAL_ALIGNMENT_CENTER,w)
  _button(layout["pause"],"▶" if paused else "Ⅱ",false,true)
  _button(layout["audio"],"♪" if audio.sounds_enabled else "×",false,true)
  _button(layout["music"],"♫" if audio.music_enabled else "○",false,true)
@@ -229,22 +249,25 @@ func _draw_tabs(layout:Dictionary) -> void:
 func _gem(rect:Rect2,color_id:int,ghost:bool=false) -> void:
  if color_id<=0:
   return
- var base:Color = GEM_COLORS[clampi(color_id,1,GEM_COLORS.size()-1)]
+ var base:Color=GEM_COLORS[clampi(color_id,1,GEM_COLORS.size()-1)]
  if ghost:
-  draw_rect(rect,Color(base.r,base.g,base.b,.16),true)
-  draw_rect(rect,Color(base.r,base.g,base.b,.7),false,1.0)
+  var faded:Color=Color(base.r,base.g,base.b,.13)
+  draw_rect(rect.grow(-2.0),faded,true)
+  draw_rect(rect.grow(-1.0),Color(base.r,base.g,base.b,.74),false,1.6)
   return
- var inset := Rect2(rect.position+Vector2(1,1),rect.size-Vector2(2,2))
- draw_rect(Rect2(inset.position+Vector2(0.8,1.5),inset.size),Color(base.r,base.g,base.b,.32),true)
- draw_style_box(gem_styles[clampi(color_id,1,gem_styles.size()-1)],inset)
- draw_rect(Rect2(inset.position+Vector2(4,4),inset.size-Vector2(8,9)),Color(1,1,1,.09),true)
- var upper := Rect2(inset.position+Vector2(3,2),Vector2(maxf(1,inset.size.x-6),maxf(2,inset.size.y*.23)))
- draw_rect(upper,Color(1,1,1,.31),true)
- draw_line(inset.position+Vector2(2,2),Vector2(inset.end.x-2,inset.position.y+2),Color(1,1,1,.82),1.3,true)
- draw_line(inset.position+Vector2(2,2),Vector2(inset.position.x+2,inset.end.y-2),Color(1,1,1,.4),1.1,true)
- draw_line(Vector2(inset.position.x+2,inset.end.y-2),inset.end-Vector2(2,2),base.darkened(.48),2.0)
- draw_line(inset.end-Vector2(2,2),Vector2(inset.end.x-2,inset.position.y+2),base.darkened(.43),1.8)
- # The rounded beveled edge is rendered by the reusable StyleBoxFlat.
+ var inset := rect.grow(-.65)
+ var texture:Texture2D=visuals.get_gem_texture(color_id) if visuals else null
+ # GPU shader gives each crystal its curved transparent-looking shell,
+ # volumetric light, animated internal caustics and rounded reflections.
+ if texture!=null:
+  draw_texture_rect(texture,inset,false,Color.WHITE)
+ else:
+  draw_style_box(gem_styles[clampi(color_id,1,gem_styles.size()-1)],inset)
+ # Custom bright glints in the UI layer keep small gems sharp.
+ if rect.size.x>16.0:
+  var star:=rect.position+Vector2(rect.size.x*.28,rect.size.y*.22)
+  draw_line(star-Vector2(2.6,0),star+Vector2(2.6,0),Color(1,1,1,.45),.72,true)
+  draw_line(star-Vector2(0,2.6),star+Vector2(0,2.6),Color(1,1,1,.36),.72,true)
 
 func _board_back(board_rect:Rect2,cols:int,rows:int) -> float:
  _glass_panel(Rect2(board_rect.position-Vector2(4,4),board_rect.size+Vector2(8,8)),
@@ -323,6 +346,25 @@ func _draw_falling(layout:Dictionary) -> void:
  var labels := ["◀","⟳","▶","▼ DROP"]
  for i in 4:
   _button(layout["buttons"][i],labels[i],i==3,true)
+
+func _draw_shockwaves() -> void:
+ for ring in shockwaves:
+  var progress:float = float(ring["age"])/float(ring["duration"])
+  var radius:float = 7.0+float(ring["radius"])*pow(progress,.62)
+  var col:Color=ring["color"]
+  col.a = maxf(0.0,(1.0-progress)*.79)
+  draw_arc(ring["pos"],radius,0,TAU,52,col,4.4*(1.0-progress)+.6,true)
+  if progress<.62:
+   col.a *= .35
+   draw_arc(ring["pos"],radius*.67,0,TAU,45,col,2.2,true)
+ for heading in headlines:
+  var pct:float = float(heading["age"])/1.15
+  var color:Color=heading["color"]
+  color.a=clampf((1.0-pct)*1.4,0,1)
+  var pos:Vector2=heading["pos"]
+  var message:String=heading["text"]
+  _label(message,pos+Vector2(1.6,2.0),20,Color(.14,.08,.27,color.a*.66),HORIZONTAL_ALIGNMENT_CENTER,1)
+  _label(message,pos,20,color,HORIZONTAL_ALIGNMENT_CENTER,1)
 
 func _draw_fragments() -> void:
  for f in fragments:
@@ -481,9 +523,11 @@ func _release_puzzle(pos:Vector2,layout:Dictionary) -> void:
      flash=.28 if count<20 else .7
      shake=.25
      _burst(board.get_center(),18+count,Color("#7ceaff"))
+     _announce("CRYSTAL COMBO x%d" % puzzle.combo,board.get_center()+Vector2(0,-12),Color("#91f7ff"))
     if puzzle.fever_moves==5:
      audio.effect("fever")
      _burst(board.get_center(),33,Color("#ff7aff"))
+     _announce("NOVA FEVER!",board.get_center(),Color("#ff95e7"))
     if puzzle.over:
      audio.effect("lose")
     selected=-1
@@ -520,6 +564,7 @@ func _fall_locked() -> void:
   flash=.54
   shake=.31
   _burst(_layout()["board"].get_center(),20+falling.last_lines*9,Color("#86e8ff"))
+  _announce("QUANTUM CLEAR!",_layout()["board"].get_center(),Color("#b2f9ff"))
   audio.effect("combo" if falling.last_lines>=3 else "clear")
  else:
   audio.effect("place")
@@ -548,7 +593,15 @@ func _release_falling(pos:Vector2,layout:Dictionary) -> void:
   if falling.rotate():
    audio.effect("rotate")
 
+func _announce(message:String,at:Vector2,color:Color) -> void:
+ headlines.append({"text":message,"pos":at,"age":0.0,"color":color})
+ if headlines.size()>5:
+  headlines.pop_front()
+
 func _burst(center:Vector2,count:int,color:Color) -> void:
+ shockwaves.append({"pos":center,"color":color,"age":0.0,"duration":.6,"radius":125.0})
+ if shockwaves.size()>9:
+  shockwaves.pop_front()
  var gen := RandomNumberGenerator.new()
  gen.randomize()
  for i in count:
@@ -556,7 +609,7 @@ func _burst(center:Vector2,count:int,color:Color) -> void:
   var velocity:Vector2 = Vector2(cos(angle),sin(angle))*gen.randf_range(55,200)
   fragments.append({"pos":center,"speed":velocity,
    "life":gen.randf_range(.25,.65),"original":.65,
-   "radius":gen.randf_range(1.7,4.0),"color":color})
+   "radius":gen.randf_range(2.2,5.1),"color":color})
 
 func _load_game() -> void:
  if not FileAccess.file_exists("user://novagrid-godot-save.json"):
