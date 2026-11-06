@@ -1,10 +1,9 @@
-/* AdMob native bridge: Google test ads until Play + AdMob approval is verified.
-   Exposes diagnostic states without bypassing consent or changing ad IDs. */
-const demo={bannerId:'ca-app-pub-3940256099942544/6300978111',interstitialId:'ca-app-pub-3940256099942544/1033173712',live:false};
+/* Native AdMob anchored banner stays in a separate bottom dock, never above play. */
+const demo={bannerId:'ca-app-pub-3940256099942544/9214589741',interstitialId:'ca-app-pub-3940256099942544/1033173712',live:false};
 const cfg=typeof __NOVA_ADS_CONFIG__!=='undefined'?__NOVA_ADS_CONFIG__:demo;
 let ad=null,ready=false,loaded=false,finished=0,last=Date.now(),initializing=false;
-let bannerState='disabled (full-screen game)',interstitialState='not loaded',consentState='unknown';
-export const AD_POLICY=Object.freeze({banner:false,interstitial:true,rewarded:false,rewardedInterstitial:false});
+let bannerState='not requested',interstitialState='not loaded',consentState='unknown';
+export const AD_POLICY=Object.freeze({banner:true,interstitial:true,rewarded:false,rewardedInterstitial:false});
 const publish=()=>{try{document.dispatchEvent(new Event('nova:ads-status'));}catch{}};
 function errorMessage(e){return (e&& (e.message||e.code||e.errorCode))?String(e.message||e.code||e.errorCode):String(e);}
 const log=e=>console.warn('[NovaGrid AdMob]',e);
@@ -13,26 +12,32 @@ export function getAdsStatus(){
   summary:(cfg.live?'LIVE':'GOOGLE TEST')+' · Banner: '+bannerState+' · Interstitial: '+interstitialState+' · Consent: '+consentState};
 }
 export function gameFinished(){finished++;}
-function applyBannerFreeLayout(){
+/* The AdMob plugin draws a native banner ABOVE the WebView;
+   this separate DOM pane reserves its footprint without using a fake ad. */
+export function setBannerDock(visible,height=52){
  if(typeof document==='undefined')return;
- document.documentElement.classList.remove('native-ad-layout');
- document.documentElement.classList.add('no-banner');
- document.documentElement.style.setProperty('--native-ad-reserve','0px');
- document.documentElement.style.setProperty('--native-ad-height','0px');
- document.body?.classList.remove('has-native-banner');
+ const root=document.documentElement,dock=document.getElementById('novaBannerDock');
+ const h=Number(height);
+ const pixels=visible?Math.max(60,Math.min(174,Math.ceil(Number.isFinite(h)?h:52)+12)):0;
+ root.classList.toggle('native-ad-layout',!!visible);
+ root.classList.toggle('no-banner',!visible);
+ root.style.setProperty('--native-ad-reserve',pixels+'px');
+ root.style.setProperty('--native-ad-height',visible?Math.max(0,pixels-12)+'px':'0px');
+ document.body?.classList.toggle('has-native-banner',!!visible);
+ if(dock){dock.hidden=!visible;dock.setAttribute('aria-hidden',String(!visible));}
  document.dispatchEvent(new Event('nova:ads-layout'));
 }
 export async function initializeAds(){
- applyBannerFreeLayout();
+ setBannerDock(false);
  if(initializing||ready)return;
  if(!window.Capacitor?.isNativePlatform?.()||window.Capacitor.getPlatform()!=='android'){
   interstitialState='Android only';publish();return;
  }
  initializing=true;publish();
  try{
-  const {AdMob,AdmobConsentStatus,InterstitialAdPluginEvents}=await import('@capacitor-community/admob');
+  const {AdMob,AdmobConsentStatus,InterstitialAdPluginEvents,BannerAdPluginEvents,BannerAdPosition,BannerAdSize}=await import('@capacitor-community/admob');
   ad=AdMob;
-  // Removes stale native banner from prior sessions. Never request banners again.
+  // Remove any stale native banner before recreating the bottom dock.
   try{await AdMob.removeBanner();}catch{}
   let consent=await AdMob.requestConsentInfo();
   if(consent.isConsentFormAvailable&&consent.status===AdmobConsentStatus.REQUIRED)consent=await AdMob.showConsentForm();
@@ -41,9 +46,31 @@ export async function initializeAds(){
   if(privacy&&consent.privacyOptionsRequirementStatus==='REQUIRED'){
    privacy.hidden=false;privacy.addEventListener('click',()=>AdMob.showPrivacyOptionsForm().catch(log));
   }
-  if(!consent.canRequestAds){interstitialState='blocked by consent';publish();return;}
+  if(!consent.canRequestAds){bannerState='blocked by consent';interstitialState='blocked by consent';publish();return;}
   await AdMob.initialize();
   ready=true;publish();
+  if(!cfg.bannerId){bannerState=cfg.live?'live banner ID missing':'disabled';publish();}
+  else {
+   await AdMob.addListener(BannerAdPluginEvents.Loaded,()=>{bannerState='loaded';publish();});
+   await AdMob.addListener(BannerAdPluginEvents.SizeChanged,size=>{
+    if(Number(size?.height)>0)setBannerDock(true,Number(size.height));
+    bannerState='loaded';publish();
+   });
+   await AdMob.addListener(BannerAdPluginEvents.FailedToLoad,error=>{
+    bannerState='load failed ('+errorMessage(error)+')';
+    setBannerDock(false);publish();log(error);
+   });
+   bannerState='loading';setBannerDock(true);publish();
+   try{
+    await AdMob.showBanner({
+     adId:cfg.bannerId,adSize:BannerAdSize.ADAPTIVE_BANNER,
+     position:BannerAdPosition.BOTTOM_CENTER,margin:0,isTesting:!cfg.live
+    });
+   }catch(error){
+    bannerState='show failed ('+errorMessage(error)+')';
+    setBannerDock(false);publish();log(error);
+   }
+  }
   await AdMob.addListener(InterstitialAdPluginEvents.Loaded,()=>{interstitialState='ready';publish();});
   await AdMob.addListener(InterstitialAdPluginEvents.FailedToLoad,error=>{
    interstitialState='load failed ('+errorMessage(error)+')';publish();log(error);
@@ -53,7 +80,7 @@ export async function initializeAds(){
   });
   // Only at replay breaks: no forced interruption to gameplay.
   void prepare();
- }catch(e){interstitialState='initialization failed ('+errorMessage(e)+')';publish();log(e);}
+ }catch(e){bannerState='initialization failed';interstitialState='initialization failed ('+errorMessage(e)+')';setBannerDock(false);publish();log(e);}
  finally{initializing=false;}
 }
 async function prepare(){
