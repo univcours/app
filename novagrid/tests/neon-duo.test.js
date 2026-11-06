@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import {makeFallingState,fallingConfig,hardDropFalling} from '../web/falling.js';
 const read=path=>readFileSync(new URL(path,import.meta.url),'utf8');
 
-test('Block Puzzle and Blockfall share the same neon glass style and no banner',()=>{
+test('Block Puzzle and Blockfall share a neon glass style above an isolated banner dock',()=>{
  const html=read('../web/index.html'),css=read('../web/neon-duo.css');
  assert.deepEqual([...html.matchAll(/data-mode="([^"]+)"/g)].map(x=>x[1]),['classic','blockfall']);
  assert.match(html,/href="neon-duo\.css"/);
@@ -13,7 +13,8 @@ test('Block Puzzle and Blockfall share the same neon glass style and no banner',
  assert.match(css,/\.neon-duo-modes/);
  assert.match(css,/@keyframes nova-nebula-drift/);
  assert.match(css,/@media\(prefers-reduced-motion:reduce\)/);
- assert.match(read('../web/ads.js'),/banner:false/);
+ assert.match(read('../web/ads.js'),/banner:true/);
+ assert.match(read('../web/banner-dock.css'),/html\\.native-ad-layout \\.blockfall-overlay/);
 });
 test('Tetris-style Blockfall is a full-length run, never a one-line stage',()=>{
  const ui=read('../web/falling-ui.js');
