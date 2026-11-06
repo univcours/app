@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"><meta name="theme-color" content="#090d21"><meta name="description" content="NovaGrid — the original daily cosmic block puzzle. Play offline."><title>NovaGrid</title><link rel="icon" href="logo.webp" type="image/webp"><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="view.css"><link rel="stylesheet" href="galaxy.css"><link rel="stylesheet" href="no-banner.css"><link rel="stylesheet" href="falling.css"><link rel="stylesheet" href="candy-arcade.css"><link rel="stylesheet" href="continuous.css"><link rel="stylesheet" href="neon-duo.css"><link rel="stylesheet" href="cosmic-reference.css"></head>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"><meta name="theme-color" content="#090d21"><meta name="description" content="NovaGrid — the original daily cosmic block puzzle. Play offline."><title>NovaGrid</title><link rel="icon" href="logo.webp" type="image/webp"><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="view.css"><link rel="stylesheet" href="galaxy.css"><link rel="stylesheet" href="no-banner.css"><link rel="stylesheet" href="falling.css"><link rel="stylesheet" href="candy-arcade.css"><link rel="stylesheet" href="continuous.css"><link rel="stylesheet" href="neon-duo.css"><link rel="stylesheet" href="cosmic-reference.css"><link rel="stylesheet" href="banner-dock.css"></head>
 <body>
 <main class="shell" id="gameShell">
  <header class="topbar nova-reference-header">
@@ -21,6 +21,12 @@
  </section>
  <footer><span>NovaGrid</span><a class="privacybtn" href="privacy.html" aria-label="NovaGrid privacy policy">Privacy</a><button id="privacyBtn" class="privacybtn" type="button" hidden>Ad choices</button><span>© 2026</span></footer>
 </main>
+<!-- Native Google banner is painted by the Android AdMob plugin ABOVE this reserved,
+     non-interactive pane. It is never part of the puzzle or Blockfall board. -->
+<aside id="novaBannerDock" class="nova-banner-dock" aria-label="Advertisement" aria-hidden="true" hidden>
+ <span class="nova-banner-label" aria-hidden="true">Ad</span>
+ <div class="nova-banner-native-space" aria-hidden="true"></div>
+</aside>
 <div id="pauseOverlay" class="nova-pause-overlay" hidden><div class="nova-pause-dialog"><strong>Ⅱ PAUSED</strong><button id="pauseResume" type="button">▶ RESUME</button></div></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <div class="overlay" id="dialog" hidden><div class="modal" role="dialog" aria-modal="true" aria-labelledby="dialogTitle"><div class="modalicon">✦</div><h2 id="dialogTitle"></h2><p id="dialogBody"></p><div class="finalscore" id="dialogScore"></div><button class="primary" id="dialogPlay" data-i18n="playAgain">Play again</button><button class="ghost" id="dialogClose" data-i18n="close">Close</button></div></div>
