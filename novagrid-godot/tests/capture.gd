@@ -48,5 +48,22 @@ func _capture() -> void:
   printerr("Unable to capture Blockfall: ",err)
   quit(1)
   return
+ if app.audio.fx_players.size()!=6 or app.audio.music_tracks.size()!=2:
+  printerr("Audio engine not initialized")
+  quit(1)
+  return
+ # Trigger the SAME real explosion/announcement functions used by gameplay.
+ # This is an FX QA screenshot, not an invented score or a gameplay clear.
+ app.mode=0
+ var center:Vector2=app._layout()["board"].get_center()
+ app._burst(center,70,Color("#ff74ea"))
+ app._announce("NOVA FEVER!",center+Vector2(0,-55),Color("#ffe4ff"))
+ await create_timer(.07).timeout
+ screenshot=root.get_texture().get_image()
+ err=screenshot.save_png("res://build/novagrid-real-glass-fx.png")
+ if err!=OK:
+  printerr("Unable to capture live particle effects: ",err)
+  quit(1)
+  return
  print("REAL GODOT SCREENSHOTS SAVED")
  quit(0)
