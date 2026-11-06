@@ -43,6 +43,48 @@ jobs:
           set -euo pipefail
           timeout 12s godot --headless --path novagrid-godot --quit-after 90 2>&1 | tee /tmp/runtime.log
           if grep -E 'SCRIPT ERROR|Parse Error|Parser Error' /tmp/runtime.log; then exit 1; fi
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install Android SDK for export
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+      - name: Download Godot matching Android export templates
+        run: |
+          set -euo pipefail
+          curl --retry 3 -fL -o /tmp/godot-templates.tpz https://github.com/godotengine/godot-builds/releases/download/4.5.1-stable/Godot_v4.5.1-stable_export_templates.tpz
+          mkdir -p /tmp/godot-template-extract "$HOME/.local/share/godot/export_templates/4.5.1.stable"
+          unzip -q /tmp/godot-templates.tpz -d /tmp/godot-template-extract
+          cp -a /tmp/godot-template-extract/templates/. "$HOME/.local/share/godot/export_templates/4.5.1.stable/"
+          ls -lh "$HOME/.local/share/godot/export_templates/4.5.1.stable/android_debug.apk"
+      - name: Create isolated local debug signing key
+        run: |
+          mkdir -p "$HOME/.android"
+          keytool -genkeypair -v -keystore "$HOME/.android/novagrid-preview-debug.keystore" -alias androiddebugkey -storepass android -keypass android -keyalg RSA -keysize 2048 -validity 4000 -dname "CN=NovaGrid Preview,O=Local QA,C=US"
+      - name: Export real Godot Android preview APK
+        env:
+          GODOT_ANDROID_KEYSTORE_DEBUG_PATH: ${{ github.workspace }}/novagrid-godot/.local-debug.keystore
+          GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
+          GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
+        run: |
+          set -euo pipefail
+          cp "$HOME/.android/novagrid-preview-debug.keystore" "novagrid-godot/.local-debug.keystore"
+          mkdir -p novagrid-godot/build
+          godot --headless --path novagrid-godot --export-debug "Android Preview" "build/NovaGrid-Godot-Preview.apk" 2>&1 | tee /tmp/android-export.log
+          test -s novagrid-godot/build/NovaGrid-Godot-Preview.apk
+          tool="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          "$tool" dump badging novagrid-godot/build/NovaGrid-Godot-Preview.apk | grep -F "package: name='com.novagrid.cosmicpuzzle.godotpreview'"
+          rm -f novagrid-godot/.local-debug.keystore
+      - name: Upload isolated Android preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: novagrid-godot-native-preview-apk
+          path: novagrid-godot/build/NovaGrid-Godot-Preview.apk
+          retention-days: 14
+          if-no-files-found: error
       - name: Keep test logs
         if: always()
         uses: actions/upload-artifact@v4
