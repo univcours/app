@@ -1,7 +1,7 @@
 name: NovaGrid Godot Native QA
 on:
   push:
-    branches: [novagrid-godot-rebuild]
+    branches: [novagrid-godot-rebuild, novagrid-true-3d]
     paths:
       - 'novagrid-godot/**'
       - '.github/workflows/novagrid-godot.yml'
@@ -24,7 +24,7 @@ jobs:
       - name: Parse audio, game rules and main UI directly
         run: |
           set -euo pipefail
-          for script in Audio.gd Puzzle.gd Falling.gd Main.gd; do
+          for script in Audio.gd Puzzle.gd Falling.gd Crystal3D.gd Main.gd; do
             godot --headless --path novagrid-godot --check-only --script "res://scripts/$script"
           done
       - name: Import project and parse all game scripts
@@ -50,12 +50,12 @@ jobs:
           sudo apt-get install -y -qq xvfb xauth >/dev/null
           xvfb-run -a -s "-screen 0 432x960x24" godot --path novagrid-godot --script res://tests/capture.gd 2>&1 | tee /tmp/visual.log
           grep -F 'REAL GODOT SCREENSHOTS SAVED' /tmp/visual.log
-          file novagrid-godot/build/novagrid-real-*.png
+          file novagrid-godot/build/novagrid-*.png
       - name: Upload true Godot screenshots
         uses: actions/upload-artifact@v4
         with:
           name: novagrid-godot-real-play-screens
-          path: novagrid-godot/build/novagrid-real-*.png
+          path: novagrid-godot/build/novagrid-*.png
           retention-days: 14
           if-no-files-found: error
       - uses: actions/setup-java@v4
