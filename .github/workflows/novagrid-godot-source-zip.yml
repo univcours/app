@@ -25,9 +25,11 @@ jobs:
           test -s scripts/Falling.gd
           test -s scripts/Audio.gd
           test -s assets/icon.svg
+          test -s shaders/galaxy.gdshader
+          test -s shaders/crystal.gdshader
           zip -q -r ../NovaGrid-Godot-Project.zip \
             project.godot export_presets.cfg \
-            scenes scripts tests assets README.md OPEN-IN-GODOT.md
+            scenes scripts shaders tests assets README.md OPEN-IN-GODOT.md
           cd ..
           unzip -t NovaGrid-Godot-Project.zip
           unzip -l NovaGrid-Godot-Project.zip | tail -25
