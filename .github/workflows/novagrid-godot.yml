@@ -96,12 +96,12 @@ jobs:
           godot --headless --path novagrid-godot --export-debug "Android Preview" "build/NovaGrid-Godot-Preview.apk" 2>&1 | tee /tmp/android-export.log
           test -s novagrid-godot/build/NovaGrid-Godot-Preview.apk
           tool="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
-          "$tool" dump badging novagrid-godot/build/NovaGrid-Godot-Preview.apk | grep -F "package: name='com.novagrid.cosmicpuzzle.godotpreview'"
+          "$tool" dump badging novagrid-godot/build/NovaGrid-Godot-Preview.apk | grep -F "package: name='com.novagrid.cosmicpuzzle.crystal3d'"
           rm -f novagrid-godot/.local-debug.keystore
       - name: Upload isolated Android preview
         uses: actions/upload-artifact@v4
         with:
-          name: novagrid-godot-native-preview-apk
+          name: novagrid-true3d-android-apk
           path: novagrid-godot/build/NovaGrid-Godot-Preview.apk
           retention-days: 14
           if-no-files-found: error
