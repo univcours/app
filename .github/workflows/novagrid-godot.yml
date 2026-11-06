@@ -43,6 +43,21 @@ jobs:
           set -euo pipefail
           timeout 12s godot --headless --path novagrid-godot --quit-after 90 2>&1 | tee /tmp/runtime.log
           if grep -E 'SCRIPT ERROR|Parse Error|Parser Error' /tmp/runtime.log; then exit 1; fi
+      - name: Capture ACTUAL Godot game renders
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb xauth >/dev/null
+          xvfb-run -a -s "-screen 0 432x960x24" godot --path novagrid-godot --script res://tests/capture.gd 2>&1 | tee /tmp/visual.log
+          grep -F 'REAL GODOT SCREENSHOTS SAVED' /tmp/visual.log
+          file novagrid-godot/build/novagrid-real-*.png
+      - name: Upload true Godot screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: novagrid-godot-real-play-screens
+          path: novagrid-godot/build/novagrid-real-*.png
+          retention-days: 14
+          if-no-files-found: error
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
