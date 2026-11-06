@@ -74,8 +74,7 @@ func _make_gem_view(color_id:int) -> SubViewport:
  camera.name = "CrystalCamera"
  camera.projection = Camera3D.PROJECTION_ORTHOGONAL
  camera.size = 2.75
- camera.position = Vector3(2.7,3.6,8.1)
- camera.look_at(Vector3.ZERO)
+ camera.transform = Transform3D(Basis(),Vector3(2.7,3.6,8.1)).looking_at(Vector3.ZERO,Vector3.UP)
  camera.current = true
  stage.add_child(camera)
 
