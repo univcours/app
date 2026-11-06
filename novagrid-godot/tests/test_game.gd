@@ -2,6 +2,7 @@ extends SceneTree
 ## Run: godot --headless --path novagrid-godot --script res://tests/test_game.gd
 const Puzzle = preload("res://scripts/Puzzle.gd")
 const Falling = preload("res://scripts/Falling.gd")
+const Crystal = preload("res://scripts/Crystal3D.gd")
 var errors: Array = []
 func expect(value:bool,description:String) -> void:
  if not value:
@@ -50,6 +51,14 @@ func _initialize() -> void:
  var fake:Dictionary = snapshot.duplicate(true)
  fake["board"]=[]
  expect(not f2.restore(fake),"invalid save rejected")
+ var glass_mesh:ArrayMesh = Crystal.make_beveled_cube()
+ expect(glass_mesh.get_surface_count()==1,"real 3D rounded crystal mesh generated")
+ var arrays:Array = glass_mesh.surface_get_arrays(0)
+ expect((arrays[Mesh.ARRAY_VERTEX] as PackedVector3Array).size()>=400,
+  "3D mesh contains curved beveled geometry, not flat rectangles")
+ expect((arrays[Mesh.ARRAY_NORMAL] as PackedVector3Array).size()==
+  (arrays[Mesh.ARRAY_VERTEX] as PackedVector3Array).size(),
+  "3D mesh includes smooth surface normals")
  if errors.is_empty():
   print("ALL NOVAGRID GODOT RULE TESTS PASSED")
   quit(0)
