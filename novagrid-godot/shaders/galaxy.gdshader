@@ -6,7 +6,7 @@ render_mode unshaded;
 uniform vec4 void_color : source_color = vec4(0.018,0.024,0.095,1.0);
 uniform vec4 blue_nebula : source_color = vec4(0.08,0.39,0.93,1.0);
 uniform vec4 magenta_nebula : source_color = vec4(0.60,0.15,0.95,1.0);
-uniform float activity : hint_range(0.0,1.0) = 0.56;
+uniform float activity : hint_range(0.0,1.0) = 0.90;
 uniform float motion_speed : hint_range(0.0,1.0) = 0.13;
 
 float random21(vec2 p) {
@@ -41,9 +41,15 @@ void fragment() {
  float mag=clamp((cloudy-0.34)*2.35+whirl*.18,0.0,1.0)*left;
  float cyan=clamp((wisps-.31)*2.4+whirl*.12,0.0,1.0)*right;
  vec3 col=void_color.rgb;
- col += magenta_nebula.rgb*mag*activity*.40;
- col += blue_nebula.rgb*cyan*activity*.55;
- col += vec3(.09,.11,.3)*max(0.0,cloudy-.5)*.20;
+ // Bright diagonal Milky Way-like river of original procedural stardust.
+ float ribbon=uv.y-(.78-uv.x*.48+sin(uv.x*5.4+t*.8)*.066);
+ float band=exp(-pow(ribbon/.24,2.0));
+ float band_noise=fbm(uv*vec2(6.7,9.5)+vec2(t*.32,-t*.2));
+ vec3 stream_colors=mix(vec3(.29,.10,.62),vec3(.08,.45,.73),clamp(uv.x*.91,0.0,1.0));
+ col += band*stream_colors*(.25+band_noise*.85)*activity;
+ col += magenta_nebula.rgb*mag*activity*.59;
+ col += blue_nebula.rgb*cyan*activity*.75;
+ col += vec3(.14,.14,.42)*max(0.0,cloudy-.38)*.31;
  float dust=fbm(uv*vec2(21.0,33.0)+t*.03);
  col += vec3(.08,.15,.27)*pow(dust,4.0)*.17;
  // GPU-sparse starfield, deterministic spatial hashing; no giant particles.
