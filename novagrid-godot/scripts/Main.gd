@@ -4,6 +4,7 @@ extends Node2D
 const PuzzleScript = preload("res://scripts/Puzzle.gd")
 const FallingScript = preload("res://scripts/Falling.gd")
 const AudioScript = preload("res://scripts/Audio.gd")
+const CrystalScript = preload("res://scripts/Crystal3D.gd")
 
 const GEM_COLORS = [
  Color("#192850"), Color("#ff46af"), Color("#ffcc3b"), Color("#31d9fa"),
@@ -13,6 +14,8 @@ const SKY = Color("#070923")
 var puzzle
 var falling
 var audio
+var crystal3d: Node
+var crystal_pop: Dictionary = {}
 var font: Font
 var gem_styles: Array = []
 var panel_styles: Dictionary = {}
@@ -37,6 +40,9 @@ func _ready() -> void:
  falling = FallingScript.new()
  audio = AudioScript.new()
  add_child(audio)
+ crystal3d = CrystalScript.new()
+ crystal3d.name = "Real3DCrystalRenderer"
+ add_child(crystal3d)
  font = ThemeDB.fallback_font
  for gem in GEM_COLORS:
   var style := StyleBoxFlat.new()
@@ -62,6 +68,12 @@ func _ready() -> void:
 func _process(delta:float) -> void:
  clock += delta
  flash = maxf(0.0,flash-delta*2.1)
+ for key in crystal_pop.keys():
+  var left:float = float(crystal_pop[key])-delta
+  if left <= 0.0:
+   crystal_pop.erase(key)
+  else:
+   crystal_pop[key] = left
  shake = maxf(0.0,shake-delta*3.0)
  for idx in range(fragments.size()-1,-1,-1):
   var f: Dictionary = fragments[idx]
@@ -234,6 +246,16 @@ func _gem(rect:Rect2,color_id:int,ghost:bool=false) -> void:
   draw_rect(rect,Color(base.r,base.g,base.b,.16),true)
   draw_rect(rect,Color(base.r,base.g,base.b,.7),false,1.0)
   return
+ # Draw real, lit 3D bevelled mesh as a shared, cached SubViewport texture.
+ # Each block is a 3D object rendered under physical lights, not CSS/2D paint.
+ if crystal3d != null:
+  var crystal:Texture2D = crystal3d.texture_for(color_id)
+  if crystal != null:
+   draw_circle(rect.get_center()+Vector2(0,rect.size.y*.26),
+    maxf(2.0,rect.size.x*.42),Color(base.r,base.g,base.b,.16))
+   var content_rect := rect.grow(1.0)
+   draw_texture_rect(crystal,content_rect,false,Color.WHITE)
+   return
  var inset := Rect2(rect.position+Vector2(1,1),rect.size-Vector2(2,2))
  draw_rect(Rect2(inset.position+Vector2(0.8,1.5),inset.size),Color(base.r,base.g,base.b,.32),true)
  draw_style_box(gem_styles[clampi(color_id,1,gem_styles.size()-1)],inset)
@@ -264,7 +286,14 @@ func _draw_puzzle(layout:Dictionary) -> void:
   for x in 10:
    var id:int = int(puzzle.cells[y][x])
    if id>0:
-    _gem(Rect2(board.position+Vector2(x*cell,y*cell),Vector2(cell,cell)),id)
+    var tile := Rect2(board.position+Vector2(x*cell,y*cell),Vector2(cell,cell))
+    var bounce:float = float(crystal_pop.get(Vector2i(x,y),0.0))
+    if bounce>0.0:
+     var intensity:float = sin(PI*(1.0-bounce/.28))
+     var size_factor:float = 1.0+maxf(0.0,intensity)*.16
+     var new_size:Vector2 = tile.size*size_factor
+     tile = Rect2(tile.get_center()-new_size*.5,new_size)
+    _gem(tile,id)
  if selected>=0 and selected<puzzle.tray.size() and not puzzle.tray[selected].is_empty():
   var near:Vector2 = touch_at-Vector2(0,52) if dragging else touch_at
   if board.has_point(near):
@@ -475,6 +504,10 @@ func _release_puzzle(pos:Vector2,layout:Dictionary) -> void:
   if not shape.is_empty():
    var origin:Vector2i = _origin_from_position(drop,dragging,board,shape)
    if puzzle.place(selected,origin):
+    for p in shape:
+     var at:Vector2i = origin+p
+     if puzzle.cells[at.y][at.x]>0:
+      crystal_pop[at] = .28
     var count:int = puzzle.last_cleared
     audio.effect("combo" if count>10 else "clear" if count>0 else "place")
     if count>0:
