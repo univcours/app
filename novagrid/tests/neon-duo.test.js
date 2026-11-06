@@ -14,7 +14,7 @@ test('Block Puzzle and Blockfall share a neon glass style above an isolated bann
  assert.match(css,/@keyframes nova-nebula-drift/);
  assert.match(css,/@media\(prefers-reduced-motion:reduce\)/);
  assert.match(read('../web/ads.js'),/banner:true/);
- assert.match(read('../web/banner-dock.css'),/html\\.native-ad-layout \\.blockfall-overlay/);
+ assert.ok(read('../web/banner-dock.css').includes('html.native-ad-layout .blockfall-overlay'));
 });
 test('Tetris-style Blockfall is a full-length run, never a one-line stage',()=>{
  const ui=read('../web/falling-ui.js');
