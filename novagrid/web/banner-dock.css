@@ -1,0 +1,123 @@
+/* NovaGrid: two genuinely separate viewport regions.
+   1. The interactive game fills the ENTIRE area above the ad.
+   2. AdMob paints the real anchored adaptive banner natively over a
+      noninteractive reserved dock, never over the board or game controls.
+   Banner slot exists only on Android after consent and with a valid ad ID.
+*/
+:root{--native-ad-reserve:0px;--native-ad-height:0px}
+.nova-banner-dock[hidden]{display:none!important}
+html.native-ad-layout{
+ height:100dvh!important;
+ padding:0!important;
+ overflow:hidden!important;
+}
+html.native-ad-layout body{
+ height:100dvh!important;
+ min-height:0!important;
+ margin:0!important;
+ padding:0!important;
+ overflow:hidden!important;
+}
+html.native-ad-layout #gameShell{
+ position:fixed!important;
+ top:var(--safe-area-inset-top,env(safe-area-inset-top,0px))!important;
+ bottom:calc(var(--native-ad-reserve,64px) + var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px)))!important;
+ left:var(--safe-area-inset-left,env(safe-area-inset-left,0px))!important;
+ right:var(--safe-area-inset-right,env(safe-area-inset-right,0px))!important;
+ width:auto!important;height:auto!important;
+ min-height:0!important;max-height:none!important;
+ max-width:520px!important;
+ margin:0 auto!important;
+ padding:3px 5px 3px!important;
+ display:flex!important;flex-direction:column!important;
+ gap:3px!important;
+ overflow:hidden!important;
+}
+html.native-ad-layout #gameShell .gamecard{
+ flex:1 1 0!important;min-height:0!important;
+ overflow:hidden!important;
+ padding:3px 2px!important;
+ gap:3px!important;
+}
+html.native-ad-layout #gameShell .boardwrap{
+ flex:0 0 auto!important;
+ min-width:0!important;
+ margin:2px auto 2px!important;
+}
+html.native-ad-layout #gameShell .scorebar{flex:0 0 32px!important}
+html.native-ad-layout #gameShell .pieces{
+ flex:0 0 auto!important;
+ height:clamp(50px,8dvh,67px)!important;
+ margin-top:2px!important;
+}
+html.native-ad-layout #gameShell .gametools{
+ flex:0 0 30px!important;
+ margin-top:0!important;
+ position:relative!important;
+ z-index:2!important;
+}
+html.native-ad-layout #gameShell .neon-duo-modes{
+ flex:0 0 29px!important;margin:0!important;
+}
+html.native-ad-layout #gameShell .gamehint{
+ flex:0 0 1px!important;
+}
+html.native-ad-layout #gameShell footer{
+ flex:0 0 10px!important;
+}
+.nova-banner-dock{
+ position:fixed!important;
+ left:0;right:0;
+ bottom:var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px));
+ width:100%;
+ height:var(--native-ad-reserve,0px);
+ min-height:0;
+ box-sizing:border-box;
+ z-index:30;
+ display:flex;align-items:center;justify-content:center;
+ pointer-events:none;user-select:none;
+ padding:8px 0 2px;
+ border-top:2px solid #9deaff;
+ box-shadow:0 -4px 15px #2e98ff5c,inset 0 3px 8px #ffffff0b;
+ background:linear-gradient(180deg,#0d1940f7,#0b102bf9);
+}
+.nova-banner-label{
+ position:absolute;top:1px;left:8px;
+ font-size:8px;font-weight:750;line-height:1;
+ color:#c7d6f8;letter-spacing:.5px;
+}
+.nova-banner-native-space{
+ width:100%;height:100%;
+ min-height:0;
+}
+/* Both real games stop at the TOP of the lower ad pane; the native AdMob view
+   remains unobstructed. Blockfall still fills its available remaining height. */
+html.native-ad-layout .blockfall-overlay,
+html.native-ad-layout .galaxy-overlay{
+ top:var(--safe-area-inset-top,env(safe-area-inset-top,0px))!important;
+ bottom:calc(var(--native-ad-reserve,64px) + var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px)))!important;
+ height:auto!important;
+ min-height:0!important;
+}
+html.native-ad-layout .fall-panel{
+ min-height:0!important;
+ height:100%!important;
+}
+html.native-ad-layout .fall-board-holder{
+ min-height:0!important;flex:1 1 0!important;
+}
+html.native-ad-layout .overlay,
+html.native-ad-layout .nova-pause-overlay{
+ bottom:calc(var(--native-ad-reserve,64px) + var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px)))!important;
+}
+html.native-ad-layout .toast{
+ bottom:calc(var(--native-ad-reserve,64px) + var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px)) + 14px)!important;
+}
+/* No empty dock when the user has not consented or the ad failed to load.
+   On desktop/web, default no-banner layout is preserved. */
+@media(max-height:710px){
+ html.native-ad-layout #gameShell .scorebar{flex-basis:27px!important}
+ html.native-ad-layout #gameShell .pieces{height:48px!important}
+ html.native-ad-layout #gameShell .neon-duo-modes{flex-basis:27px!important}
+ html.native-ad-layout #gameShell .gamecard{gap:1px!important}
+}
