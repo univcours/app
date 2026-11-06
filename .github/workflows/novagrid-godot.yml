@@ -21,6 +21,12 @@ jobs:
           unzip -q /tmp/godot.zip -d /tmp
           sudo install -m 755 /tmp/Godot_v4.5.1-stable_linux.x86_64 /usr/local/bin/godot
           godot --version
+      - name: Parse audio, game rules and main UI directly
+        run: |
+          set -euo pipefail
+          for script in Audio.gd Puzzle.gd Falling.gd Main.gd; do
+            godot --headless --path novagrid-godot --check-only --script "res://scripts/$script"
+          done
       - name: Import project and parse all game scripts
         run: |
           set -euo pipefail
