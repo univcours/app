@@ -14,6 +14,7 @@ var puzzle
 var falling
 var audio
 var font: Font
+var gem_styles: Array = []
 var mode := 0
 var paused := false
 var selected := -1
@@ -36,6 +37,16 @@ func _ready() -> void:
  audio = AudioScript.new()
  add_child(audio)
  font = ThemeDB.fallback_font
+ for gem in GEM_COLORS:
+  var style := StyleBoxFlat.new()
+  style.bg_color = gem.lightened(.10)
+  style.border_color = gem.lightened(.62)
+  style.set_corner_radius_all(5)
+  style.set_border_width_all(1)
+  style.shadow_color = Color(gem.r,gem.g,gem.b,.33)
+  style.shadow_size = 3
+  style.shadow_offset = Vector2(0,1)
+  gem_styles.append(style)
  _load_game()
  var gen := RandomNumberGenerator.new()
  gen.seed = 20261106
@@ -167,10 +178,15 @@ func _label(text:String,pos:Vector2,size:int=16,color:Color=Color.WHITE,
  draw_string(font,pos,text,alignment,width,size,color)
 
 func _glass_panel(rect:Rect2,fill:Color=Color("#17225b"),outline:Color=Color("#7deaff")) -> void:
- draw_rect(rect,Color("#050923"),true)
- draw_rect(Rect2(rect.position+Vector2(1,1),rect.size-Vector2(2,2)),fill,true)
- draw_rect(rect,outline,false,1.5)
- draw_line(rect.position+Vector2(3,2),Vector2(rect.end.x-3,rect.position.y+2),Color(1,1,1,.45),1.1,true)
+ var panel := StyleBoxFlat.new()
+ panel.bg_color=fill
+ panel.border_color=outline
+ panel.set_corner_radius_all(10)
+ panel.set_border_width_all(1)
+ panel.shadow_color=Color(.04,.25,.88,.24)
+ panel.shadow_size=3
+ draw_style_box(panel,rect)
+ draw_line(rect.position+Vector2(11,2),Vector2(rect.end.x-11,rect.position.y+2),Color(1,1,1,.39),1.0,true)
 
 func _button(rect:Rect2,title:String,active:bool=false,small:bool=false) -> void:
  var fill := Color(.16,.37,.74,.87) if active else Color(.13,.17,.43,.9)
@@ -216,15 +232,15 @@ func _gem(rect:Rect2,color_id:int,ghost:bool=false) -> void:
   return
  var inset := Rect2(rect.position+Vector2(1,1),rect.size-Vector2(2,2))
  draw_rect(Rect2(inset.position+Vector2(0.8,1.5),inset.size),Color(base.r,base.g,base.b,.32),true)
- draw_rect(inset,base.darkened(.2),true)
- draw_rect(Rect2(inset.position+Vector2(2,2),inset.size-Vector2(4,4)),base.lightened(.17),true)
+ draw_style_box(gem_styles[clampi(color_id,1,gem_styles.size()-1)],inset)
+ draw_rect(Rect2(inset.position+Vector2(4,4),inset.size-Vector2(8,9)),Color(1,1,1,.09),true)
  var upper := Rect2(inset.position+Vector2(3,2),Vector2(maxf(1,inset.size.x-6),maxf(2,inset.size.y*.23)))
  draw_rect(upper,Color(1,1,1,.31),true)
  draw_line(inset.position+Vector2(2,2),Vector2(inset.end.x-2,inset.position.y+2),Color(1,1,1,.82),1.3,true)
  draw_line(inset.position+Vector2(2,2),Vector2(inset.position.x+2,inset.end.y-2),Color(1,1,1,.4),1.1,true)
  draw_line(Vector2(inset.position.x+2,inset.end.y-2),inset.end-Vector2(2,2),base.darkened(.48),2.0)
  draw_line(inset.end-Vector2(2,2),Vector2(inset.end.x-2,inset.position.y+2),base.darkened(.43),1.8)
- draw_rect(inset,Color(1,1,1,.38),false,.75)
+ # The rounded beveled edge is rendered by the reusable StyleBoxFlat.
 
 func _board_back(board_rect:Rect2,cols:int,rows:int) -> float:
  _glass_panel(Rect2(board_rect.position-Vector2(4,4),board_rect.size+Vector2(8,8)),
