@@ -48,5 +48,22 @@ func _capture() -> void:
   printerr("Unable to capture Blockfall: ",err)
   quit(1)
   return
+ # Capture the actual GPU-rendered 3D bevelled mesh, not a painted mockup.
+ var crystal:Texture2D = app.crystal3d.texture_for(3)
+ if crystal == null:
+  printerr("Real 3D crystal render target was not created.")
+  quit(1)
+  return
+ var crystal_image:Image = crystal.get_image()
+ if crystal_image == null or crystal_image.is_empty():
+  printerr("Real 3D crystal texture is empty.")
+  quit(1)
+  return
+ err = crystal_image.save_png("res://build/novagrid-3d-crystal-proof.png")
+ if err != OK:
+  printerr("3D crystal proof cannot be saved: ",err)
+  quit(1)
+  return
+ print("REAL 3D CRYSTAL RENDERED: ",crystal_image.get_width(),"x",crystal_image.get_height())
  print("REAL GODOT SCREENSHOTS SAVED")
  quit(0)
