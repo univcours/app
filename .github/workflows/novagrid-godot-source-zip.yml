@@ -1,0 +1,40 @@
+name: NovaGrid Godot Editor Project ZIP
+on:
+  push:
+    branches: [novagrid-godot-rebuild]
+    paths:
+      - 'novagrid-godot/**'
+      - '.github/workflows/novagrid-godot-source-zip.yml'
+  workflow_dispatch:
+jobs:
+  package-godot-source:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify project entry point and pack only Godot source
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd novagrid-godot
+          test -s project.godot
+          test -s scenes/Main.tscn
+          test -s scripts/Main.gd
+          test -s scripts/Puzzle.gd
+          test -s scripts/Falling.gd
+          test -s scripts/Audio.gd
+          test -s assets/icon.svg
+          zip -q -r ../NovaGrid-Godot-Project.zip \
+            project.godot export_presets.cfg \
+            scenes scripts tests assets README.md OPEN-IN-GODOT.md
+          cd ..
+          unzip -t NovaGrid-Godot-Project.zip
+          unzip -l NovaGrid-Godot-Project.zip | tail -25
+      - name: Upload importable Godot editor project
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaGrid-Godot-Project
+          path: NovaGrid-Godot-Project.zip
+          retention-days: 30
+          if-no-files-found: error
