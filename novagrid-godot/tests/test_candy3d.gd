@@ -52,6 +52,9 @@ func _run() -> void:
    verify(coated>=2,"clearcoat PBR materials %d"%i)
  await process_frame
  await process_frame
+ studio.queue_free()
+ await process_frame
+ await process_frame
  if failures.is_empty():
   print("ALL NOVAGRID REAL 3D CANDY ASSET TESTS PASSED")
   quit(0)
