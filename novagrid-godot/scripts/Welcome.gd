@@ -21,9 +21,11 @@ func _ready() -> void:
  visuals=VisualsScript.new()
  add_child(visuals)
  visuals.configure(GEMS)
- audio=AudioScript.new()
- add_child(audio)
  var session:Node=get_node_or_null("/root/Session")
+ audio=session.get("audio") if session!=null else null
+ if audio==null:
+  audio=AudioScript.new()
+  add_child(audio)
  if session!=null:
   audio.sounds_enabled=bool(session.get("sounds_enabled"))
   audio.music_enabled=bool(session.get("music_enabled"))
