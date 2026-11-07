@@ -76,7 +76,9 @@ func _ready() -> void:
    "radius": gen.randf_range(0.4,1.7), "phase": gen.randf_range(0,TAU)})
  var session:Node=get_node_or_null("/root/Session")
  if session!=null:
-  mode=int(session.get("start_mode"))
+  mode=clampi(int(session.get("start_mode")),0,1)
+  audio.sounds_enabled=bool(session.get("sounds_enabled"))
+  audio.music_enabled=bool(session.get("music_enabled"))
  audio.select_music("puzzle" if mode==0 else "falling")
  get_viewport().size_changed.connect(queue_redraw)
  set_process(true)
@@ -592,7 +594,8 @@ func _input(event:InputEvent) -> void:
   _move_pointer(event.position)
  elif event is InputEventKey and event.pressed and not event.echo:
   if event.keycode==KEY_ESCAPE:
-   paused = not paused
+   if not (mode==0 and puzzle.over) and not (mode==1 and falling.over):
+    paused = not paused
   elif mode==1 and not paused:
    match event.keycode:
     KEY_LEFT: _fall_move(-1)
@@ -694,9 +697,11 @@ func _release(pos:Vector2) -> void:
   return
  if layout["audio"].has_point(pos):
   audio.toggle_sound()
+  _save_audio_settings()
   return
  if layout["music"].has_point(pos):
   audio.toggle_music("puzzle" if mode==0 else "falling")
+  _save_audio_settings()
   return
  if layout["mode_switch"].has_point(pos):
   mode=1-mode
@@ -900,6 +905,11 @@ func _load_game() -> void:
   falling.restore(data["falling"])
  if data.has("progression") and data["progression"] is Dictionary:
   progress.restore(data["progression"])
+
+func _save_audio_settings() -> void:
+ var session:Node=get_node_or_null("/root/Session")
+ if session!=null:
+  session.call("update_audio_settings",audio.sounds_enabled,audio.music_enabled)
 
 func _save_game() -> void:
  if puzzle==null or falling==null:
