@@ -5,6 +5,13 @@
 import {PATTERNS,seededRng,hashDate} from './engine.js';
 import {intensityForMoves,maxPieceCells} from './progressive.js';
 export const GLASS_COLS=10,GLASS_ROWS=12;
+// Powerful 3x3 bombs are earned rarely by BOTH score and genuine cleared lines.
+// Milestones are deterministic and one-time per run; they cannot be farmed by tapping.
+export const RARE_BOMB_MILESTONES=Object.freeze([
+ {score:5000,lines:18},{score:14500,lines:45},{score:32000,lines:95},
+ {score:56000,lines:155},{score:90000,lines:240}
+]);
+export const MAX_BOMBS=2;
 export function emptyGlassBoard(){
  return Array.from({length:GLASS_ROWS},()=>Array(GLASS_COLS).fill(0));
 }
@@ -36,7 +43,8 @@ export function drawGlassTray(rng,board,moves){
 export function makeGlassGame(){
  const seed=Math.floor(Math.random()*4294967295),board=emptyGlassBoard(),rng=seededRng(seed);
  return {mode:'classic',seed,board,tray:drawGlassTray(rng,board,0),score:0,moves:0,combo:0,
-  round:1,fever:0,feverTurns:0,usedUndo:false,over:false};
+  round:1,fever:0,feverTurns:0,usedUndo:false,over:false,
+  bombs:0,bombMilestone:0,totalLinesCleared:0};
 }
 export function placeGlass(board,shape,row,col,color=1){
  if(!canPlaceGlass(board,shape,row,col))return null;
@@ -58,9 +66,22 @@ export function runGlassMove(state,trayIndex,row,col){
  const result=placeGlass(state.board,shape,row,col,1+(state.moves+trayIndex*2)%6);
  if(!result)return null;
  const next={...state,board:result.board,tray:state.tray.map((x,i)=>i===trayIndex?null:x),moves:state.moves+1};
- next.combo=result.groups?state.combo+1:0;
- const gained=result.placed+result.groups*(24+Math.min(next.combo,7)*6)+Math.max(result.groups-1,0)*25;
+ // Real scoring: placement itself is worth ZERO. Multi-line clears pay more.
+ next.combo=result.groups?Math.max(result.groups,Math.min(state.combo+1,8)):0;
+ const gained=result.groups===0?0:Math.round(
+  120*result.groups*(1+.65*(result.groups-1))+
+  18*Math.max(0,next.combo-1)*result.groups
+ );
  next.score+=gained;
+ next.totalLinesCleared=(state.totalLinesCleared||0)+result.groups;
+ next.bombs=Math.max(0,Math.floor(state.bombs||0));
+ next.bombMilestone=Math.max(0,Math.floor(state.bombMilestone||0));
+ let earnedBombs=0;
+ while(next.bombMilestone<RARE_BOMB_MILESTONES.length&&next.bombs<MAX_BOMBS){
+  const milestone=RARE_BOMB_MILESTONES[next.bombMilestone];
+  if(next.score<milestone.score||next.totalLinesCleared<milestone.lines)break;
+  next.bombs++;next.bombMilestone++;earnedBombs++;
+ }
  if(next.tray.every(x=>!x)){
   const rng=seededRng(state.seed);
   let tray=drawGlassTray(rng,emptyGlassBoard(),0);
@@ -68,5 +89,33 @@ export function runGlassMove(state,trayIndex,row,col){
   next.tray=tray;
  }
  next.over=!hasGlassMove(next.board,next.tray);
- return {state:next,gained,groups:result.groups,rows:result.rows,columns:result.columns,squares:0,cleared:result.cleared};
+ return {state:next,gained,groups:result.groups,rows:result.rows,columns:result.columns,squares:0,cleared:result.cleared,earnedBombs};
+}
+
+
+export function bombProgress(state){
+ const index=Math.min(RARE_BOMB_MILESTONES.length,Math.max(0,Math.floor(state.bombMilestone||0)));
+ if(index>=RARE_BOMB_MILESTONES.length)return {ready:false,complete:true,percent:100};
+ const milestone=RARE_BOMB_MILESTONES[index];
+ const scoreProgress=Math.max(0,Math.min(1,(state.score||0)/milestone.score));
+ const lineProgress=Math.max(0,Math.min(1,(state.totalLinesCleared||0)/milestone.lines));
+ return {ready:(state.bombs||0)>0,complete:false,
+  percent:Math.round(100*Math.min(scoreProgress,lineProgress)),
+  scoreGoal:milestone.score,linesGoal:milestone.lines};
+}
+
+export function detonateGlassBomb(state,row,col){
+ if(state.mode!=='classic'||state.over||!(state.bombs>0))return null;
+ if(!Number.isInteger(row)||!Number.isInteger(col)||row<0||col<0||row>=GLASS_ROWS||col>=GLASS_COLS)return null;
+ const nextBoard=state.board.map(line=>[...line]);
+ let removed=0;
+ for(let r=Math.max(0,row-1);r<=Math.min(GLASS_ROWS-1,row+1);r++)
+  for(let c=Math.max(0,col-1);c<=Math.min(GLASS_COLS-1,col+1);c++){
+   if(nextBoard[r][c]){nextBoard[r][c]=0;removed++;}
+  }
+ if(!removed)return null; // Empty targets do not consume a rare bomb.
+ const next={...state,board:nextBoard,bombs:state.bombs-1,combo:0};
+ next.over=!hasGlassMove(next.board,next.tray);
+ // Bombs are a tactical rescue only: NO points, lines, charge, XP or drops.
+ return {state:next,removed,center:[row,col],gained:0};
 }
