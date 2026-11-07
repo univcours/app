@@ -6,6 +6,11 @@ extends Node
 ## Interstitial is offered only after completed rounds, with strong throttling.
 const BANNER_TEST = "ca-app-pub-3940256099942544/9214589741"
 const INTERSTITIAL_TEST = "ca-app-pub-3940256099942544/1033173712"
+# Registered, VERIFIED user AdMob identifiers. Only selectable in explicitly
+# configured production release for the official original package.
+const LIVE_APP = "ca-app-pub-7945572016731367~1688423435"
+const BANNER_LIVE = "ca-app-pub-7945572016731367/3815893327"
+const INTERSTITIAL_LIVE = "ca-app-pub-7945572016731367/2422920606"
 const MIN_SECONDS_BETWEEN_FULL_SCREEN = 180.0
 var game: Node2D
 var banner: AdView
@@ -20,10 +25,17 @@ var started_msec := 0
 var consent_ready := false
 var loading_interstitial := false
 var initialized := false
+var live_build := false
 
 func start(game_node: Node2D) -> void:
  game = game_node
  started_msec = Time.get_ticks_msec()
+ # Two independent flags prevent live ads leaking into Godot Preview APK.
+ # Production release must explicitly turn the flag on AND set the real App ID
+ # in its signed production export. Tests intentionally keep it false.
+ live_build = bool(ProjectSettings.get_setting("novagrid_ads/production_release",false)) and (
+  str(ProjectSettings.get_setting("admob/general/android/app_id","")) == LIVE_APP)
+ print("NovaGrid AdMob: ", "LIVE (official release)" if live_build else "GOOGLE DEMO TEST ONLY")
  # Never execute on desktop; the editor's mock ad is NOT paid inventory.
  if OS.get_name() != "Android":
   return
@@ -86,7 +98,7 @@ func _load_banner() -> void:
  if not consent_ready or banner != null:
   return
  var ad_size := AdSize.get_current_orientation_anchored_adaptive_banner_ad_size(AdSize.FULL_WIDTH)
- banner = AdView.new(BANNER_TEST,ad_size,AdPosition.BOTTOM)
+ banner = AdView.new(BANNER_LIVE if live_build else BANNER_TEST,ad_size,AdPosition.BOTTOM)
  banner.ad_listener = banner_listener
  banner.load_ad(AdRequest.new())
 
@@ -127,7 +139,7 @@ func _load_interstitial() -> void:
  if not consent_ready or loading_interstitial or interstitial != null:
   return
  loading_interstitial = true
- InterstitialAdLoader.new().load(INTERSTITIAL_TEST,AdRequest.new(),interstitial_loader)
+ InterstitialAdLoader.new().load(INTERSTITIAL_LIVE if live_build else INTERSTITIAL_TEST,AdRequest.new(),interstitial_loader)
 
 func _interstitial_loaded(ad: InterstitialAd) -> void:
  loading_interstitial = false
