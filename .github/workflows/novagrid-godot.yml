@@ -72,7 +72,8 @@ jobs:
           set -euo pipefail
           godot --headless --path novagrid-godot --script res://tests/test_save.gd 2>&1 | tee /tmp/save.log
           grep -F 'ALL NOVAGRID SAVE RECOVERY TESTS PASSED' /tmp/save.log
-          if grep -E 'SCRIPT ERROR|Parse Error|Parser Error' /tmp/save.log; then exit 1; fi
+          # A corrupted save is recoverable data, not an uncaught engine error.
+          if grep -E 'ERROR:|SCRIPT ERROR|Parse Error|Parser Error' /tmp/save.log; then exit 1; fi
       - name: Real touch and swipe controls QA
         run: |
           set -euo pipefail
