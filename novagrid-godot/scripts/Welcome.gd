@@ -37,7 +37,9 @@ func _process(delta:float) -> void:
  if chosen>=0:
   transition_elapsed+=delta
   if transition_elapsed>.22:
-   Session.start_mode=chosen
+   var session:Node=get_node_or_null("/root/Session")
+   if session!=null:
+    session.set("start_mode",chosen)
    var err:int=get_tree().change_scene_to_file("res://scenes/Main.tscn")
    if err!=OK:
     printerr("Could not open NovaGrid gameplay: ",err)
