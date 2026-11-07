@@ -111,9 +111,8 @@ func _crystal(rect:Rect2,kind:int,alpha:float=1.0) -> void:
  else:
   var color:Color=GEMS[clampi(kind,1,GEMS.size()-1)]
   draw_rect(rect,color,true)
- if rect.size.x>11:
-  draw_line(rect.position+Vector2(3,3),
-   rect.position+Vector2(rect.size.x*.72,3),Color(1,1,1,alpha*.60),1.0,true)
+ # The sweet is a true StandardMaterial3D mesh with clearcoat, rendered
+ # by the same SubViewport candy atlas as the two live play modes.
 
 func _mini_board(rect:Rect2,falling:bool) -> void:
  var cols:int=10 if falling else 9
@@ -151,13 +150,13 @@ func _card(rect:Rect2,index:int) -> void:
   Color(.38,.91,1.0,.86) if index==0 else Color(.92,.51,1.0,.91),true)
  var text_left:float=card.position.x+18
  var text_top:float=card.position.y+38
- _label("01   INFINITE PUZZLE" if index==0 else "02   ARCADE SURVIVAL",
+ _label("01   SWEET PUZZLE" if index==0 else "02   JELLY SURVIVAL",
   Vector2(text_left,text_top),11,Color("#bdeafa") if index==0 else Color("#f3c6ff"))
  _label("BLOCK" if index==0 else "BLOCK",Vector2(text_left,text_top+33),
   30,Color.WHITE)
  _label("PUZZLE" if index==0 else "FALL",Vector2(text_left,text_top+65),
   29,main_color)
- _label("CLEAR LINES / UNLOCK GALAXIES" if index==0 else "STACK / ROTATE / SURVIVE",
+ _label("3D CANDIES  /  SWEET COMBOS" if index==0 else "3D JELLIES  /  ARCADE ACTION",
   Vector2(text_left,text_top+85),9,Color("#d2dcff"))
  var tag:=Rect2(Vector2(text_left,card.end.y-44),Vector2(minf(145,card.size.x*.49),30))
  _glass(tag,Color(.02,.30,.45,.88) if index==0 else Color(.35,.11,.44,.88),
@@ -182,9 +181,9 @@ func _draw() -> void:
  _label("NOVA",Vector2(0,110),55,Color("#1587ef"),HORIZONTAL_ALIGNMENT_CENTER,view.x)
  _label("NOVA",Vector2(0,106),55,Color("#f6fcff"),HORIZONTAL_ALIGNMENT_CENTER,view.x)
  _label("G R I D",Vector2(0,144),27,Color("#9bf9ff"),HORIZONTAL_ALIGNMENT_CENTER,view.x)
- _label("G L A S S     G A L A X Y",Vector2(0,171),14,Color("#ffd3ff"),HORIZONTAL_ALIGNMENT_CENTER,view.x)
+ _label("3 D    C A N D Y    G A L A X Y",Vector2(0,171),14,Color("#ffd3ff"),HORIZONTAL_ALIGNMENT_CENTER,view.x)
  var cards:Array[Rect2]=_rectangles()
- _label("C H O O S E    Y O U R    U N I V E R S E",
+ _label("C H O O S E    Y O U R    C A N D Y    W O R L D",
   Vector2(0,cards[0].position.y-23),12,Color("#bbd8fd"),HORIZONTAL_ALIGNMENT_CENTER,view.x)
  for i in 2:
   _card(cards[i],i)
@@ -194,9 +193,9 @@ func _draw() -> void:
   _glass(footer,Color(.08,.13,.33,.70),Color(.47,.67,1.0,.48))
   _label("★  GROW YOUR LEGEND",Vector2(footer.position.x+12,footer.position.y+22),
    14,Color("#ffe196"))
-  _label("RANKS  •  MISSIONS  •  RARE GLASS BOMBS",
+  _label("RANKS  •  COMBOS  •  RARE CANDY BOMBS",
    Vector2(footer.position.x+12,footer.position.y+43),10,Color("#c2e1ff"))
- _label("ORIGINAL GALAXY ARCADE • NO PAY-TO-WIN",
+ _label("ORIGINAL 3D CANDY ARCADE  •  NO PAY-TO-WIN",
   Vector2(0,view.y-29),10,Color(.72,.82,1.0,.82),HORIZONTAL_ALIGNMENT_CENTER,view.x)
  if chosen>=0:
   draw_rect(Rect2(Vector2.ZERO,view),Color(.02,.02,.08,clampf(transition_elapsed/.28,0.0,1.0)),true)
