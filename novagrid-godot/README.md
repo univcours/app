@@ -1,5 +1,28 @@
 # NovaGrid — Native Godot Rebuild (experimental)
 
+## Glass Galaxy Arcade update — 2026-11-07
+
+The **actual Godot editor project** now uses a full animated procedural nebula backdrop, reusable glass cube shaders, translucent boards, rounded glass navigation, spinning prism shards, shockwaves and separate original glass-break/impact sound banks for Puzzle versus Blockfall.
+
+### Touch gestures — NO bottom direction/control buttons
+- **Block Puzzle**: drag a crystal from the tray into the grid, or tap a tray crystal then tap a grid cell. Positions remain grid-accurate and valid placements are previewed.
+- **Blockfall**: swipe sideways to move; **tap a piece** to rotate; **swipe downward** for a hard drop; a short downward movement for controlled dropping; **press and hold the board** to accelerate the fall.
+- Pause/sound/music and mode tabs remain touch-friendly glass UI at the top. Pause offers **Resume** or **New Run**, and end-of-run offers **Play Again**.
+- Keyboard arrows/space remain available for desktop QA, without any screen-space arrows.
+
+### Offline progression with no paid advantage
+- Each legitimate placement/drop and line clear earns XP. Higher level unlocks rank names **Rookie → Nova Legend**.
+- Daily tasks, first-time achievements and daily streaks award persistent stars exactly once. All are earned in-game, never purchased.
+- Five animated galaxy palettes unlock at levels 1, 4, 9, 16, 28. Tap the **glass XP bar at the bottom** to change among unlocked themes.
+- Progress is saved locally along with both modes in `user://novagrid-godot-save.json` and restored when re-opening. No online account, ad SDK or backend is required.
+
+To test progression alone:
+
+```bash
+godot --headless --path novagrid-godot --script res://tests/test_progression.gd
+```
+
+
 This is a **new native Godot 4.5.1 game** built as a sibling of the original `novagrid/` application. It is **not** a destructive migration, and it has **not** replaced the Android app already installed from Google Play.
 
 ## Two playable game modes
