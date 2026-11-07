@@ -61,11 +61,48 @@ function sweep(start,end,duration,volume=0.04,wave='sawtooth'){
    o.onended=()=>{o.disconnect();g.disconnect();};
   }catch{}
  }
+ function glassCrack({heavy=false,combo=false}={}){
+  if(!ctx||ctx.state==='closed')return;
+  try{
+   const at=ctx.currentTime+.009;
+   const duration=heavy?.43:.29;
+   const length=Math.ceil(ctx.sampleRate*duration);
+   const buffer=ctx.createBuffer(1,length,ctx.sampleRate);
+   const samples=buffer.getChannelData(0);
+   // Original synthesized brittle shatter, not a third-party copyrighted SFX.
+   let seed=heavy?912735:476921;
+   for(let i=0;i<length;i++){
+    seed=(Math.imul(seed,1664525)+1013904223)|0;
+    const t=i/ctx.sampleRate,noise=((seed>>>1)/1073741824)-1;
+    const bits=Math.sin(t*19000)*.23+Math.sin(t*13057)*.16;
+    samples[i]=(noise*.7+bits)*Math.exp(-t*(heavy?7:11));
+   }
+   const src=ctx.createBufferSource(),filter=ctx.createBiquadFilter(),gain=ctx.createGain();
+   src.buffer=buffer;filter.type='highpass';filter.frequency.value=heavy?600:1150;
+   gain.gain.setValueAtTime(heavy?.18:.12,at);
+   gain.gain.exponentialRampToValueAtTime(.0001,at+duration);
+   src.connect(filter);filter.connect(gain);gain.connect(ctx.destination);
+   src.start(at);src.stop(at+duration+.02);
+   src.onended=()=>{src.disconnect();filter.disconnect();gain.disconnect();};
+   sweep(heavy?240:790,heavy?51:215,heavy?.37:.21,heavy?.07:.033,'triangle');
+   for(let i=0;i<(combo?9:5);i++)
+    note((heavy?380:680)+i*(heavy?105:175),at+i*.018,.20+i*.016,.015+(combo?.004:0),'sine');
+  }catch{}
+ }
  function effect(kind){
   if(!effectOn)return;
   if(!startedByGesture)unlock();
   if(!acquire())return;
   const now=ctx.currentTime+.008;
+  if(['glassShatter','glassCombo','bombGlass','fallShatter','fallCombo','fallLock','fallMove','fallRotate','bombEarned'].includes(kind)){
+   if(kind==='fallMove'){note(330,now,.045,.013,'triangle');return;}
+   if(kind==='fallRotate'){note(650,now,.075,.021,'square');return;}
+   if(kind==='fallLock'){sweep(185,75,.18,.042,'triangle');return;}
+   if(kind==='bombEarned'){[659,880,1320].forEach((hz,i)=>note(hz,now+i*.07,.25,.028));return;}
+   glassCrack({heavy:['bombGlass','fallShatter','fallCombo'].includes(kind),
+    combo:['glassCombo','fallCombo','bombGlass'].includes(kind)});
+   return;
+  }
   const tones={
    pick:[[540,.09,.029],[800,.10,.016]],
    place:[[370,.085,.035],[590,.12,.025]],
