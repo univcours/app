@@ -28,10 +28,11 @@ func _capture()->void:
   printerr("Unable to save actual Welcome screenshot:",err)
   quit(1)
   return
- welcome.queue_free()
- await process_frame
- await process_frame
+ # Detach and free the capture scene exactly ONCE. The previous
+ # queue_free + remove_child + free sequence used an invalid object and
+ # crashed Godot 4.5.1 after a successful PNG capture.
  root.remove_child(welcome)
  welcome.free()
+ await process_frame
  print("REAL NOVAGRID OPEN SOURCE HOME SCREENSHOT SAVED")
  quit(0)
