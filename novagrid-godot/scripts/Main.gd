@@ -398,29 +398,54 @@ func _draw_puzzle(layout:Dictionary) -> void:
    _gem(Rect2(left+Vector2(p.x*cell,p.y*cell),Vector2(cell,cell)),colors[selected],true)
 
 func _draw_falling(layout:Dictionary) -> void:
- var board:Rect2 = layout["board"]
- var cell:float = _board_back(board,10,18)
- var ghost:Vector2i = Vector2i(falling.active.x,falling.ghost_row())
+ var board:Rect2=layout["board"]
+ var cell:float=_board_back(board,10,18)
+ var ghost:Vector2i=Vector2i(falling.active.x,falling.ghost_row())
  for y in 18:
   for x in 10:
-   var id:int = falling.cell_at(x,y)
+   var id:int=falling.cell_at(x,y)
    if id>0:
     _gem(Rect2(board.position+Vector2(x*cell,y*cell),Vector2(cell,cell)),id)
  for p in falling.piece:
-  var pos:Vector2i = ghost+p
+  var pos:Vector2i=ghost+p
   if pos.y>=0 and pos.y<18 and falling.board[pos.y][pos.x]==0:
    _gem(Rect2(board.position+Vector2(pos.x*cell,pos.y*cell),Vector2(cell,cell)),falling.kind+1,true)
  for p in falling.piece:
-  var pos:Vector2 = fall_display+Vector2(p)
+  var pos:Vector2=fall_display+Vector2(p)
   if pos.y>=0 and pos.y<18:
    _gem(Rect2(board.position+Vector2(pos.x*cell,pos.y*cell),Vector2(cell,cell)),falling.kind+1)
- # Compact next-piece preview sits BESIDE the small HUD, outside the board.
- _label("NEXT",Vector2(board.end.x-31,143),9,Color("#bcefff"))
- var preview: Array = falling.FORMS[falling.next_kind]
- for raw in preview:
-  var q := Vector2(int(raw[0]),int(raw[1]))
-  _gem(Rect2(Vector2(board.end.x-76,149)+q*12,Vector2(12,12)),falling.next_kind+1)
- _label("TAP  ROTATE    SWIPE  MOVE / DROP    HOLD  SOFT DROP",Vector2(0,layout["height"]-68.0),9,Color("#c6dbfa"),HORIZONTAL_ALIGNMENT_CENTER,layout["viewport"].x)
+ # Real reference-style NEXT and HOLD panels at the right, not a fake preview.
+ var next_rect:Rect2=layout["next"]
+ var hold_rect:Rect2=layout["hold"]
+ _label("NEXT",Vector2(next_rect.position.x,next_rect.position.y-10),15,Color("#f2f5ff"),HORIZONTAL_ALIGNMENT_CENTER,next_rect.size.x)
+ _glass_panel(next_rect,Color(.03,.04,.15,.93),Color("#ffb348"))
+ _draw_side_piece(next_rect,falling.next_kind)
+ _label("HOLD",Vector2(hold_rect.position.x,hold_rect.position.y-10),15,Color("#f2f5ff"),HORIZONTAL_ALIGNMENT_CENTER,hold_rect.size.x)
+ _glass_panel(hold_rect,Color(.03,.04,.15,.93),Color("#4adaff"))
+ if falling.hold_kind>=0:
+  _draw_side_piece(hold_rect,falling.hold_kind)
+ if falling.hold_used:
+  draw_rect(hold_rect.grow(-2),Color(.06,.09,.20,.47),true)
+ var combo_rect:=Rect2(Vector2(next_rect.position.x,hold_rect.end.y+39.0),Vector2(next_rect.size.x,85.0))
+ _glass_panel(combo_rect,Color(.27,.04,.32,.74),Color("#f34ce1"))
+ _label("COMBO",Vector2(combo_rect.position.x,combo_rect.position.y+28),14,Color("#ffbbfb"),HORIZONTAL_ALIGNMENT_CENTER,combo_rect.size.x)
+ _label("x%d" % falling.combo,Vector2(combo_rect.position.x,combo_rect.position.y+68),30,Color("#fff4ba"),HORIZONTAL_ALIGNMENT_CENTER,combo_rect.size.x)
+ _label("SWIPE ↔  MOVE    TAP  ROTATE    SWIPE ↓  DROP",Vector2(0,layout["height"]-117.0),9,Color("#dccfff"),HORIZONTAL_ALIGNMENT_CENTER,layout["viewport"].x)
+
+func _draw_side_piece(panel:Rect2,kind_id:int) -> void:
+ if kind_id<0 or kind_id>=falling.FORMS.size():
+  return
+ var form:Array=falling.FORMS[kind_id]
+ var max_x:int=0
+ var max_y:int=0
+ for p in form:
+  max_x=maxi(max_x,int(p[0]))
+  max_y=maxi(max_y,int(p[1]))
+ var micro:float=minf((panel.size.x-9)/float(max_x+1),(panel.size.y-10)/float(max_y+1))
+ micro=minf(micro,25.0)
+ var start:Vector2=panel.position+(panel.size-Vector2(micro*(max_x+1),micro*(max_y+1)))*.5
+ for p in form:
+  _gem(Rect2(start+Vector2(int(p[0])*micro,int(p[1])*micro),Vector2(micro,micro)),kind_id+1)
 
 func _draw_shockwaves() -> void:
  for ring in shockwaves:
@@ -609,20 +634,28 @@ func _release(pos:Vector2) -> void:
  if layout["music"].has_point(pos):
   audio.toggle_music("puzzle" if mode==0 else "falling")
   return
- for i in 2:
-  if layout["tabs"][i].has_point(pos):
-   if mode!=i:
-    mode=i
-    bomb_armed=false
-    fall_display=Vector2(falling.active)
-    fall_drawn_drops=falling.drops
-    selected=-1
-    paused=false
-    fall_accum=0
-    audio.effect("tap")
-    audio.select_music("puzzle" if mode==0 else "falling")
-    _save_game()
-   return
+ if layout["mode_switch"].has_point(pos):
+  mode=1-mode
+  bomb_armed=false
+  selected=-1
+  paused=false
+  falling_touch_valid=false
+  fall_accum=0.0
+  fall_display=Vector2(falling.active)
+  fall_drawn_drops=falling.drops
+  audio.effect("tap")
+  audio.select_music("puzzle" if mode==0 else "falling")
+  _save_game()
+  return
+ if mode==1 and layout["hold"].has_point(pos):
+  if falling.hold_piece():
+   fall_display=Vector2(falling.active)
+   fall_drawn_drops=falling.drops
+   audio.effect_for("falling","rotate")
+   _save_game()
+  else:
+   audio.effect("invalid")
+  return
  if mode==0:
   _release_puzzle(pos,layout)
  else:
