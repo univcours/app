@@ -95,6 +95,11 @@ jobs:
             yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" || true
           fi
           test -d "$ANDROID_HOME/platforms/android-35"
+      - name: Verify Godot Android editor SDK setup helper
+        run: |
+          set -euo pipefail
+          NOVAGRID_ANDROID_SDK="$ANDROID_HOME" NOVAGRID_JAVA_SDK="$JAVA_HOME" godot --headless --editor --path novagrid-godot --script res://scripts/configure_android_editor.gd 2>&1 | tee /tmp/android-config.log
+          grep -F 'NOVAGRID_ANDROID_EDITOR_CONFIGURED' /tmp/android-config.log
       - name: Download Godot matching Android export templates
         run: |
           set -euo pipefail
