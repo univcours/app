@@ -36,7 +36,12 @@ jobs:
           p.mkdir(parents=True,exist_ok=True)
           for name in ('blockfall_exact_reference.png','blockfall_playable_chrome.png','blockpuzzle_cosmic_backdrop.png'):
            (p/name).write_bytes(blob)
-          print('Injected 941x1672 QA fixtures, no source gameplay assets replaced')
+          h=2091
+          long_scan=bytes([0])+bytes([9,11,43,255])*w
+          long_data=zlib.compress(long_scan*h,9)
+          puzzle_blob=b'\x89PNG\r\n\x1a\n'+chunk(b'IHDR',struct.pack('!2I5B',w,h,8,6,0,0,0))+chunk(b'IDAT',long_data)+chunk(b'IEND',b'')
+          (p/'blockpuzzle_playable_chrome.png').write_bytes(puzzle_blob)
+          print('Injected 941x1672 and 941x2091 synthetic QA textures')
           PY
       - name: Import test textures and parse Godot game
         run: |
