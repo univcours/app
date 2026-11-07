@@ -177,6 +177,21 @@ func _draw() -> void:
  _starfield(view)
  _planet(Vector2(view.x*.80,view.y*.15),view.x*.145,Color("#161552"),Color("#bb63ff"))
  _planet(Vector2(view.x*.18,view.y*.22),view.x*.065,Color("#06416a"),Color("#60dfff"))
+ # Real 3D jelly candy meshes float next to the brand; render once from
+ # the same reusable physically-lit atlas used during actual gameplay.
+ for sweet in [
+  {"kind":1,"x":view.x*.07,"y":view.y*.082,"size":55.0,"period":1.8},
+  {"kind":2,"x":view.x*.81,"y":view.y*.20,"size":62.0,"period":1.3},
+  {"kind":5,"x":view.x*.018,"y":view.y*.79,"size":54.0,"period":1.5}
+ ]:
+  var candy:Texture2D=visuals.get_gem_texture(int(sweet["kind"]))
+  if candy!=null:
+   var side:float=float(sweet["size"])
+   var bob:float=sin(clock*float(sweet["period"]))*6.0
+   var p:=Vector2(float(sweet["x"]),float(sweet["y"])+bob)
+   var tint:Color=GEMS[int(sweet["kind"])]
+   draw_circle(p+Vector2(side*.5,side*.5),side*.48,Color(tint.r,tint.g,tint.b,.12))
+   draw_texture_rect(candy,Rect2(p,Vector2(side,side)),false,Color(1,1,1,.82))
  var center:float=view.x*.5
  _label("NOVA",Vector2(0,110),55,Color("#1587ef"),HORIZONTAL_ALIGNMENT_CENTER,view.x)
  _label("NOVA",Vector2(0,106),55,Color("#f6fcff"),HORIZONTAL_ALIGNMENT_CENTER,view.x)
