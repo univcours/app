@@ -4,6 +4,7 @@ extends Node2D
 const GALAXY = preload("res://shaders/galaxy.gdshader")
 const CRYSTAL = preload("res://shaders/crystal.gdshader")
 var background: ColorRect
+var sky_material: ShaderMaterial
 var tile_textures: Array[Texture2D] = []
 var tile_viewports: Array[SubViewport] = []
 const TILE_SIZE := 80
@@ -16,7 +17,7 @@ func configure(palette: Array) -> void:
  background.size = get_viewport_rect().size
  background.show_behind_parent = true
  background.z_index = -100
- var sky_material := ShaderMaterial.new()
+ sky_material = ShaderMaterial.new()
  sky_material.shader = GALAXY
  background.material = sky_material
  add_child(background)
@@ -51,3 +52,17 @@ func get_gem_texture(color_id: int) -> Texture2D:
  if tile_textures.is_empty():
   return null
  return tile_textures[index]
+
+func set_theme(index:int) -> void:
+ if sky_material==null:
+  return
+ var palettes: Array = [
+  [Color("#751bdf"),Color("#1d91ff")], # NEON
+  [Color("#1c6ad5"),Color("#14e5e4")], # OCEAN
+  [Color("#d13bf1"),Color("#8155ff")], # VIOLET
+  [Color("#2dc67d"),Color("#2cc0da")], # EMERALD
+  [Color("#dc7751"),Color("#d6b13e")]  # GOLD
+ ]
+ var selected: Array=palettes[clampi(index,0,palettes.size()-1)]
+ sky_material.set_shader_parameter("magenta_nebula",selected[0])
+ sky_material.set_shader_parameter("blue_nebula",selected[1])
