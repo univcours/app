@@ -24,7 +24,7 @@ jobs:
       - name: Parse audio, game rules and main UI directly
         run: |
           set -euo pipefail
-          for script in Audio.gd Puzzle.gd Falling.gd Progression.gd Visuals.gd GameSession.gd WallKicks.gd Welcome.gd Main.gd configure_android_editor.gd; do
+          for script in Audio.gd Puzzle.gd Falling.gd Progression.gd Candy3D.gd Visuals.gd GameSession.gd WallKicks.gd Welcome.gd Main.gd configure_android_editor.gd; do
             godot --headless --path novagrid-godot --check-only --script "res://scripts/$script"
           done
       - name: Check Windows PowerShell helper syntax
@@ -43,6 +43,12 @@ jobs:
           set -euo pipefail
           godot --headless --editor --path novagrid-godot --quit 2>&1 | tee /tmp/import.log
           if grep -E 'SCRIPT ERROR|Parse Error|Parser Error' /tmp/import.log; then exit 1; fi
+      - name: Real 3D candy mesh and PBR rendering checks
+        run: |
+          set -euo pipefail
+          godot --headless --path novagrid-godot --script res://tests/test_candy3d.gd 2>&1 | tee /tmp/candy3d.log
+          grep -F 'ALL NOVAGRID REAL 3D CANDY ASSET TESTS PASSED' /tmp/candy3d.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Parser Error' /tmp/candy3d.log; then exit 1; fi
       - name: Native gameplay engine tests
         run: |
           set -euo pipefail
@@ -157,5 +163,6 @@ jobs:
             /tmp/progression.log
             /tmp/touch.log
             /tmp/open-source.log
+            /tmp/candy3d.log
             /tmp/welcome.log
           if-no-files-found: ignore
