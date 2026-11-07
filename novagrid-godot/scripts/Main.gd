@@ -12,6 +12,11 @@ const GEM_COLORS = [
  Color("#963aff"), Color("#11db60"), Color("#ff751c"), Color("#127bff")
 ]
 const SKY = Color("#070923")
+# User-approved 941x1672 reference art is an optional real Godot texture.
+# The original procedural shader remains the safe fallback in source-only clones.
+const EXACT_FALL_SKIN = "res://assets/skins/blockfall_exact_reference.png"
+const PUZZLE_COSMIC_SKIN = "res://assets/skins/blockpuzzle_cosmic_backdrop.png"
+const SKIN_CANVAS = Vector2(941.0,1672.0)
 # Shared premium Cosmic Candy arcade palette used for BOTH live modes.
 const GLOW_BLUE = Color("#39ebff")
 const GLOW_PINK = Color("#ff6df1")
@@ -46,6 +51,8 @@ var save_clock := 0.0
 var clock := 0.0
 var banner_height := 0.0 # Reserved only after an actual native banner reports its measured height.
 var native_ads: Node = null
+var skin_fall:Texture2D = null
+var skin_puzzle:Texture2D = null
 
 func set_native_banner_height(px:float) -> void:
  # Reserved for the native AdMob bridge: do not simulate real ad filling here.
@@ -68,6 +75,10 @@ func _ready() -> void:
  visuals = VisualsScript.new()
  add_child(visuals)
  visuals.configure(GEM_COLORS)
+ if ResourceLoader.exists(EXACT_FALL_SKIN):
+  skin_fall = load(EXACT_FALL_SKIN) as Texture2D
+ if ResourceLoader.exists(PUZZLE_COSMIC_SKIN):
+  skin_puzzle = load(PUZZLE_COSMIC_SKIN) as Texture2D
  for gem in GEM_COLORS:
   var style := StyleBoxFlat.new()
   style.bg_color = gem.lightened(.10)
@@ -166,6 +177,8 @@ func _layout() -> Dictionary:
  var w:float=viewport.x
  var h:float=viewport.y-banner_height
  var gutter:float=clampf(w*.031,9.0,18.0)
+ if mode==1 and skin_fall!=null:
+  return _reference_blockfall_layout(viewport,h)
  var header_scale:float=clampf(h/840.0,.72,1.0)
  var header_end:float=177.0*header_scale
  var board:Rect2
@@ -206,10 +219,23 @@ func _layout() -> Dictionary:
 
 func _draw() -> void:
  var layout:Dictionary = _layout()
- _draw_sky(layout)
- draw_set_transform(Vector2.ZERO,0.0,Vector2(1.0,float(layout["header_scale"])))
- _draw_header(layout)
- draw_set_transform(Vector2.ZERO)
+ var h:float=float(layout["height"])
+ var w:float=float(layout["viewport"].x)
+ var art:Texture2D=skin_fall if mode==1 else skin_puzzle
+ if art!=null:
+  # Scale actual user-approved artwork as part of the game, not as a mockup.
+  draw_texture_rect(art,Rect2(Vector2.ZERO,Vector2(w,h)),false)
+  if mode==1:
+   _reference_live_hud(layout)
+  else:
+   draw_set_transform(Vector2.ZERO,0.0,Vector2(1.0,float(layout["header_scale"])))
+   _draw_header(layout)
+   draw_set_transform(Vector2.ZERO,0.0,Vector2.ONE)
+ else:
+  _draw_sky(layout)
+  draw_set_transform(Vector2.ZERO,0.0,Vector2(1.0,float(layout["header_scale"])))
+  _draw_header(layout)
+  draw_set_transform(Vector2.ZERO,0.0,Vector2.ONE)
  _draw_tabs(layout)
  _draw_progress_hud(layout)
  var impact := Vector2(sin(clock*67.0),cos(clock*79.0))*shake*9.0
@@ -229,6 +255,62 @@ func _draw() -> void:
   var r := Rect2(Vector2(0,layout["height"]),Vector2(float(layout["viewport"].x),banner_height))
   draw_rect(r,Color("#080f26"),true)
   draw_line(r.position,Vector2(r.end.x,r.position.y),Color("#78dfff"),2.0)
+
+func _reference_blockfall_layout(viewport:Vector2,h:float) -> Dictionary:
+ # Touch/gameplay rectangles calibrated from the actual 941x1672 reference.
+ # Every position adapts independently to phone width, height and ad dock.
+ var sx:float=viewport.x/SKIN_CANVAS.x
+ var sy:float=h/SKIN_CANVAS.y
+ var board:=Rect2(Vector2(76.0*sx,349.0*sy),
+  Vector2(586.0*sx,967.0*sy))
+ var next_rect:=Rect2(Vector2(711.0*sx,406.0*sy),
+  Vector2(176.0*sx,177.0*sy))
+ var hold_rect:=Rect2(Vector2(711.0*sx,667.0*sy),
+  Vector2(176.0*sx,165.0*sy))
+ var gutter:float=clampf(viewport.x*.031,9.0,18.0)
+ return {
+  "viewport":viewport,"height":h,"gutter":gutter,"header_scale":1.0,
+  "board":board,"tray":[],"buttons":[],"tabs":[],
+  "next":next_rect,"hold":hold_rect,
+  "progress":Rect2(Vector2(40.0*sx,1528.0*sy),
+   Vector2(860.0*sx,85.0*sy)),
+  "mode_switch":Rect2(Vector2(39.0*sx,22.0*sy),Vector2(81.0*sx,88.0*sy)),
+  "pause_visual":Rect2(Vector2(786.0*sx,163.0*sy),
+   Vector2(97.0*sx,92.0*sy)),
+  "pause":Rect2(Vector2(786.0*sx,163.0*sy),
+   Vector2(97.0*sx,92.0*sy)),
+  "audio":Rect2(Vector2(42.0*sx,1421.0*sy),Vector2(76.0*sx,68.0*sy)),
+  "music":Rect2(Vector2(129.0*sx,1421.0*sy),Vector2(76.0*sx,68.0*sy)),
+  "privacy":Rect2(Vector2(224.0*sx,1430.0*sy),Vector2(105.0*sx,52.0*sy)),
+  "bomb":Rect2.ZERO,"bomb_visual":Rect2.ZERO
+ }
+
+
+func _reference_live_hud(layout:Dictionary) -> void:
+ # The reference is treated as professionally illustrated chrome. These
+ # value windows are replaced by live gameplay data on every redraw.
+ var sx:float=float(layout["viewport"].x)/SKIN_CANVAS.x
+ var sy:float=float(layout["height"])/SKIN_CANVAS.y
+ var score_box:=Rect2(Vector2(188.0*sx,204.0*sy),
+  Vector2(124.0*sx,62.0*sy))
+ var level_box:=Rect2(Vector2(563.0*sx,203.0*sy),
+  Vector2(110.0*sx,62.0*sy))
+ # Dark tint matches the inner-glass panel, masking static screenshot digits.
+ draw_rect(score_box,Color("#261044",.985),true)
+ draw_rect(level_box,Color("#09265a",.985),true)
+ _premium_title(str(falling.score),Vector2(157.0*sx,253.0*sy),28,
+  184.0*sx,GLOW_GOLD)
+ _premium_title(str(falling.level),Vector2(541.0*sx,252.0*sy),28,
+  164.0*sx,GLOW_GOLD)
+ var combo_strip:=Rect2(Vector2(83.0*sx,286.0*sy),
+  Vector2(337.0*sx,35.0*sy))
+ draw_rect(combo_strip,Color("#100a35",.96),true)
+ _label("COMBO x%d   ✦  LINES %d" % [falling.combo,falling.lines],
+  Vector2(combo_strip.position.x,311.0*sy),13,
+  Color("#ffd0ff"))
+ # Never rely on fake numbers baked in the art's progression footer.
+ _sparkle(Vector2(434.0*sx,295.0*sy),GLOW_BLUE,3.0)
+
 
 func _draw_sky(layout:Dictionary) -> void:
  var bounds:Vector2=layout["viewport"]
@@ -488,10 +570,11 @@ func _board_back(board_rect:Rect2,cols:int,rows:int) -> float:
  _glass_panel(outer,Color("#080c2c"),accent)
  draw_rect(board_rect,Color("#080e2c"),true)
  var cell:float=board_rect.size.x/float(cols)
+ var cell_h:float=board_rect.size.y/float(rows)
  for y in rows:
   for x in cols:
-   var rect:=Rect2(board_rect.position+Vector2(x*cell,y*cell),
-    Vector2(cell,cell))
+   var rect:=Rect2(board_rect.position+Vector2(x*cell,y*cell_h),
+    Vector2(cell,cell_h))
    var back:Color=Color("#0f1b43") if (x+y)%2==0 else Color("#0b1638")
    draw_rect(rect.grow(-.55),back,true)
    draw_rect(rect.grow(-.70),Color(.30,.31,.66,.27),false,.70)
@@ -574,24 +657,25 @@ func _draw_puzzle(layout:Dictionary) -> void:
 func _draw_falling(layout:Dictionary) -> void:
  var board:Rect2=layout["board"]
  var cell:float=_board_back(board,10,18)
+ var cell_h:float=board.size.y/18.0
  var ghost:Vector2i=Vector2i(falling.active.x,falling.ghost_row())
  for y in 18:
   for x in 10:
    var id:int=falling.cell_at(x,y)
    if id>0:
-    _gem(Rect2(board.position+Vector2(x*cell,y*cell),
-     Vector2(cell,cell)),id)
+    _gem(Rect2(board.position+Vector2(x*cell,y*cell_h),
+     Vector2(cell,cell_h)),id)
  for p in falling.piece:
   var pos:Vector2i=ghost+p
   if pos.y>=0 and pos.y<18 and falling.board[pos.y][pos.x]==0:
    # The real upcoming landing position is a luminous hollow tetromino.
-   _gem(Rect2(board.position+Vector2(pos.x*cell,pos.y*cell),
-    Vector2(cell,cell)),falling.kind+1,true)
+   _gem(Rect2(board.position+Vector2(pos.x*cell,pos.y*cell_h),
+    Vector2(cell,cell_h)),falling.kind+1,true)
  for p in falling.piece:
   var pos:Vector2=fall_display+Vector2(p)
   if pos.y>=0 and pos.y<18:
-   _gem(Rect2(board.position+Vector2(pos.x*cell,pos.y*cell),
-    Vector2(cell,cell)),falling.kind+1)
+   _gem(Rect2(board.position+Vector2(pos.x*cell,pos.y*cell_h),
+    Vector2(cell,cell_h)),falling.kind+1)
  var next_rect:Rect2=layout["next"]
  var hold_rect:Rect2=layout["hold"]
  _label("✦ NEXT",Vector2(next_rect.position.x,next_rect.position.y-10),14,
