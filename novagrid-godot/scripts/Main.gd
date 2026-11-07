@@ -307,81 +307,95 @@ func _gem(rect:Rect2,color_id:int,ghost:bool=false) -> void:
   return
  var base:Color=GEM_COLORS[clampi(color_id,1,GEM_COLORS.size()-1)]
  if ghost:
-  var faded:Color=Color(base.r,base.g,base.b,.13)
-  draw_rect(rect.grow(-2.0),faded,true)
-  draw_rect(rect.grow(-1.0),Color(base.r,base.g,base.b,.74),false,1.6)
+  draw_rect(rect.grow(-1.8),Color(base.r,base.g,base.b,.20),true)
+  draw_rect(rect.grow(-1.4),Color(base.r,base.g,base.b,.82),false,1.75)
   return
- var inset := rect.grow(-.65)
+ var center_rect:Rect2=rect.grow(-1.15)
+ # Neon aura / edge hot lines are necessary to approach the reference render.
+ if rect.size.x>=19.0:
+  draw_rect(center_rect.grow(2.4),Color(base.r,base.g,base.b,.12),true)
+  draw_rect(center_rect.grow(1.6),Color(base.r,base.g,base.b,.47),false,2.0)
  var texture:Texture2D=visuals.get_gem_texture(color_id) if visuals else null
- # GPU shader gives each crystal its curved transparent-looking shell,
- # volumetric light, animated internal caustics and rounded reflections.
  if texture!=null:
-  draw_texture_rect(texture,inset,false,Color.WHITE)
+  draw_texture_rect(texture,center_rect,false,Color.WHITE)
  else:
-  draw_style_box(gem_styles[clampi(color_id,1,gem_styles.size()-1)],inset)
- # Custom bright glints in the UI layer keep small gems sharp.
- if rect.size.x>16.0:
-  var star:=rect.position+Vector2(rect.size.x*.28,rect.size.y*.22)
-  draw_line(star-Vector2(2.6,0),star+Vector2(2.6,0),Color(1,1,1,.45),.72,true)
-  draw_line(star-Vector2(0,2.6),star+Vector2(0,2.6),Color(1,1,1,.36),.72,true)
+  draw_style_box(gem_styles[clampi(color_id,1,gem_styles.size()-1)],center_rect)
+ if rect.size.x>=16.0:
+  var pos:Vector2=center_rect.position
+  var dim:Vector2=center_rect.size
+  draw_line(pos+Vector2(3.0,2.5),pos+Vector2(dim.x-4.0,2.5),Color(1,1,1,.57),1.4,true)
+  draw_line(pos+Vector2(2.1,3.5),pos+Vector2(2.1,dim.y-4.0),Color(1,1,1,.39),1.1,true)
+  draw_line(pos+Vector2(3.0,dim.y-2.2),pos+Vector2(dim.x-3.0,dim.y-2.2),Color(base.r,base.g,base.b,.88),1.5,true)
 
 func _board_back(board_rect:Rect2,cols:int,rows:int) -> float:
- _glass_panel(Rect2(board_rect.position-Vector2(4,4),board_rect.size+Vector2(8,8)),
-  Color(.055,.078,.19,.67),Color("#74ddff"))
- var cell:float = board_rect.size.x/float(cols)
+ var outer:=Rect2(board_rect.position-Vector2(4,4),board_rect.size+Vector2(8,8))
+ # Multi-layer neon glass frame with blue-white corner lighting.
+ draw_rect(outer.grow(5.0),Color(.08,.46,1.0,.12),false,5.0)
+ draw_rect(outer.grow(2.5),Color(.12,.58,1.0,.21),false,3.0)
+ _glass_panel(outer,Color(.016,.025,.11,.84),Color("#4adfff"))
+ draw_rect(board_rect,Color(.014,.017,.070,.48),true)
+ var cell:float=board_rect.size.x/float(cols)
  for y in rows:
   for x in cols:
-   var rect := Rect2(board_rect.position+Vector2(x*cell,y*cell),Vector2(cell,cell))
-   draw_rect(Rect2(rect.position+Vector2(.9,.9),rect.size-Vector2(1.8,1.8)),Color(.12,.20,.40,.47),true)
-   draw_rect(rect,Color(.33,.36,.62,.22),false,.6)
+   var rect:=Rect2(board_rect.position+Vector2(x*cell,y*cell),Vector2(cell,cell))
+   draw_rect(rect.grow(-.5),Color(.055,.065,.20,.38),true)
+   draw_rect(rect,Color(.29,.32,.65,.54),false,.85)
+ draw_line(outer.position,Vector2(outer.end.x,outer.position.y),Color("#78f1ff"),2.0,true)
+ draw_line(Vector2(outer.position.x,outer.end.y),outer.end,Color("#77dbff"),1.8,true)
+ for corner in [outer.position,Vector2(outer.end.x,outer.position.y),outer.end,Vector2(outer.position.x,outer.end.y)]:
+  draw_circle(corner,2.7,Color("#d3faff"))
+  draw_circle(corner,6.2,Color(.19,.75,1.0,.10))
  return cell
 
 func _draw_puzzle(layout:Dictionary) -> void:
- var board:Rect2 = layout["board"]
- var cell:float = _board_back(board,10,12)
- for y in 12:
-  for x in 10:
-   var id:int = int(puzzle.cells[y][x])
+ var board:Rect2=layout["board"]
+ var cell:float=_board_back(board,9,9)
+ for y in 9:
+  for x in 9:
+   var id:int=int(puzzle.cells[y][x])
    if id>0:
     _gem(Rect2(board.position+Vector2(x*cell,y*cell),Vector2(cell,cell)),id)
  if bomb_armed and board.has_point(touch_at):
-  var target:=Vector2i(clampi(int((touch_at.x-board.position.x)/cell),0,9),
-   clampi(int((touch_at.y-board.position.y)/cell),0,11))
-  for yy in range(maxi(0,target.y-1),mini(12,target.y+2)):
-   for xx in range(maxi(0,target.x-1),mini(10,target.x+2)):
-    var preview:=Rect2(board.position+Vector2(xx*cell,yy*cell),Vector2(cell,cell))
-    draw_rect(preview.grow(-1.0),Color(.99,.17,.72,.32 if puzzle.cells[yy][xx]>0 else .13),true)
-    draw_rect(preview.grow(-1.0),Color("#ff9eec"),false,1.25)
+  var target:=Vector2i(clampi(int((touch_at.x-board.position.x)/cell),0,8),
+   clampi(int((touch_at.y-board.position.y)/cell),0,8))
+  for yy in range(maxi(0,target.y-1),mini(9,target.y+2)):
+   for xx in range(maxi(0,target.x-1),mini(9,target.x+2)):
+    var tile:=Rect2(board.position+Vector2(xx*cell,yy*cell),Vector2(cell,cell))
+    draw_rect(tile.grow(-1),Color(.99,.26,.79,.40 if puzzle.cells[yy][xx]>0 else .16),true)
+    draw_rect(tile.grow(-1),Color("#ff9eec"),false,1.4)
  if selected>=0 and selected<puzzle.tray.size() and not puzzle.tray[selected].is_empty():
-  var near:Vector2 = touch_at-Vector2(0,52) if dragging else touch_at
+  var near:Vector2=touch_at-Vector2(0,52) if dragging else touch_at
   if board.has_point(near):
-   var origin:Vector2i = _origin_from_position(near,dragging,board,puzzle.tray[selected])
+   var origin:Vector2i=_origin_from_position(near,dragging,board,puzzle.tray[selected])
    if puzzle.fits(puzzle.tray[selected],origin):
-    var marker:int = 1+(puzzle.moves+selected*2)%6
+    var preview_color:int=[7,1,5][selected]
     for p in puzzle.tray[selected]:
-     var q:Vector2i = origin+p
-     _gem(Rect2(board.position+Vector2(q.x*cell,q.y*cell),Vector2(cell,cell)),marker,true)
+     var q:Vector2i=origin+p
+     _gem(Rect2(board.position+Vector2(q.x*cell,q.y*cell),Vector2(cell,cell)),preview_color,true)
+ # Three freestanding, very glossy and vividly colored crystals as the collage.
+ var colors:Array=[7,1,5]
  for i in 3:
-  var tray_rect:Rect2 = layout["tray"][i]
-  _glass_panel(tray_rect,Color(.12,.14,.38,.85),
-   Color("#f9c4ff") if i==selected else Color("#5e86d1"))
-  var shape:Array = puzzle.tray[i]
+  var tray_rect:Rect2=layout["tray"][i]
+  var highlight:Color=GEM_COLORS[colors[i]]
+  if i==selected:
+   draw_rect(tray_rect.grow(1.0),Color(highlight.r,highlight.g,highlight.b,.17),true)
+   draw_rect(tray_rect,Color(highlight.r,highlight.g,highlight.b,.85),false,1.7)
+  var shape:Array=puzzle.tray[i]
   if shape.is_empty():
    continue
-  var bounds:Vector2i = puzzle.shape_size(shape)
-  var micro:float = minf((tray_rect.size.x-8)/float(bounds.x),(tray_rect.size.y-9)/float(bounds.y))
-  micro = minf(micro,20)
-  var offset := tray_rect.position+(tray_rect.size-Vector2(micro*bounds.x,micro*bounds.y))*.5
-  var gem_color:int = 1+(puzzle.moves+i*2)%6
+  var bounds:Vector2i=puzzle.shape_size(shape)
+  var micro:float=minf((tray_rect.size.x-8.0)/float(bounds.x),(tray_rect.size.y-4.0)/float(bounds.y))
+  micro=minf(micro,30.0)
+  var offset:Vector2=tray_rect.position+(tray_rect.size-Vector2(micro*bounds.x,micro*bounds.y))*.5
   for p in shape:
-   _gem(Rect2(offset+Vector2(p.x*micro,p.y*micro),Vector2(micro,micro)),gem_color)
- _label("CLEAR LINES TO SCORE  •  MULTI-CLEAR = COMBO",Vector2(0,layout["height"]-67.0),10,Color("#c6dbfa"),HORIZONTAL_ALIGNMENT_CENTER,layout["viewport"].x)
+   _gem(Rect2(offset+Vector2(p.x*micro,p.y*micro),Vector2(micro,micro)),colors[i])
+ _label("CLEAR ROWS • COLUMNS • 3×3 SECTORS",Vector2(0,layout["height"]-117.0),11,Color("#e4d4ff"),HORIZONTAL_ALIGNMENT_CENTER,layout["viewport"].x)
  if dragging and selected>=0 and not puzzle.tray[selected].is_empty():
-  var s:Array = puzzle.tray[selected]
-  var shape_size:Vector2i = puzzle.shape_size(s)
-  var left:Vector2 = visual_pointer-Vector2(shape_size.x*cell*.5,shape_size.y*cell*.5+54)
+  var s:Array=puzzle.tray[selected]
+  var shape_size:Vector2i=puzzle.shape_size(s)
+  var left:Vector2=visual_pointer-Vector2(shape_size.x*cell*.5,shape_size.y*cell*.5+54)
   for p in s:
-   _gem(Rect2(left+Vector2(p.x*cell,p.y*cell),Vector2(cell,cell)),1+(puzzle.moves+selected*2)%6,true)
+   _gem(Rect2(left+Vector2(p.x*cell,p.y*cell),Vector2(cell,cell)),colors[selected],true)
 
 func _draw_falling(layout:Dictionary) -> void:
  var board:Rect2 = layout["board"]
