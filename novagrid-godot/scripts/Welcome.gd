@@ -48,14 +48,17 @@ func _process(delta:float) -> void:
 
 func _rectangles() -> Array[Rect2]:
  var size:Vector2=get_viewport_rect().size if is_inside_tree() else Vector2(432.0,960.0)
- var margin:float=clampf(size.x*.046,12,28)
- var h:float=clampf(size.y*.205,146.0,196.0)
- var gap:float=clampf(size.y*.025,12,24)
- var y:float=maxf(216.0,size.y*.295)
- if y+2.0*h+gap>size.y-138.0:
-  y=maxf(174.0,size.y-138.0-2.0*h-gap)
- return [Rect2(margin,y,size.x-2*margin,h),
-  Rect2(margin,y+h+gap,size.x-2*margin,h)]
+ var margin:float=clampf(size.x*.052,14.0,28.0)
+ var card_height:float=clampf(size.y*.235,146.0,226.0)
+ var gap:float=clampf(size.y*.018,11.0,19.0)
+ var top:float=clampf(size.y*.267,158.0,273.0)
+ # Keep two complete cards + progression footer on small Android screens.
+ if top+2.0*card_height+gap>size.y-126.0:
+  top=maxf(138.0,size.y-126.0-2.0*card_height-gap)
+ return [
+  Rect2(margin,top,size.x-2.0*margin,card_height),
+  Rect2(margin,top+card_height+gap,size.x-2.0*margin,card_height)
+ ]
 
 func _label(message:String,pos:Vector2,size:int,color:Color=Color.WHITE,
  alignment:HorizontalAlignment=HORIZONTAL_ALIGNMENT_LEFT,width:float=-1.0) -> void:
@@ -115,105 +118,166 @@ func _crystal(rect:Rect2,kind:int,alpha:float=1.0) -> void:
  # by the same SubViewport candy atlas as the two live play modes.
 
 func _mini_board(rect:Rect2,falling:bool) -> void:
- var cols:int=10 if falling else 9
- var rows:int=12 if falling else 9
- var cell_size:float=minf(rect.size.x/float(cols),rect.size.y/float(rows))
- var real:=Rect2(rect.position+Vector2((rect.size.x-cols*cell_size)*.5,
-  (rect.size.y-rows*cell_size)*.5),Vector2(cols*cell_size,rows*cell_size))
- _glass(real.grow(5),Color(.04,.08,.22,.75),Color(.25,.78,1.0,.50))
+ # A deliberately CLOSE-UP live-engine candy composition: huge legible 3D
+ # crystals, unlike the previous miniature grids that looked like noise.
+ var cols:int=7
+ var rows:int=8 if falling else 7
+ var side:float=minf(rect.size.x/float(cols),rect.size.y/float(rows))
+ var board:=Rect2(rect.position+Vector2((rect.size.x-cols*side)*.5,
+  (rect.size.y-rows*side)*.5),Vector2(cols*side,rows*side))
+ _glass(board.grow(6.0),Color("#080f30"),Color("#61baff"))
  for y in rows:
   for x in cols:
-   var square:=Rect2(real.position+Vector2(x*cell_size,y*cell_size),Vector2(cell_size,cell_size))
-   draw_rect(square.grow(-.65),Color(.08,.15,.31,.62),true)
-   var tile:int=0
-   if falling:
-    if y>5 and (((x*3+y*5)%9<4 and y>7) or (y>9 and ((x+y*3)%6!=0))):
-     tile=1+(x*7+y*3)%7
-    if y==3 and x>=3 and x<=6:
-     tile=3
+   var cell:=Rect2(board.position+Vector2(x*side,y*side),Vector2(side,side))
+   var background:=Color(.07,.15,.34,.94) if (x+y)%2==0 else Color(.055,.12,.29,.94)
+   draw_rect(cell.grow(-.80),background,true)
+   var gem:int=0
+   if not falling:
+    # Deliberate almost-complete row, a cascading corner and a falling
+    # magenta trio show exactly what a block-puzzle clear feels like.
+    if y==5 and x!=3:
+     gem=1+(x*2)%7
+    elif y==6 and x<4:
+     gem=1+(x+3)%7
+    elif x==5 and y>=2 and y<=4:
+     gem=3
+    elif y==1 and x>=1 and x<=3:
+     gem=4
+    elif y==2 and x==2:
+     gem=4
    else:
-    if ((y==6 or y==7) and x<8) or (x==6 and y>1 and y<8):
-     tile=1+(x*2+y*3)%7
-    if y==3 and x>=3 and x<=5:
-     tile=4
-   if tile>0:
-    _crystal(square.grow(-.45),tile)
+    # Tall stack + a falling I piece creates an instantly recognizable
+    # Blockfall visual, not a miniature second block-puzzle board.
+    if y>=5 and ((x+y*2)%6!=2 or y==7):
+     gem=1+(x*3+y)%7
+    elif y==4 and (x==0 or x==1 or x==5 or x==6):
+     gem=3 if x<3 else 5
+    elif y>=1 and y<=3 and x==3:
+     gem=2
+   if gem>0:
+    _crystal(cell.grow(-1.0),gem)
+ # A bright accent at the last playable row makes each preview pop.
+ draw_line(board.position+Vector2(3,board.size.y+5),
+  board.end+Vector2(-3,5),
+  Color("#42f3ff") if not falling else Color("#f088ff"),2.0,true)
 
 func _card(rect:Rect2,index:int) -> void:
- var active:bool=rect.has_point(touch_position)
- var main_color:Color=Color("#11e3ff") if index==0 else Color("#eb68ff")
- var glow_color:Color=Color("#1c93f6") if index==0 else Color("#a44dfb")
- var offset:float=sin(clock*(1.3 if index==0 else 1.45)+float(index)*1.9)*1.9
- var card:=Rect2(rect.position+Vector2(0,offset),rect.size)
- _glass(card,
-  Color(.12,.19,.48,.90) if index==0 else Color(.22,.12,.45,.92),
-  Color(.38,.91,1.0,.86) if index==0 else Color(.92,.51,1.0,.91),true)
- var text_left:float=card.position.x+18
- var text_top:float=card.position.y+38
- _label("01   SWEET PUZZLE" if index==0 else "02   JELLY SURVIVAL",
-  Vector2(text_left,text_top),11,Color("#bdeafa") if index==0 else Color("#f3c6ff"))
- _label("BLOCK" if index==0 else "BLOCK",Vector2(text_left,text_top+33),
-  30,Color.WHITE)
- _label("PUZZLE" if index==0 else "FALL",Vector2(text_left,text_top+65),
-  29,main_color)
- _label("3D CANDIES  /  SWEET COMBOS" if index==0 else "3D JELLIES  /  ARCADE ACTION",
-  Vector2(text_left,text_top+85),9,Color("#d2dcff"))
- var tag:=Rect2(Vector2(text_left,card.end.y-44),Vector2(minf(145,card.size.x*.49),30))
- _glass(tag,Color(.02,.30,.45,.88) if index==0 else Color(.35,.11,.44,.88),
-  Color(main_color.r,main_color.g,main_color.b,.9))
- _label("PLAY  ▶",Vector2(tag.position.x,tag.position.y+21),14,Color.WHITE,
-  HORIZONTAL_ALIGNMENT_CENTER,tag.size.x)
- var preview_width:float=minf(144,card.size.x*.40)
- var board_rect:=Rect2(Vector2(card.end.x-preview_width-14,card.position.y+19),
-  Vector2(preview_width,card.size.y-37))
- _mini_board(board_rect,index==1)
+ var is_puzzle:bool=index==0
+ var active:bool=rect.grow(4).has_point(touch_position)
+ var cyan:=Color("#35eaff")
+ var pink:=Color("#ff8ef6")
+ var accent:Color=cyan if is_puzzle else pink
+ var background:Color=Color("#0c254d") if is_puzzle else Color("#241348")
+ var bob:float=sin(clock*1.6+float(index)*2.0)*1.2
+ var panel:=Rect2(rect.position+Vector2(0,bob),rect.size)
+ _glass(panel,background,accent,true)
+ # Side-tone and neon rail give real hierarchy, not a flat text rectangle.
+ draw_rect(Rect2(panel.position+Vector2(2,17),Vector2(3,panel.size.y-34)),accent,true)
+ draw_line(panel.position+Vector2(14,panel.size.y-3),
+  panel.position+Vector2(panel.size.x*.48,panel.size.y-3),
+  Color(accent.r,accent.g,accent.b,.8),2.0,true)
+ # Scale inner content proportionally for 360x640 through 432x960.
+ # Canonical coordinates: 390 x 226, normalized to a single interactive card.
+ draw_set_transform(panel.position,0.0,Vector2(panel.size.x/390.0,panel.size.y/226.0))
+ var label_color:Color=Color("#8ff5ff") if is_puzzle else Color("#ffc5fb")
+ _label("01  /  STRATEGY" if is_puzzle else "02  /  ARCADE",
+  Vector2(21,31),12,label_color)
+ _label("BLOCK",Vector2(20,76),36,Color.WHITE)
+ _label("PUZZLE" if is_puzzle else "FALL",
+  Vector2(20,112),36,accent)
+ _label("PLACE  ·  MATCH  ·  BLAST" if is_puzzle else "DROP  ·  ROTATE  ·  SURVIVE",
+  Vector2(21,136),10,Color("#c8ddf7"))
+ for j in 3:
+  var kind:int=(j+3) if is_puzzle else (j+1)
+  _crystal(Rect2(Vector2(20+24*j,146),Vector2(23,23)),kind)
+ # Large CTA is the brightest element on the left, away from game thumbnail.
+ var button:=Rect2(Vector2(20,180),Vector2(164,34))
+ _glass(button,Color("#006f97") if is_puzzle else Color("#8a2a9a"),accent)
+ _label("PLAY  ▶",Vector2(button.position.x,button.position.y+23),17,
+  Color.WHITE,HORIZONTAL_ALIGNMENT_CENTER,button.size.x)
+ var inset:=Rect2(Vector2(204,21),Vector2(168,186))
+ _mini_board(inset,not is_puzzle)
+ # Animated, original glow guides the eye to the preview's playfield.
+ draw_arc(Vector2(290,114),101.0,PI*.55,PI*1.22,32,
+  Color(accent.r,accent.g,accent.b,.22),2.1,true)
  if active:
-  draw_arc(card.get_center(),card.size.x*.48,-.6,1.4,22,
-   Color(main_color.r,main_color.g,main_color.b,.18),3.0,true)
- draw_circle(Vector2(card.end.x-10,card.position.y+8),3.0,glow_color)
+  draw_arc(Vector2(294,116),106.0,-.65,.75,26,
+   Color(accent.r,accent.g,accent.b,.60),3.0,true)
+ draw_set_transform()
 
 func _draw() -> void:
  var view:Vector2=get_viewport_rect().size
- _starfield(view)
- _planet(Vector2(view.x*.80,view.y*.15),view.x*.145,Color("#161552"),Color("#bb63ff"))
- _planet(Vector2(view.x*.18,view.y*.22),view.x*.065,Color("#06416a"),Color("#60dfff"))
- # Real 3D jelly candy meshes float next to the brand; render once from
- # the same reusable physically-lit atlas used during actual gameplay.
- for sweet in [
-  {"kind":1,"x":view.x*.07,"y":view.y*.082,"size":55.0,"period":1.8},
-  {"kind":2,"x":view.x*.81,"y":view.y*.20,"size":62.0,"period":1.3},
-  {"kind":5,"x":view.x*.018,"y":view.y*.79,"size":54.0,"period":1.5}
- ]:
-  var candy:Texture2D=visuals.get_gem_texture(int(sweet["kind"]))
-  if candy!=null:
-   var side:float=float(sweet["size"])
-   var bob:float=sin(clock*float(sweet["period"]))*6.0
-   var p:=Vector2(float(sweet["x"]),float(sweet["y"])+bob)
-   var tint:Color=GEMS[int(sweet["kind"])]
-   draw_circle(p+Vector2(side*.5,side*.5),side*.48,Color(tint.r,tint.g,tint.b,.12))
-   draw_texture_rect(candy,Rect2(p,Vector2(side,side)),false,Color(1,1,1,.82))
- var center:float=view.x*.5
- _label("NOVA",Vector2(0,110),55,Color("#1587ef"),HORIZONTAL_ALIGNMENT_CENTER,view.x)
- _label("NOVA",Vector2(0,106),55,Color("#f6fcff"),HORIZONTAL_ALIGNMENT_CENTER,view.x)
- _label("G R I D",Vector2(0,144),27,Color("#9bf9ff"),HORIZONTAL_ALIGNMENT_CENTER,view.x)
- _label("3 D    C A N D Y    G A L A X Y",Vector2(0,171),14,Color("#ffd3ff"),HORIZONTAL_ALIGNMENT_CENTER,view.x)
  var cards:Array[Rect2]=_rectangles()
- _label("C H O O S E    Y O U R    C A N D Y    W O R L D",
-  Vector2(0,cards[0].position.y-23),12,Color("#bbd8fd"),HORIZONTAL_ALIGNMENT_CENTER,view.x)
+ var compact:bool=view.y<730.0
+ # Dark atmospheric veil behind the brand prevents the nebula from
+ # reducing readability; no fake imagery and no expensive blur shaders.
+ draw_rect(Rect2(Vector2.ZERO,view),Color("#060b27",.35),true)
+ _starfield(view)
+ var header_height:float=cards[0].position.y
+ var title_y:float=header_height*.36
+ var small:float=.83 if compact else 1.0
+ _planet(Vector2(view.x*.84,header_height*.42),view.x*.115,
+  Color("#101a58"),Color("#6678ff"))
+ _planet(Vector2(view.x*.13,header_height*.59),view.x*.067,
+  Color("#07375c"),Color("#4ee9f6"))
+ # A restrained candy constellation frames the genuine brand and makes
+ # the game visually identifiable from the first screen.
+ var hero_gems:=[{"kind":1,"x":.045,"y":.29,"size":45.0},
+  {"kind":2,"x":.86,"y":.70,"size":48.0},
+  {"kind":5,"x":.055,"y":.72,"size":35.0}]
+ for item in hero_gems:
+  var tex:Texture2D=visuals.get_gem_texture(int(item["kind"]))
+  if tex==null:
+   continue
+  var diameter:float=float(item["size"])*small
+  var offset:float=sin(clock*1.25+float(item["kind"]))*4.0
+  var p:=Vector2(view.x*float(item["x"]),header_height*float(item["y"])+offset)
+  var halo:Color=GEMS[int(item["kind"])]
+  draw_circle(p+Vector2(diameter*.5,diameter*.5),diameter*.62,
+   Color(halo.r,halo.g,halo.b,.10))
+  draw_texture_rect(tex,Rect2(p,Vector2(diameter,diameter)),false,Color.WHITE)
+ # One coherent name instead of old NOVA / G.RID fragmentation.
+ var brand_size:int=clampi(int(view.x*.112*small),33,50)
+ _label("NOVAGRID",Vector2(0,title_y+3),brand_size,Color("#148bff"),
+  HORIZONTAL_ALIGNMENT_CENTER,view.x)
+ _label("NOVAGRID",Vector2(0,title_y),brand_size,Color("#f8fdff"),
+  HORIZONTAL_ALIGNMENT_CENTER,view.x)
+ var sub_y:float=title_y+27.0*small
+ _label("C O S M I C    C A N D Y    A R C A D E",Vector2(0,sub_y),
+  11 if not compact else 9,Color("#96f4ff"),HORIZONTAL_ALIGNMENT_CENTER,view.x)
+ var trail_y:float=sub_y+15.0*small
+ draw_line(Vector2(view.x*.33,trail_y),Vector2(view.x*.67,trail_y),
+  Color("#ab7fff",.82),2.0,true)
+ _label("TWO WORLDS. ENDLESS COMBOS.",Vector2(0,trail_y+22.0*small),
+  11 if not compact else 9,Color("#e2d9ff"),HORIZONTAL_ALIGNMENT_CENTER,view.x)
+ _label("CHOOSE YOUR ADVENTURE",Vector2(0,cards[0].position.y-13.0),
+  11,Color("#b4cbff"),HORIZONTAL_ALIGNMENT_CENTER,view.x)
  for i in 2:
   _card(cards[i],i)
- var footer_y:float=cards[1].end.y+20
- if footer_y<view.y-84:
-  var footer:=Rect2(Vector2(21,footer_y),Vector2(view.x-42,minf(70,view.y-106-footer_y)))
-  _glass(footer,Color(.08,.13,.33,.70),Color(.47,.67,1.0,.48))
-  _label("★  GROW YOUR LEGEND",Vector2(footer.position.x+12,footer.position.y+22),
-   14,Color("#ffe196"))
-  _label("RANKS  •  COMBOS  •  RARE CANDY BOMBS",
-   Vector2(footer.position.x+12,footer.position.y+43),10,Color("#c2e1ff"))
- _label("ORIGINAL 3D CANDY ARCADE  •  NO PAY-TO-WIN",
-  Vector2(0,view.y-29),10,Color(.72,.82,1.0,.82),HORIZONTAL_ALIGNMENT_CENTER,view.x)
+ var footer_top:float=cards[1].end.y+clampf(view.y*.020,11.0,20.0)
+ var room:float=view.y-footer_top-57.0
+ if room>42.0:
+  var footer_height:float=minf(room,87.0)
+  var footer:=Rect2(Vector2(cards[0].position.x,footer_top),
+   Vector2(cards[0].size.x,footer_height))
+  _glass(footer,Color("#10224a"),Color("#587bff"))
+  _label("★  BUILD YOUR GALAXY",footer.position+Vector2(18,25),
+   16 if not compact else 13,Color("#ffe49a"))
+  _label("LEVEL UP  ·  UNLOCK THEMES  ·  DAILY QUESTS",
+   footer.position+Vector2(18,44),10 if not compact else 9,Color("#bde2ff"))
+  if footer_height>65.0:
+   var kinds:=[2,3,4,5,1]
+   for i in kinds.size():
+    _crystal(Rect2(footer.position+Vector2(19+i*28,49),
+     Vector2(25,25)),kinds[i])
+   _label("YOUR NEXT HIGH SCORE STARTS HERE",
+    footer.position+Vector2(155,66),9,Color("#d5cdff"))
+ _label("ORIGINAL PUZZLE ARCADE   •   PLAY YOUR WAY",
+  Vector2(0,view.y-18.0),10 if not compact else 8,
+  Color(.76,.88,1.0,.8),HORIZONTAL_ALIGNMENT_CENTER,view.x)
  if chosen>=0:
-  draw_rect(Rect2(Vector2.ZERO,view),Color(.02,.02,.08,clampf(transition_elapsed/.28,0.0,1.0)),true)
+  draw_rect(Rect2(Vector2.ZERO,view),
+   Color(.01,.02,.09,clampf(transition_elapsed/.28,0.0,1.0)),true)
 
 func _launch(index:int) -> void:
  if chosen>=0:
