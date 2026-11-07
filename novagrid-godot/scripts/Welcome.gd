@@ -15,6 +15,16 @@ var stars:Array=[]
 var panel_cache:Dictionary={}
 var chosen:int=-1
 var transition_elapsed:float=0.0
+# Exact Blockfall gameplay proportions. Unlike Block Puzzle, this preview
+# has a vertical well, an ACTIVE falling T tetromino, landing ghost and NEXT.
+const FALL_PREVIEW_COLS:int=10
+const FALL_PREVIEW_ROWS:int=18
+const FALL_PREVIEW_T = [
+ Vector2i(3,3), Vector2i(4,3), Vector2i(5,3), Vector2i(4,4)
+]
+const FALL_PREVIEW_NEXT = [
+ Vector2i(0,0),Vector2i(0,1),Vector2i(0,2),Vector2i(1,2)
+]
 
 func _ready() -> void:
  font=ThemeDB.fallback_font
@@ -118,10 +128,13 @@ func _crystal(rect:Rect2,kind:int,alpha:float=1.0) -> void:
  # by the same SubViewport candy atlas as the two live play modes.
 
 func _mini_board(rect:Rect2,falling:bool) -> void:
- # A deliberately CLOSE-UP live-engine candy composition: huge legible 3D
- # crystals, unlike the previous miniature grids that looked like noise.
+ if falling:
+  _falling_preview(rect)
+  return
+ # Block Puzzle preview is deliberately broad and SQUARE (9x9 gameplay);
+ # Blockfall uses its own separate tall-well rendering below.
  var cols:int=7
- var rows:int=8 if falling else 7
+ var rows:int=7
  var side:float=minf(rect.size.x/float(cols),rect.size.y/float(rows))
  var board:=Rect2(rect.position+Vector2((rect.size.x-cols*side)*.5,
   (rect.size.y-rows*side)*.5),Vector2(cols*side,rows*side))
@@ -132,34 +145,108 @@ func _mini_board(rect:Rect2,falling:bool) -> void:
    var background:=Color(.07,.15,.34,.94) if (x+y)%2==0 else Color(.055,.12,.29,.94)
    draw_rect(cell.grow(-.80),background,true)
    var gem:int=0
-   if not falling:
-    # Deliberate almost-complete row, a cascading corner and a falling
-    # magenta trio show exactly what a block-puzzle clear feels like.
-    if y==5 and x!=3:
-     gem=1+(x*2)%7
-    elif y==6 and x<4:
-     gem=1+(x+3)%7
-    elif x==5 and y>=2 and y<=4:
-     gem=3
-    elif y==1 and x>=1 and x<=3:
-     gem=4
-    elif y==2 and x==2:
-     gem=4
-   else:
-    # Tall stack + a falling I piece creates an instantly recognizable
-    # Blockfall visual, not a miniature second block-puzzle board.
-    if y>=5 and ((x+y*2)%6!=2 or y==7):
-     gem=1+(x*3+y)%7
-    elif y==4 and (x==0 or x==1 or x==5 or x==6):
-     gem=3 if x<3 else 5
-    elif y>=1 and y<=3 and x==3:
-     gem=2
+   if y==5 and x!=3:
+    gem=1+(x*2)%7
+   elif y==6 and x<4:
+    gem=1+(x+3)%7
+   elif x==5 and y>=2 and y<=4:
+    gem=3
+   elif y==1 and x>=1 and x<=3:
+    gem=4
+   elif y==2 and x==2:
+    gem=4
    if gem>0:
     _crystal(cell.grow(-1.0),gem)
- # A bright accent at the last playable row makes each preview pop.
  draw_line(board.position+Vector2(3,board.size.y+5),
-  board.end+Vector2(-3,5),
-  Color("#42f3ff") if not falling else Color("#f088ff"),2.0,true)
+  board.end+Vector2(-3,5),Color("#42f3ff"),2.0,true)
+
+
+func _falling_preview(rect:Rect2) -> void:
+ # Real proportions: 10 columns x 18 rows, like the live Blockfall engine.
+ # The remaining horizontal space is a dedicated NEXT-piece sidebar.
+ # Keep ~8 px inner padding: nothing may escape the clickable game card.
+ _glass(rect,Color("#080b2b"),Color("#ed8fff"))
+ var padding:float=7.0
+ var cell:float=minf((rect.size.y-2.0*padding)/float(FALL_PREVIEW_ROWS),
+  (rect.size.x-55.0)/float(FALL_PREVIEW_COLS))
+ var width:float=cell*float(FALL_PREVIEW_COLS)
+ var height:float=cell*float(FALL_PREVIEW_ROWS)
+ var well:=Rect2(rect.position+Vector2(padding, (rect.size.y-height)*.5),
+  Vector2(width,height))
+ # Distinct Tetris-like well with strong vertical edges and visible bottom.
+ draw_rect(well.grow(1.8),Color("#020a25"),true)
+ draw_line(well.position-Vector2(2,0),
+  well.position+Vector2(-2,height),Color("#c268ff"),2.5,true)
+ draw_line(well.position+Vector2(width+2,0),
+  well.end+Vector2(2,0),Color("#64ddff"),2.5,true)
+ for y in FALL_PREVIEW_ROWS:
+  for x in FALL_PREVIEW_COLS:
+   var tile:=Rect2(well.position+Vector2(x*cell,y*cell),
+    Vector2(cell,cell))
+   var checker:Color=Color("#11234f") if (x+y)%2==0 else Color("#0b1a3e")
+   draw_rect(tile.grow(-.45),checker,true)
+ # Four coherent LOCKED tetrominoes, not randomized pile like Block Puzzle.
+ # J piece along the left, orange L on the right, yellow O and green S.
+ var locked:Array=[
+  {"color":7,"cells":[Vector2i(0,15),Vector2i(0,16),
+   Vector2i(0,17),Vector2i(1,17)]},
+  {"color":6,"cells":[Vector2i(8,15),Vector2i(8,16),
+   Vector2i(8,17),Vector2i(7,17)]},
+  {"color":2,"cells":[Vector2i(5,16),Vector2i(6,16),
+   Vector2i(5,17),Vector2i(6,17)]},
+  {"color":5,"cells":[Vector2i(3,14),Vector2i(4,14),
+   Vector2i(2,15),Vector2i(3,15)]}
+ ]
+ for piece in locked:
+  for spot in piece["cells"]:
+   var p:Vector2i=spot
+   _crystal(Rect2(well.position+Vector2(p.x*cell,p.y*cell),
+    Vector2(cell,cell)).grow(-.45),int(piece["color"]))
+ # GHOST shows where the moving T will land. The ghost is NOT filled.
+ # Four visible translucent outlines emphasize real falling mechanics.
+ for spot in FALL_PREVIEW_T:
+  var shadow:Vector2i=spot+Vector2i(0,9)
+  var ghost:=Rect2(well.position+Vector2(shadow.x*cell,shadow.y*cell),
+   Vector2(cell,cell)).grow(-1.0)
+  draw_rect(ghost,Color("#dca2ff",.10),true)
+  draw_rect(ghost,Color("#f2adff",.55),false,1.2)
+ # Active pink T is mid-air, moving down gently; all FOUR cells remain aligned.
+ var fall_offset:float=fposmod(clock*.75,1.0)*cell*.70
+ for spot in FALL_PREVIEW_T:
+  var target:Vector2i=spot
+  var at:=Rect2(well.position+Vector2(target.x*cell,
+   target.y*cell+fall_offset),Vector2(cell,cell))
+  _crystal(at.grow(-.35),4)
+ # Vertical movement tracer and arrow make it clear this is a FALLING piece.
+ var track_x:float=well.position.x+4.5*cell
+ draw_line(Vector2(track_x,well.position.y+5.4*cell),
+  Vector2(track_x,well.position.y+9.3*cell),
+  Color("#dba9ff",.30),1.0,true)
+ var arrow_y:float=well.position.y+9.8*cell
+ draw_line(Vector2(track_x-3,arrow_y-4),Vector2(track_x,arrow_y),
+  Color("#e2b4ff",.6),1.5,true)
+ draw_line(Vector2(track_x+3,arrow_y-4),Vector2(track_x,arrow_y),
+  Color("#e2b4ff",.6),1.5,true)
+ # Dedicated next preview removes ambiguity: real Blockfall queues shapes.
+ var side_x:float=well.end.x+6.0
+ var side_width:float=maxf(27.0,rect.end.x-side_x-5.0)
+ _label("NEXT",Vector2(side_x,rect.position.y+20),10,
+  Color("#f5cdff"))
+ var next_cell:float=minf(12.0,(side_width-4.0)*.5)
+ for spot in FALL_PREVIEW_NEXT:
+  var p:Vector2i=spot
+  _crystal(Rect2(Vector2(side_x+4.0+p.x*next_cell,
+   rect.position.y+31.0+p.y*next_cell),
+   Vector2(next_cell,next_cell)).grow(-.35),6)
+ _label("↓ DROP",Vector2(side_x,rect.position.y+105),9,
+  Color("#8df5ff"))
+ _label("LINES",Vector2(side_x,rect.position.y+143),9,
+  Color("#acbbf6"))
+ _label("04",Vector2(side_x,rect.position.y+161),16,
+  Color("#f9e0ff"))
+ # Last line of the well is always visible, preventing floating-board illusion.
+ draw_line(well.position+Vector2(0,height+2),
+  well.end+Vector2(0,2),Color("#ef78ff"),2.2,true)
 
 func _card(rect:Rect2,index:int) -> void:
  var is_puzzle:bool=index==0
