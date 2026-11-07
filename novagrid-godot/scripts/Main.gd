@@ -5,6 +5,7 @@ const PuzzleScript = preload("res://scripts/Puzzle.gd")
 const FallingScript = preload("res://scripts/Falling.gd")
 const AudioScript = preload("res://scripts/Audio.gd")
 const VisualsScript = preload("res://scripts/Visuals.gd")
+const ProgressionScript = preload("res://scripts/Progression.gd")
 
 const GEM_COLORS = [
  Color("#192850"), Color("#ff46af"), Color("#ffcc3b"), Color("#31d9fa"),
@@ -15,6 +16,7 @@ var puzzle
 var falling
 var audio
 var visuals
+var progress
 var font: Font
 var gem_styles: Array = []
 var panel_styles: Dictionary = {}
@@ -25,6 +27,12 @@ var touching := false
 var dragging := false
 var pressed_at := Vector2.ZERO
 var touch_at := Vector2.ZERO
+var visual_pointer := Vector2.ZERO
+var press_clock := 0.0
+var horizontal_anchor := 0.0
+var soft_clock := 0.0
+var touch_moved := false
+var falling_touch_valid := false
 var fall_accum := 0.0
 var save_clock := 0.0
 var clock := 0.0
@@ -41,6 +49,7 @@ func _ready() -> void:
  falling = FallingScript.new()
  audio = AudioScript.new()
  add_child(audio)
+ progress = ProgressionScript.new()
  font = ThemeDB.fallback_font
  visuals = VisualsScript.new()
  add_child(visuals)
@@ -68,6 +77,13 @@ func _ready() -> void:
 
 func _process(delta:float) -> void:
  clock += delta
+ visual_pointer=visual_pointer.lerp(touch_at,clampf(delta*19.0,0.0,1.0))
+ if mode==1 and touching and falling_touch_valid and not paused and not falling.over:
+  if clock-press_clock>.24 and not touch_moved:
+   soft_clock+=delta
+   if soft_clock>=.075:
+    soft_clock=0.0
+    _fall_soft_drop(false)
  flash = maxf(0.0,flash-delta*2.1)
  shake = maxf(0.0,shake-delta*3.0)
  for idx in range(shockwaves.size()-1,-1,-1):
@@ -122,8 +138,7 @@ func _layout() -> Dictionary:
  var buttons:Array = []
  if mode==0:
   var tray_height:float = clampf(h*0.083,58,76)
-  var controls_height:float = 36
-  var playable_height:float = maxf(150,h-header_end-tray_height-controls_height-44)
+  var playable_height:float = maxf(150,h-header_end-tray_height-84)
   var cell:float = maxf(2.0,minf((w-2*gutter-9.0)/10.0,playable_height/12.0))
   var board_size := Vector2(cell*10.0,cell*12.0)
   var surplus:float = maxf(0.0,playable_height-board_size.y)
@@ -132,19 +147,13 @@ func _layout() -> Dictionary:
   var tray_w:float = (w-2*gutter-12)/3.0
   for i in 3:
    tray.append(Rect2(Vector2(gutter+i*(tray_w+6),tray_y),Vector2(tray_w,tray_height)))
-  var actions_y:float = minf(h-42,tray_y+tray_height+8)
-  buttons = [
-   Rect2(gutter,actions_y,(w-3*gutter)/2.0,33),
-   Rect2(2*gutter+(w-3*gutter)/2.0,actions_y,(w-3*gutter)/2.0,33)]
  else:
-  var available:float = maxf(170,h-header_end-82)
+  # Falling-block play uses direct gestures only; no directional controls.
+  var available:float = maxf(170,h-header_end-73)
   var cell:float = maxf(2.0,minf((w-2*gutter-10)/10.0,available/18.0))
   var board_size := Vector2(cell*10,cell*18)
-  board = Rect2(Vector2((w-board_size.x)*0.5,header_end+maxf(0,available-board_size.y)*0.3),board_size)
-  var control_y:float = minf(h-49,board.end.y+8.0)
-  var control_width:float = (w-2*gutter-12.0)/4.0
-  for i in 4:
-   buttons.append(Rect2(gutter+i*(control_width+4),control_y,control_width,43))
+  board = Rect2(Vector2((w-board_size.x)*.5,header_end+maxf(0,available-board_size.y)*.28),board_size)
+
  return {"viewport":viewport,"height":h,"gutter":gutter,
   "tabs":tabs,"board":board,"tray":tray,"buttons":buttons,
   "pause":Rect2(w-45,10,34,35),"audio":Rect2(10,10,34,35),
@@ -155,6 +164,7 @@ func _draw() -> void:
  _draw_sky(layout)
  _draw_header(layout)
  _draw_tabs(layout)
+ _draw_progress_hud(layout)
  var impact := Vector2(sin(clock*67.0),cos(clock*79.0))*shake*9.0
  draw_set_transform(impact)
  if mode==0:
@@ -241,6 +251,21 @@ func _draw_header(layout:Dictionary) -> void:
  else:
   _label("LINES %d   LV %d" % [falling.lines,falling.level],Vector2(13,143),11,Color("#b7d8fb"))
 
+func _draw_progress_hud(layout:Dictionary) -> void:
+ var w:float=layout["viewport"].x
+ var g:float=layout["gutter"]
+ var y:float=layout["height"]-54.0
+ var rect:=Rect2(g,y,w-2.0*g,46.0)
+ _glass_panel(rect,Color(.08,.14,.34,.81),Color("#70cfff"))
+ var rank:String=progress.rank_name()
+ _label("LV %d • %s" % [progress.level,rank],Vector2(rect.position.x+12,y+17),12,Color("#dcfaff"))
+ _label("★ %d  |  STREAK %d" % [progress.stars,progress.streak],Vector2(rect.position.x, y+17),10,Color("#ffdc87"),HORIZONTAL_ALIGNMENT_RIGHT,rect.size.x-12)
+ var track:=Rect2(rect.position+Vector2(12,23),Vector2(rect.size.x-24,5))
+ draw_rect(track,Color("#273366"),true)
+ draw_rect(Rect2(track.position,Vector2(track.size.x*progress.level_progress(),track.size.y)),Color("#64f1ff"),true)
+ var mission:Dictionary=progress.next_mission()
+ _label("%s   %d/%d" % [mission["label"],mission["progress"],mission["target"]],Vector2(rect.position.x+12,y+41),9,Color("#b7daff"))
+
 func _draw_tabs(layout:Dictionary) -> void:
  var titles := ["✦  BLOCK PUZZLE","▦  BLOCKFALL"]
  for i in 2:
@@ -311,12 +336,11 @@ func _draw_puzzle(layout:Dictionary) -> void:
   var gem_color:int = 1+(puzzle.moves+i*2)%6
   for p in shape:
    _gem(Rect2(offset+Vector2(p.x*micro,p.y*micro),Vector2(micro,micro)),gem_color)
- _button(layout["buttons"][0],"↶ UNDO",false,true)
- _button(layout["buttons"][1],"↻ RESTART",false,true)
+ _label("DRAG OR TAP A CRYSTAL INTO THE GRID",Vector2(0,layout["height"]-67.0),10,Color("#c6dbfa"),HORIZONTAL_ALIGNMENT_CENTER,layout["viewport"].x)
  if dragging and selected>=0 and not puzzle.tray[selected].is_empty():
   var s:Array = puzzle.tray[selected]
   var shape_size:Vector2i = puzzle.shape_size(s)
-  var left:Vector2 = touch_at-Vector2(shape_size.x*cell*.5,shape_size.y*cell*.5+54)
+  var left:Vector2 = visual_pointer-Vector2(shape_size.x*cell*.5,shape_size.y*cell*.5+54)
   for p in s:
    _gem(Rect2(left+Vector2(p.x*cell,p.y*cell),Vector2(cell,cell)),1+(puzzle.moves+selected*2)%6,true)
 
@@ -343,9 +367,7 @@ func _draw_falling(layout:Dictionary) -> void:
  for raw in preview:
   var q := Vector2(int(raw[0]),int(raw[1]))
   _gem(Rect2(Vector2(board.end.x-76,149)+q*12,Vector2(12,12)),falling.next_kind+1)
- var labels := ["◀","⟳","▶","▼ DROP"]
- for i in 4:
-  _button(layout["buttons"][i],labels[i],i==3,true)
+ _label("TAP  ROTATE    SWIPE  MOVE / DROP    HOLD  SOFT DROP",Vector2(0,layout["height"]-68.0),9,Color("#c6dbfa"),HORIZONTAL_ALIGNMENT_CENTER,layout["viewport"].x)
 
 func _draw_shockwaves() -> void:
  for ring in shockwaves:
@@ -389,7 +411,9 @@ func _draw_modal(layout:Dictionary) -> void:
  _label("SCORE  %d" % score,Vector2(modal.position.x,modal.position.y+88),
   16,Color("#cbe9ff"),HORIZONTAL_ALIGNMENT_CENTER,modal.size.x)
  var action := "▶ RESUME" if paused else "↻ PLAY AGAIN"
- _button(Rect2(modal.position+Vector2(27,110),Vector2(modal.size.x-54,48)),action,true)
+ _button(Rect2(modal.position+Vector2(27,107),Vector2(modal.size.x-54,36)),action,true)
+ if paused:
+  _button(Rect2(modal.position+Vector2(27,148),Vector2(modal.size.x-54,27)),"↻ NEW RUN",false,true)
 
 func _origin_from_position(pos:Vector2,centered:bool,board:Rect2,shape:Array) -> Vector2i:
  var cell:float = board.size.x/10.0
@@ -422,10 +446,9 @@ func _input(event:InputEvent) -> void:
    paused = not paused
   elif mode==1 and not paused:
    match event.keycode:
-    KEY_LEFT: falling.move(-1)
-    KEY_RIGHT: falling.move(1)
-    KEY_UP:
-     if falling.rotate(): audio.effect("rotate")
+    KEY_LEFT: _fall_move(-1)
+    KEY_RIGHT: _fall_move(1)
+    KEY_UP: _fall_rotate()
     KEY_DOWN: _fall_soft_drop()
     KEY_SPACE: _fall_hard_drop()
   queue_redraw()
@@ -434,8 +457,14 @@ func _press(pos:Vector2) -> void:
  touching = true
  pressed_at = pos
  touch_at = pos
+ visual_pointer=pos
  dragging = false
+ touch_moved=false
+ press_clock=clock
+ horizontal_anchor=pos.x
+ soft_clock=0.0
  var layout:Dictionary = _layout()
+ falling_touch_valid=mode==1 and layout["board"].has_point(pos)
  if paused or (mode==0 and puzzle.over) or (mode==1 and falling.over):
   return
  if mode==0:
@@ -448,38 +477,41 @@ func _press(pos:Vector2) -> void:
 func _move_pointer(pos:Vector2) -> void:
  if not touching:
   return
- touch_at = pos
- if pos.distance_to(pressed_at)>9.0:
-  dragging = true
- if mode==1 and not paused and not falling.over:
-  var cell:float = _layout()["board"].size.x/10.0
-  while touch_at.x-pressed_at.x>cell*.6:
-   falling.move(1)
-   pressed_at.x += cell*.6
-  while pressed_at.x-touch_at.x>cell*.6:
-   falling.move(-1)
-   pressed_at.x -= cell*.6
+ touch_at=pos
+ if pos.distance_to(pressed_at)>11.0:
+  dragging=true
+  touch_moved=true
+ if mode==1 and falling_touch_valid and not paused and not falling.over:
+  var board:Rect2=_layout()["board"]
+  var threshold:float=board.size.x/10.0*.72
+  while touch_at.x-horizontal_anchor>threshold:
+   _fall_move(1)
+   horizontal_anchor+=threshold
+  while horizontal_anchor-touch_at.x>threshold:
+   _fall_move(-1)
+   horizontal_anchor-=threshold
  queue_redraw()
 
 func _release(pos:Vector2) -> void:
  if not touching:
   return
- touching = false
- touch_at = pos
- var layout:Dictionary = _layout()
+ touching=false
+ touch_at=pos
+ var layout:Dictionary=_layout()
  if paused or (mode==0 and puzzle.over) or (mode==1 and falling.over):
-  var viewport:Vector2 = layout["viewport"]
-  var play := Rect2(Vector2(viewport.x*.09+27,viewport.y*.34+110),
-   Vector2(viewport.x*.82-54,48))
-  if play.has_point(pos):
+  var viewport:Vector2=layout["viewport"]
+  var modal:=Rect2(Vector2(viewport.x*.09,viewport.y*.34),Vector2(viewport.x*.82,180.0))
+  var primary:=Rect2(modal.position+Vector2(27,107),Vector2(modal.size.x-54,36))
+  var restart:=Rect2(modal.position+Vector2(27,148),Vector2(modal.size.x-54,27))
+  if primary.has_point(pos):
    if paused:
     paused=false
-   elif mode==0:
-    puzzle.reset()
-    selected=-1
    else:
-    falling.reset()
-    fall_accum=0
+    _restart_mode()
+   audio.effect("tap")
+  elif paused and restart.has_point(pos):
+   paused=false
+   _restart_mode()
    audio.effect("tap")
   queue_redraw()
   return
@@ -510,6 +542,15 @@ func _release(pos:Vector2) -> void:
   _release_falling(pos,layout)
  queue_redraw()
 
+func _restart_mode() -> void:
+ if mode==0:
+  puzzle.reset()
+  selected=-1
+ else:
+  falling.reset()
+  fall_accum=0
+ _save_game()
+
 func _release_puzzle(pos:Vector2,layout:Dictionary) -> void:
  var board:Rect2 = layout["board"]
  var drop:Vector2 = pos-Vector2(0,52) if dragging else pos
@@ -519,7 +560,12 @@ func _release_puzzle(pos:Vector2,layout:Dictionary) -> void:
    var origin:Vector2i = _origin_from_position(drop,dragging,board,shape)
    if puzzle.place(selected,origin):
     var count:int = puzzle.last_cleared
-    audio.effect("combo" if count>10 else "clear" if count>0 else "place")
+    audio.effect_for("puzzle","big_shatter" if count>10 else "shatter" if count>0 else "place")
+    progress.placed_piece()
+    if count>0:
+     var cleared_groups:int=maxi(1,int(count/10))
+     progress.cleared_lines(cleared_groups,puzzle.combo)
+    _reward_feedback(board.get_center())
     if count>0:
      flash=.28 if count<20 else .7
      shake=.25
@@ -536,63 +582,69 @@ func _release_puzzle(pos:Vector2,layout:Dictionary) -> void:
    else:
     audio.effect("invalid")
   return
- for i in layout["buttons"].size():
-  if layout["buttons"][i].has_point(pos):
-   if i==0:
-    if puzzle.undo():
-     audio.effect("tap")
-   else:
-    puzzle.reset()
-    audio.effect("tap")
-   selected=-1
-   _save_game()
-   return
 
-func _fall_soft_drop() -> void:
- var locked:bool = falling.soft_drop()
+func _reward_feedback(center:Vector2) -> void:
+ if progress.last_reward!="":
+  _announce(progress.last_reward,center+Vector2(0,-87),Color("#ffe48a"))
+  progress.last_reward=""
+
+func _fall_move(dx:int) -> void:
+ if falling.move(dx):
+  audio.effect_for("falling","move")
+
+func _fall_rotate() -> void:
+ if falling.rotate():
+  audio.effect_for("falling","rotate")
+
+func _fall_soft_drop(audible:bool=true) -> void:
+ var locked:bool=falling.soft_drop()
  if locked:
   _fall_locked()
- else:
-  audio.effect("pick")
+ elif audible:
+  audio.effect_for("falling","soft")
 
 func _fall_hard_drop() -> void:
+ if falling.over:
+  return
  falling.hard_drop()
  _fall_locked()
- fall_accum=0
+ fall_accum=0.0
 
 func _fall_locked() -> void:
+ progress.locked_falling_piece()
  if falling.last_lines>0:
+  progress.cleared_lines(falling.last_lines,falling.combo)
   flash=.54
   shake=.31
   _burst(_layout()["board"].get_center(),20+falling.last_lines*9,Color("#86e8ff"))
   _announce("QUANTUM CLEAR!",_layout()["board"].get_center(),Color("#b2f9ff"))
-  audio.effect("combo" if falling.last_lines>=3 else "clear")
+  audio.effect_for("falling","big_shatter" if falling.last_lines>=3 else "shatter")
  else:
-  audio.effect("place")
+  audio.effect_for("falling","lock")
+ _reward_feedback(_layout()["board"].get_center())
  if falling.over:
   audio.effect("lose")
  _save_game()
 
 func _release_falling(pos:Vector2,layout:Dictionary) -> void:
- var labels: Array = layout["buttons"]
- for i in labels.size():
-  if labels[i].has_point(pos):
-   match i:
-    0: falling.move(-1)
-    1:
-     if falling.rotate(): audio.effect("rotate")
-    2: falling.move(1)
-    3: _fall_hard_drop()
-   return
- var field:Rect2 = layout["board"]
- if not field.has_point(pressed_at):
+ if not falling_touch_valid or falling.over:
   return
- var movement:Vector2 = pos-pressed_at
- if movement.y>field.size.y/13.0:
+ var board:Rect2=layout["board"]
+ var displacement:Vector2=pos-pressed_at
+ var elapsed:float=maxf(.01,clock-press_clock)
+ var cell:float=board.size.x/10.0
+ if displacement.y>cell*2.3:
+  # Quick downward swipe = instant hard drop. No buttons obstruct the board.
   _fall_hard_drop()
- elif movement.length()<25:
-  if falling.rotate():
-   audio.effect("rotate")
+ elif displacement.y>cell*.70:
+  # Shorter swipe = a controlled soft drop.
+  var steps:int=clampi(int(displacement.y/cell),1,6)
+  for i in steps:
+   if falling.over:
+    break
+   _fall_soft_drop(i==0)
+ elif displacement.length()<cell*.42 and elapsed<.28:
+  _fall_rotate()
 
 func _announce(message:String,at:Vector2,color:Color) -> void:
  headlines.append({"text":message,"pos":at,"age":0.0,"color":color})
@@ -625,10 +677,12 @@ func _load_game() -> void:
   puzzle.load_state(data["puzzle"])
  if data.has("falling"):
   falling.restore(data["falling"])
+ if data.has("progression") and data["progression"] is Dictionary:
+  progress.restore(data["progression"])
 
 func _save_game() -> void:
  if puzzle==null or falling==null:
   return
  var f := FileAccess.open("user://novagrid-godot-save.json",FileAccess.WRITE)
  if f:
-  f.store_string(JSON.stringify({"puzzle":puzzle.save_state(),"falling":falling.snapshot()}))
+  f.store_string(JSON.stringify({"puzzle":puzzle.save_state(),"falling":falling.snapshot(),"progression":progress.snapshot()}))
