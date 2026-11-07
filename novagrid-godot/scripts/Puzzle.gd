@@ -3,6 +3,12 @@ extends RefCounted
 ## No HTML/Capacitor dependencies. Can be tested without a renderer.
 const COLS := 10
 const ROWS := 12
+const BOMB_MILESTONES = [
+ {"score":5000,"lines":18},{"score":14500,"lines":45},
+ {"score":32000,"lines":95},{"score":56000,"lines":155},
+ {"score":90000,"lines":240}
+]
+const MAX_BOMBS := 2
 const SHAPES = [
  [[0,0]], [[0,0],[1,0]], [[0,0],[1,0],[2,0]],
  [[0,0],[1,0],[2,0],[3,0]], [[0,0],[1,0],[2,0],[3,0],[4,0]],
@@ -25,6 +31,11 @@ var moves := 0
 var over := false
 var last_cleared := 0
 var last_gained := 0
+var last_groups := 0
+var total_lines := 0
+var bombs := 0
+var bomb_milestone := 0
+var last_bomb_award := 0
 var fever := 0
 var fever_moves := 0
 var previous: Dictionary = {}
@@ -40,6 +51,13 @@ func reset() -> void:
  score = 0
  combo = 0
  moves = 0
+ last_cleared = 0
+ last_gained = 0
+ last_groups = 0
+ total_lines = 0
+ bombs = 0
+ bomb_milestone = 0
+ last_bomb_award = 0
  over = false
  fever = 0
  fever_moves = 0
@@ -122,8 +140,10 @@ func any_move() -> bool:
 
 func _snapshot() -> Dictionary:
  return {"cells": cells.duplicate(true), "tray": tray.duplicate(true),
-  "score": score, "combo": combo, "moves": moves,
-  "fever": fever, "fever_moves": fever_moves, "over": over}
+  "score": score, "best": best, "combo": combo, "moves": moves,
+  "fever": fever, "fever_moves": fever_moves, "over": over,
+  "total_lines": total_lines, "bombs": bombs,
+  "bomb_milestone": bomb_milestone}
 
 func undo() -> bool:
  if previous.is_empty():
@@ -171,26 +191,42 @@ func place(slot: int, origin: Vector2i) -> bool:
  for p in marked:
   cells[p.y][p.x] = 0
  last_cleared = marked.size()
- var groups: int = clear_rows.size() + clear_columns.size()
- combo = combo + 1 if groups > 0 else 0
+ last_groups = clear_rows.size() + clear_columns.size()
+ last_bomb_award = 0
+ # A placement is NOT a scoring event. Completing multiple lines at once
+ # earns a larger per-group multiplier and raises the displayed combo.
+ combo = maxi(last_groups,mini(8,combo+1)) if last_groups>0 else 0
  moves += 1
- var points: int = shape.size() * 3 + groups * (70 + 20 * mini(combo, 6))
- if groups > 1:
-  points += (groups - 1) * 55
- if fever_moves > 0:
-  points *= 2
+ var points: int = 0
+ if last_groups>0:
+  points = int(round(120.0*last_groups*(1.0+.65*float(last_groups-1))+
+   18.0*maxi(0,combo-1)*last_groups))
+  total_lines += last_groups
+ if fever_moves>0:
+  # Fever never produces points from a non-clearing placement.
+  if last_groups>0:
+   points *= 2
   fever_moves -= 1
-  if fever_moves == 0:
-   fever = 0
- elif groups > 0:
-  fever = mini(100, fever + groups * 27 + mini(combo, 5) * 9)
-  if fever >= 100:
-   fever_moves = 5
- elif fever > 0:
-  fever = maxi(0, fever - 5)
- last_gained = points
- score += points
- best = maxi(best, score)
+  if fever_moves==0:
+   fever=0
+ elif last_groups>0:
+  fever=mini(100,fever+last_groups*27+mini(combo,5)*9)
+  if fever>=100:
+   fever_moves=5
+ elif fever>0:
+  fever=maxi(0,fever-5)
+ last_gained=points
+ score+=points
+ best=maxi(best,score)
+ # Both a genuine high score and a sustained clear count are required.
+ # Milestones never pay twice, even across sessions or undo restores.
+ while last_groups>0 and bomb_milestone<BOMB_MILESTONES.size() and bombs<MAX_BOMBS:
+  var target:Dictionary=BOMB_MILESTONES[bomb_milestone]
+  if score<int(target["score"]) or total_lines<int(target["lines"]):
+   break
+  bombs+=1
+  last_bomb_award+=1
+  bomb_milestone+=1
  tray[slot] = []
  var need_more := true
  for piece in tray:
@@ -202,6 +238,38 @@ func place(slot: int, origin: Vector2i) -> bool:
  over = not any_move()
  return true
 
+func bomb_charge() -> int:
+ if bomb_milestone>=BOMB_MILESTONES.size():
+  return 100
+ var target:Dictionary=BOMB_MILESTONES[bomb_milestone]
+ var score_ratio:float=float(score)/float(target["score"])
+ var line_ratio:float=float(total_lines)/float(target["lines"])
+ return clampi(int(round(100.0*minf(score_ratio,line_ratio))),0,100)
+
+func detonate_bomb(center:Vector2i) -> int:
+ if bombs<=0 or over or center.x<0 or center.x>=COLS or center.y<0 or center.y>=ROWS:
+  return 0
+ var removed:int=0
+ for y in range(maxi(0,center.y-1),mini(ROWS,center.y+2)):
+  for x in range(maxi(0,center.x-1),mini(COLS,center.x+2)):
+   if int(cells[y][x])>0:
+    removed+=1
+ if removed==0:
+  return 0 # Never waste a rare bomb on empty space.
+ for y in range(maxi(0,center.y-1),mini(ROWS,center.y+2)):
+  for x in range(maxi(0,center.x-1),mini(COLS,center.x+2)):
+   cells[y][x]=0
+ bombs-=1
+ combo=0
+ last_cleared=removed
+ last_groups=0
+ last_gained=0
+ last_bomb_award=0
+ # Rescue action: no points, XP, lines, or free recharge.
+ previous.clear()
+ over=not any_move()
+ return removed
+
 func save_state() -> Dictionary:
  var raw_tray: Array = []
  for shape in tray:
@@ -211,7 +279,8 @@ func save_state() -> Dictionary:
   raw_tray.append(item)
  return {"version": 1, "cells": cells.duplicate(true), "tray": raw_tray,
   "score": score, "best": best, "combo": combo, "moves": moves,
-  "fever": fever, "fever_moves": fever_moves, "over": over}
+  "fever": fever, "fever_moves": fever_moves, "over": over,
+  "total_lines": total_lines, "bombs": bombs, "bomb_milestone": bomb_milestone}
 
 func load_state(raw: Dictionary) -> bool:
  var board_value: Variant = raw.get("cells", [])
@@ -247,5 +316,12 @@ func load_state(raw: Dictionary) -> bool:
  moves = maxi(0, int(raw.get("moves", 0)))
  fever = clampi(int(raw.get("fever", 0)), 0, 100)
  fever_moves = clampi(int(raw.get("fever_moves", 0)), 0, 5)
+ total_lines=maxi(0,int(raw.get("total_lines",0)))
+ bombs=clampi(int(raw.get("bombs",0)),0,MAX_BOMBS)
+ bomb_milestone=clampi(int(raw.get("bomb_milestone",0)),0,BOMB_MILESTONES.size())
+ last_cleared=0
+ last_gained=0
+ last_groups=0
+ last_bomb_award=0
  over = bool(raw.get("over", false))
  return true
