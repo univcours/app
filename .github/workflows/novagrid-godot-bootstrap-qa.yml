@@ -26,7 +26,7 @@ jobs:
             throw 'NovaGrid bootstrap has PowerShell syntax errors'
           }
           $content = Get-Content -LiteralPath $path -Raw
-          foreach ($required in @('git clone','--sparse','blockfall_exact_reference.png','project.godot','Start-Process','--headless','Godot_v4.5.1-stable_win64.exe.zip')) {
+          foreach ($required in @('git clone','--sparse','blockfall_playable_chrome.png','project.godot','Start-Process','--headless','Godot_v4.5.1-stable_win64.exe.zip')) {
             if (!$content.Contains($required)) { throw "Missing setup feature: $required" }
           }
           Write-Host 'NOVAGRID ONE-COMMAND BOOTSTRAP PARSE AND STRUCTURE PASS'
