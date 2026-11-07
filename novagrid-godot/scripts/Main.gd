@@ -50,8 +50,11 @@ var shake := 0.0
 func _ready() -> void:
  puzzle = PuzzleScript.new()
  falling = FallingScript.new()
- audio = AudioScript.new()
- add_child(audio)
+ var session:Node=get_node_or_null("/root/Session")
+ audio=session.get("audio") if session!=null else null
+ if audio==null:
+  audio=AudioScript.new()
+  add_child(audio)
  progress = ProgressionScript.new()
  font = ThemeDB.fallback_font
  visuals = VisualsScript.new()
@@ -74,7 +77,7 @@ func _ready() -> void:
  for i in 110:
   stars.append({"x": gen.randf(), "y": gen.randf(),
    "radius": gen.randf_range(0.4,1.7), "phase": gen.randf_range(0,TAU)})
- var session:Node=get_node_or_null("/root/Session")
+ session=get_node_or_null("/root/Session")
  if session!=null:
   mode=clampi(int(session.get("start_mode")),0,1)
   audio.sounds_enabled=bool(session.get("sounds_enabled"))
