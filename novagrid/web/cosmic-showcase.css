@@ -1,0 +1,148 @@
+/*
+ NovaGrid — Cosmic Glass Galaxy Arcade, production CSS UI, not a picture.
+ Uses existing original deep-space SVG and real live DOM boards.
+ 10x12 Puzzle + 10x18 Blockfall remain responsive to phone height.
+*/
+:root{
+ --nova-cyan:#41edff;--nova-violet:#b756ff;--nova-rose:#ff4ddd;
+ --nova-edge:rgba(163,237,255,.88);--nova-border:rgba(123,210,255,.64);
+ --nova-glass:linear-gradient(153deg,rgba(36,89,188,.37),rgba(36,16,98,.44) 51%,rgba(7,31,85,.65));
+}
+html,body{background-color:#05071e!important}
+.nova-sky{
+ background-image:linear-gradient(0deg,#0309235c,#05031a16 38%,#0b05253b),
+ url('./nova-deep-space.svg')!important;
+ background-position:center,center!important;background-size:cover,cover!important;
+ filter:saturate(1.24) contrast(1.06);
+}
+.nova-sky::after{content:"";position:absolute;inset:0;pointer-events:none;
+ background:radial-gradient(circle at 13% 39%,#af3eff55,transparent 26%),
+ radial-gradient(circle at 83% 65%,#0ccfff3b,transparent 32%),
+ conic-gradient(from 22deg at 50% 42%,transparent 0deg,#9e37fc1b 62deg,transparent 110deg,#0fb4ff24 200deg,transparent 255deg,#eb38ec17 319deg,transparent);
+ opacity:.8;mix-blend-mode:screen;
+ animation:novaCosmicBreath 15s ease-in-out infinite alternate;
+}
+@keyframes novaCosmicBreath{to{opacity:.45;transform:scale(1.1) rotate(4deg)}}
+.shell{background:transparent!important;isolation:isolate}
+.nova-title{
+ letter-spacing:.12em!important;font-weight:950!important;
+ text-shadow:0 0 18px #8d7aff88!important;filter:drop-shadow(0 0 11px #3abbff66)!important;
+}
+.nova-reference-header{z-index:30}
+.nova-header-btn,.nova-settings,.mode,.gametools .utility,.nova-pause-dialog,.fall-header-actions button,.fall-result-inner,.fall-hud,.fall-next{
+ background:var(--nova-glass)!important;
+ border:1.4px solid var(--nova-border)!important;
+ box-shadow:inset 0 1px 1px #ffffffa8,inset 0 -8px 17px #11074759,0 0 14px #246aff59!important;
+ backdrop-filter:blur(11px) saturate(1.5);
+ -webkit-backdrop-filter:blur(11px) saturate(1.5);
+}
+.mode.active,.nova-bomb-panel.armed{
+ border-color:#9efbff!important;
+ background:linear-gradient(155deg,#13bce5ac,#7935d7a8)!important;
+ box-shadow:inset 0 2px #ffffffb5,0 0 13px #00dcffa4,0 0 18px #b45ef788!important;
+}
+.mode:focus-visible,.nova-bomb-panel:focus-visible,.utility:focus-visible{outline:2px solid #fff;outline-offset:3px}
+.neon-duo-modes{position:relative;z-index:2;gap:8px!important;padding:0 4px!important;height:36px!important}
+.neon-duo-modes .mode{height:34px!important;min-width:0;border-radius:12px!important;
+ font-size:11px!important;font-weight:900!important;transition:transform .16s ease,box-shadow .16s ease}
+.neon-duo-modes .mode:active{transform:scale(.96)}
+.scorebar{
+ height:42px!important;min-height:42px!important;
+ display:grid!important;grid-template-columns:1fr .72fr .72fr .75fr 53px!important;
+ align-items:center!important;gap:3px!important;padding:4px 6px!important;
+ border:1.2px solid #b3dfff75!important;border-radius:13px!important;
+ background:linear-gradient(110deg,#071b4cce,#271252cb,#101b53d8)!important;
+ box-shadow:inset 0 2px 3px #fffffe34,0 0 13px #b03aff43!important;
+}
+.scorebar .intensity-chip,.scorebar .scoreline,.scorebar .scorebox:has(#best){display:none!important}
+.scorebar .scorebox{height:100%;display:flex!important;flex-direction:column;gap:0!important;align-items:center!important;
+ justify-content:center!important;margin:0!important;background:transparent!important;min-width:0!important}
+.scorebar .scorebox:has(#score){grid-column:1;grid-row:1}
+.scorebar .scorebox:has(#combo){grid-column:2;grid-row:1}
+.scorebox span{font-size:8px!important;letter-spacing:.05em!important;color:#ddcafa!important}
+.scorebox strong{color:#a9f9ff!important;font-size:clamp(14px,3.7vw,19px)!important;
+ text-shadow:0 0 10px #28d5ffdd;font-variant-numeric:tabular-nums;white-space:nowrap}
+.nova-fever{grid-column:3/5;grid-row:1;align-self:center;min-width:0}
+.nova-fever small{letter-spacing:.04em!important;color:#ffe4fc!important;font-size:9px!important}
+.nova-fever-rail{height:7px!important;border-color:#c88dfb!important}
+.nova-bomb-panel{
+ grid-column:5;grid-row:1;display:grid;grid-template-columns:1fr auto;align-items:center;
+ border:1px solid #ceabffaf;border-radius:10px;position:relative;width:100%;height:36px;
+ background:linear-gradient(135deg,#a31bc155,#14215dbb);
+ box-shadow:inset 0 1px #fff8,0 0 10px #dc40ff77;
+ padding:3px 4px;color:#f5edff;touch-action:manipulation;cursor:pointer;
+}
+.nova-bomb-panel:disabled{opacity:.66;filter:saturate(.65);cursor:not-allowed}
+.nova-bomb-icon{font-size:20px;filter:drop-shadow(0 0 6px #ef65ff);line-height:1}
+.nova-bomb-count{font-size:14px;font-weight:900;line-height:1;color:#fff;font-variant-numeric:tabular-nums}
+.nova-bomb-track{grid-column:1/3;height:4px;display:block;border-radius:5px;overflow:hidden;
+ background:#07102f;border:1px solid #986bd4a6}
+.nova-bomb-track>i{display:block;width:0;height:100%;background:linear-gradient(90deg,#53e3fc,#ee58fd);
+ box-shadow:0 0 8px #f3bfff;transition:width .25s}
+html[data-bomb-armed="true"] .boardwrap{border-color:#ff9af7!important;
+ box-shadow:0 0 22px #f64dfe,0 0 45px #26bfff66,inset 0 0 19px #1c4ebf88!important}
+html[data-bomb-armed="true"] .board .cell{cursor:crosshair}
+.board .cell.nova-bomb-target{background:#f15cff8a!important;border-color:#ffe9ff!important;box-shadow:0 0 13px #ff7cf5!important}
+.gamecard{z-index:1!important;background:transparent!important;box-shadow:none!important}
+.boardwrap{
+ background:linear-gradient(150deg,#061638bd,#19083eaa)!important;
+ backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+ border:2px solid #78f2ff!important;
+ box-shadow:inset 0 0 13px #18c9ff42,0 0 13px #04c8ffe0,0 0 25px #ae38ff75!important;
+}
+.board .cell:not(.block):not(.preview){background:linear-gradient(143deg,#0a1f4d9c,#180b3caa)!important;
+ border-color:#92a9ff37!important}
+.board .cell.block,.micro:not(.blank),.fall-cell.fall-filled{
+ box-shadow:inset 0 2px 2px #fff9,inset 2px 0 2px #fffe,
+ inset -3px -4px 3px #04144f72,0 0 6px #fff9,0 0 14px var(--candy-glow,var(--piece-color,#39cfff))!important
+}
+.board .cell.block::before,.micro:not(.blank)::before{
+ background:linear-gradient(180deg,#fffffff8,#ffffff4a 65%,#ffffff00)!important;
+ border-radius:80% 80% 45% 45%!important
+}
+.pieces{background:linear-gradient(135deg,#09215a96,#37156ca6)!important;
+ border:1px solid #9ee9ffc9!important;box-shadow:inset 0 2px 3px #ffffff45,0 0 12px #3badff83!important}
+.piece{touch-action:none;transition:transform .12s cubic-bezier(.2,.8,.2,1)}
+.piece:active,.piece.selected{transform:scale(.97)}
+.dragghost{filter:drop-shadow(0 0 10px #4defff);will-change:transform,left,top}
+.gamehint{font-size:clamp(9px,2.2vw,11px)!important;color:#bdeaff!important;
+ text-shadow:0 1px 6px #070b32!important}
+.gametools{gap:5px!important}
+.gametools .utility{font-size:10px!important;border-radius:11px!important}
+.fall-panel{background:linear-gradient(155deg,#10154dbb,#23105be3 56%,#061946bf)!important;
+ border:1.5px solid #9ae7ffdd!important;
+ box-shadow:inset 0 0 22px #a96aff2c,0 0 30px #6736d05a!important;
+ backdrop-filter:blur(9px)}
+.fall-hud{border-radius:14px!important;box-shadow:inset 0 2px #ffffff53,0 0 14px #1d96ff88!important}
+.fall-hud strong{color:#affaff!important;text-shadow:0 0 9px #25cbff88}
+.fall-board{
+ background:linear-gradient(160deg,#071844bc,#1a1155cf)!important;
+ border-color:#87f0ff!important;box-shadow:inset 0 0 15px #427dff62,0 0 14px #32ceffcb,0 0 26px #b03aff70!important;
+}
+.fall-cell:not(.fall-filled):not(.fall-ghost){background:#132451a1!important;border-color:#5971b82e!important}
+.fall-cell.fall-filled{border-radius:4px!important;position:relative}
+.fall-cell.fall-filled::before{content:"";position:absolute;top:5%;left:10%;width:77%;height:22%;
+ border-radius:70%;background:linear-gradient(#fffd,transparent);pointer-events:none}
+.fall-board-holder{position:relative!important;overflow:visible!important}
+.fall-crystal-fx{position:absolute!important;left:50%;top:50%;transform:translate(-50%,-50%);
+ width:min(100%,80vw)!important;aspect-ratio:10/18;max-height:100%;pointer-events:none!important;
+ z-index:6!important;overflow:visible!important}
+.nova-combo-announce{filter:drop-shadow(0 0 6px #ff94f3)}
+.nova-combo-ring{border-width:3px!important}
+.candy-fx-spark{filter:drop-shadow(0 0 3px #fff)}
+@media(max-width:375px){
+ .scorebar{grid-template-columns:1fr .68fr .68fr .73fr 46px!important;padding-inline:2px!important}
+ .nova-bomb-panel{height:33px!important}.nova-bomb-icon{font-size:17px!important}
+ .scorebox strong{font-size:14px!important}
+ .neon-duo-modes .mode>span:nth-child(2){font-size:10px!important}
+}
+@media(max-height:710px){
+ .neon-duo-modes{height:30px!important}.neon-duo-modes .mode{height:28px!important}
+ .scorebar{height:34px!important;min-height:34px!important}
+ .nova-bomb-panel{height:29px!important}
+ .pieces{height:52px!important}.gametools{height:28px!important}
+}
+@media(prefers-reduced-motion:reduce){
+ .nova-sky::after{animation:none!important}
+ .nova-bomb-track>i,.piece{transition:none!important}
+}
