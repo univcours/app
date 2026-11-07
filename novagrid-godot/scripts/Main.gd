@@ -5,6 +5,7 @@ const PuzzleScript = preload("res://scripts/Puzzle.gd")
 const FallingScript = preload("res://scripts/Falling.gd")
 const AudioScript = preload("res://scripts/Audio.gd")
 const VisualsScript = preload("res://scripts/Visuals.gd")
+const CandyUIScript = preload("res://scripts/CandyUI.gd")
 const ProgressionScript = preload("res://scripts/Progression.gd")
 
 const GEM_COLORS = [
@@ -261,30 +262,14 @@ func _draw_cosmic_planet(center:Vector2,radius:float,base:Color,light:Color) -> 
 
 func _label(text:String,pos:Vector2,size:int=16,color:Color=Color.WHITE,
  alignment:HorizontalAlignment=HORIZONTAL_ALIGNMENT_LEFT,width:float=-1.0) -> void:
- draw_string(font,pos,text,alignment,width,size,color)
+ CandyUIScript.candy_text(self,font,text,pos,size,color,alignment,width)
 
-func _glass_panel(rect:Rect2,fill:Color=Color("#17225b"),outline:Color=Color("#7deaff")) -> void:
- var key:String=fill.to_html(true)+":"+outline.to_html(true)
- if not panel_styles.has(key):
-  var panel := StyleBoxFlat.new()
-  panel.bg_color=fill
-  panel.border_color=outline
-  panel.set_corner_radius_all(10)
-  panel.set_border_width_all(1)
-  panel.shadow_color=Color(.04,.25,.88,.24)
-  panel.shadow_size=3
-  panel_styles[key]=panel
- draw_style_box(panel_styles[key],rect)
- draw_line(rect.position+Vector2(11,2),Vector2(rect.end.x-11,rect.position.y+2),Color(1,1,1,.63),1.2,true)
- draw_line(rect.position+Vector2(11,4),Vector2(rect.end.x-11,rect.position.y+4),Color(.70,.88,1.0,.21),1.0,true)
- draw_circle(rect.position+Vector2(9,9),2.1,Color(1,1,1,.34))
+func _glass_panel(rect:Rect2,fill:Color=Color("#17225b"),
+ outline:Color=Color("#7deaff")) -> void:
+ CandyUIScript.candy_panel(self,rect,fill,outline,false,clock)
 
 func _button(rect:Rect2,title:String,active:bool=false,small:bool=false) -> void:
- var fill := Color(.13,.43,.78,.80) if active else Color(.15,.18,.45,.83)
- _glass_panel(rect,fill,Color("#a3f7ff") if active else Color("#859de8"))
- var fontsize:int = 12 if small else 14
- _label(title,Vector2(rect.position.x,rect.position.y+rect.size.y*.64),fontsize,
-  Color.WHITE,HORIZONTAL_ALIGNMENT_CENTER,rect.size.x)
+ CandyUIScript.candy_button(self,rect,title,font,active,small,clock)
 
 func _draw_header(layout:Dictionary) -> void:
  var w:float=layout["viewport"].x
@@ -292,8 +277,7 @@ func _draw_header(layout:Dictionary) -> void:
  var mode_name:String="Classic Puzzle" if mode==0 else "Blockfall"
  # Match the reference hierarchy: enormous luminous mode title, two score
  # capsules and a single sapphire glass pause button at the right.
- _label(mode_name,Vector2(1.2,42.0),29,Color(.12,.46,1.0,.56),HORIZONTAL_ALIGNMENT_CENTER,w)
- _label(mode_name,Vector2(0.0,40.0),29,Color("#f5fbff"),HORIZONTAL_ALIGNMENT_CENTER,w)
+ _label(mode_name,Vector2(0.0,40.0),29,Color("#ffd1f2"),HORIZONTAL_ALIGNMENT_CENTER,w)
  _label("✦ 3D CANDY GALAXY ✦",Vector2(0,59),10,Color("#ffd3f1"),HORIZONTAL_ALIGNMENT_CENTER,w)
  var score:int=puzzle.score if mode==0 else falling.score
  var best:int=puzzle.best if mode==0 else falling.best
@@ -301,8 +285,8 @@ func _draw_header(layout:Dictionary) -> void:
  var other_value:String=str(best) if mode==0 else str(falling.level)
  var left_card:=Rect2(Vector2(g,77),Vector2((w-3.0*g-55.0)*.51,57))
  var right_card:=Rect2(Vector2(left_card.end.x+g,77),Vector2((w-3.0*g-55.0)*.49,57))
- _glass_panel(left_card,Color(.14,.075,.29,.94),Color(.84,.48,.92,.82))
- _glass_panel(right_card,Color(.075,.15,.34,.92),Color(.39,.81,1.0,.88))
+ _glass_panel(left_card,Color("#5f267a"),Color("#ff8adb"))
+ _glass_panel(right_card,Color("#244b92"),Color("#8bf9ef"))
  _label("SCORE",Vector2(left_card.position.x,left_card.position.y+17),11,Color("#f1e9ff"),HORIZONTAL_ALIGNMENT_CENTER,left_card.size.x)
  _label("%s" % score,Vector2(left_card.position.x,left_card.position.y+44),24,Color("#ffe7a4"),HORIZONTAL_ALIGNMENT_CENTER,left_card.size.x)
  _label(other,Vector2(right_card.position.x,right_card.position.y+17),11,Color("#ffe0a9"),HORIZONTAL_ALIGNMENT_CENTER,right_card.size.x)
@@ -326,7 +310,7 @@ func _draw_progress_hud(layout:Dictionary) -> void:
  var g:float=layout["gutter"]
  var y:float=layout["height"]-54.0
  var rect:=Rect2(g,y,w-2.0*g,46.0)
- _glass_panel(rect,Color(.08,.14,.34,.81),Color("#70cfff"))
+ _glass_panel(rect,Color("#4f2a81"),Color("#c9a0ff"))
  var rank:String=progress.rank_name()
  _label("LV %d • %s" % [progress.level,rank],Vector2(rect.position.x+12,y+17),12,Color("#dcfaff"))
  _label("★ %d  |  STREAK %d" % [progress.stars,progress.streak],Vector2(rect.position.x, y+17),10,Color("#ffdc87"),HORIZONTAL_ALIGNMENT_RIGHT,rect.size.x-12)
@@ -462,16 +446,16 @@ func _draw_falling(layout:Dictionary) -> void:
  var next_rect:Rect2=layout["next"]
  var hold_rect:Rect2=layout["hold"]
  _label("NEXT",Vector2(next_rect.position.x,next_rect.position.y-10),15,Color("#f2f5ff"),HORIZONTAL_ALIGNMENT_CENTER,next_rect.size.x)
- _glass_panel(next_rect,Color(.03,.04,.15,.93),Color("#ffb348"))
+ _glass_panel(next_rect,Color("#59336f"),Color("#ffc886"))
  _draw_side_piece(next_rect,falling.next_kind)
  _label("HOLD",Vector2(hold_rect.position.x,hold_rect.position.y-10),15,Color("#f2f5ff"),HORIZONTAL_ALIGNMENT_CENTER,hold_rect.size.x)
- _glass_panel(hold_rect,Color(.03,.04,.15,.93),Color("#4adaff"))
+ _glass_panel(hold_rect,Color("#2d568d"),Color("#8bf9eb"))
  if falling.hold_kind>=0:
   _draw_side_piece(hold_rect,falling.hold_kind)
  if falling.hold_used:
   draw_rect(hold_rect.grow(-2),Color(.06,.09,.20,.47),true)
  var combo_rect:=Rect2(Vector2(next_rect.position.x,hold_rect.end.y+39.0),Vector2(next_rect.size.x,85.0))
- _glass_panel(combo_rect,Color(.27,.04,.32,.74),Color("#f34ce1"))
+ _glass_panel(combo_rect,Color("#812d89"),Color("#ff9bd5"))
  _label("COMBO",Vector2(combo_rect.position.x,combo_rect.position.y+28),14,Color("#ffbbfb"),HORIZONTAL_ALIGNMENT_CENTER,combo_rect.size.x)
  _label("x%d" % falling.combo,Vector2(combo_rect.position.x,combo_rect.position.y+68),30,Color("#fff4ba"),HORIZONTAL_ALIGNMENT_CENTER,combo_rect.size.x)
  _label("SWIPE ↔  MOVE    TAP  ROTATE    SWIPE ↓  DROP",Vector2(0,layout["height"]-117.0),9,Color("#dccfff"),HORIZONTAL_ALIGNMENT_CENTER,layout["viewport"].x)
@@ -558,7 +542,7 @@ func _draw_modal(layout:Dictionary) -> void:
  draw_rect(Rect2(Vector2.ZERO,viewport),Color(.01,.015,.08,.75),true)
  var modal := Rect2(Vector2(viewport.x*.09,viewport.y*.34),
   Vector2(viewport.x*.82,222))
- _glass_panel(modal,Color("#222c79"),Color("#90f6ff"))
+ CandyUIScript.candy_panel(self,modal,Color("#57267b"),Color("#ffd1f3"),true,clock)
  var title := "PAUSED" if paused else "GAME OVER"
  _label(title,Vector2(modal.position.x,modal.position.y+56),26,
   Color("#fff2ff"),HORIZONTAL_ALIGNMENT_CENTER,modal.size.x)
