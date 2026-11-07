@@ -34,7 +34,7 @@ jobs:
           blob=b'\x89PNG\r\n\x1a\n'+chunk(b'IHDR',struct.pack('!2I5B',w,h,8,6,0,0,0))+chunk(b'IDAT',data)+chunk(b'IEND',b'')
           p=Path('novagrid-godot/assets/skins')
           p.mkdir(parents=True,exist_ok=True)
-          for name in ('blockfall_exact_reference.png','blockpuzzle_cosmic_backdrop.png'):
+          for name in ('blockfall_exact_reference.png','blockfall_playable_chrome.png','blockpuzzle_cosmic_backdrop.png'):
            (p/name).write_bytes(blob)
           print('Injected 941x1672 QA fixtures, no source gameplay assets replaced')
           PY
