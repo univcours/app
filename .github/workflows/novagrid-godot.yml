@@ -1,7 +1,7 @@
 name: NovaGrid Godot Native QA
 on:
   push:
-    branches: [novagrid-godot-rebuild]
+    branches: [novagrid-godot-rebuild, novagrid-open-source-rebuild]
     paths:
       - 'novagrid-godot/**'
       - '.github/workflows/novagrid-godot.yml'
@@ -24,7 +24,7 @@ jobs:
       - name: Parse audio, game rules and main UI directly
         run: |
           set -euo pipefail
-          for script in Audio.gd Puzzle.gd Falling.gd Progression.gd Visuals.gd Main.gd configure_android_editor.gd; do
+          for script in Audio.gd Puzzle.gd Falling.gd Progression.gd Visuals.gd GameSession.gd WallKicks.gd Welcome.gd Main.gd configure_android_editor.gd; do
             godot --headless --path novagrid-godot --check-only --script "res://scripts/$script"
           done
       - name: Check Windows PowerShell helper syntax
@@ -61,6 +61,12 @@ jobs:
           godot --headless --path novagrid-godot --script res://tests/test_touch.gd 2>&1 | tee /tmp/touch.log
           grep -F 'ALL NOVAGRID TOUCH CONTROLS PASSED' /tmp/touch.log
           if grep -E 'SCRIPT ERROR|Parse Error|Parser Error' /tmp/touch.log; then exit 1; fi
+      - name: MIT-inspired rotation, lock delay and native launcher tests
+        run: |
+          set -euo pipefail
+          godot --headless --path novagrid-godot --script res://tests/test_open_source.gd 2>&1 | tee /tmp/open-source.log
+          grep -F 'ALL NOVAGRID OPEN SOURCE REBUILD TESTS PASSED' /tmp/open-source.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Parser Error' /tmp/open-source.log; then exit 1; fi
       - name: Launch actual main scene headlessly
         run: |
           set -euo pipefail
@@ -74,6 +80,12 @@ jobs:
           xvfb-run -a -s "-screen 0 432x960x24" godot --path novagrid-godot --script res://tests/capture.gd 2>&1 | tee /tmp/visual.log
           grep -F 'REAL GODOT SCREENSHOTS SAVED' /tmp/visual.log
           file novagrid-godot/build/novagrid-real-*.png
+      - name: Capture genuine Godot Galaxy launch screen
+        run: |
+          set -euo pipefail
+          xvfb-run -a -s "-screen 0 432x960x24" godot --path novagrid-godot --script res://tests/capture_welcome.gd 2>&1 | tee /tmp/welcome.log
+          grep -F 'REAL NOVAGRID OPEN SOURCE HOME SCREENSHOT SAVED' /tmp/welcome.log
+          test -s novagrid-godot/build/novagrid-real-welcome.png
       - name: Upload true Godot screenshots
         uses: actions/upload-artifact@v4
         with:
@@ -144,4 +156,6 @@ jobs:
             /tmp/runtime.log
             /tmp/progression.log
             /tmp/touch.log
+            /tmp/open-source.log
+            /tmp/welcome.log
           if-no-files-found: ignore
