@@ -23,7 +23,8 @@ test('NovaGrid boots with two neon games, keeps its full-screen 10x12 grid and o
   piece.dispatchEvent(new w.MouseEvent('click',{bubbles:true,detail:0}));
   const cells=[...w.document.querySelectorAll('#board .cell')];
   cells[0].click();
-  assert.ok(Number(w.document.querySelector('#score').textContent.replace(/,/g,''))>0,'real placement updates score');
+  assert.equal(Number(w.document.querySelector('#score').textContent.replace(/,/g,'')),0,'placement without a cleared line must never score');
+  assert.ok(w.document.querySelectorAll('#board .cell.block').length>0,'the real piece was placed on the board');
   modes[1].click();
   const overlay=w.document.querySelector('#blockfallOverlay');
   assert.ok(overlay&&!overlay.hidden,'falling mode opens');
