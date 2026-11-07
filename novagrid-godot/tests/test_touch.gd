@@ -64,6 +64,16 @@ func _run_touch() -> void:
  # Blockfall has only gestures, with a consistent snap + smooth drawn motion.
  app.mode=1
  var f_layout:Dictionary=app._layout()
+ var original_kind:int=app.falling.kind
+ var hold_point:Vector2=f_layout["hold"].get_center()
+ app._press(hold_point)
+ app._release(hold_point)
+ verify(app.falling.hold_kind==original_kind and app.falling.hold_used,
+  "real right-hand HOLD card stores one falling block by tap")
+ app._press(hold_point)
+ app._release(hold_point)
+ verify(app.falling.hold_kind==original_kind,
+  "HOLD card does not allow infinite swaps before a lock")
  verify(f_layout["buttons"].is_empty(),"no Blockfall direction buttons")
  var mid:Vector2=f_layout["board"].get_center()
  var stride:float=f_layout["board"].size.x/10.0
