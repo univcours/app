@@ -19,6 +19,8 @@ jobs:
           set -euo pipefail
           cd novagrid-godot
           test -s project.godot
+          test -s Open-NovaGrid-Godot.cmd
+          test -s scripts/open-in-godot.ps1
           test -s scenes/Main.tscn
           test -s scenes/Welcome.tscn
           test -s third_party/poketetris/LICENSE
@@ -31,7 +33,7 @@ jobs:
           test -s shaders/galaxy.gdshader
           test -s shaders/crystal.gdshader
           zip -q -r ../NovaGrid-Godot-Project.zip \
-            project.godot export_presets.cfg \
+            project.godot export_presets.cfg Open-NovaGrid-Godot.cmd \
             scenes scripts shaders tests assets third_party README.md OPEN-IN-GODOT.md THIRD_PARTY_NOTICES.md
           cd ..
           unzip -t NovaGrid-Godot-Project.zip
