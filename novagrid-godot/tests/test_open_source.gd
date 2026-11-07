@@ -41,12 +41,12 @@ func _initialize()->void:
  verify(restored.restore(save),"new rotation and lock fields survive save")
  verify(restored.rotation_state==f.rotation_state,"rotation state restored")
  var home=Welcome.new()
- root.add_child(home)
+ # Detached canvas layout must not log get_viewport_rect() engine errors.
  var cards:Array[Rect2]=home._rectangles()
  verify(cards.size()==2,"new Galaxy home has two real selectable modes")
  verify(cards[0].size.y>100 and cards[1].position.y>cards[0].end.y,
   "two touch cards do not overlap")
- home.queue_free()
+ home.free()
  if faults.is_empty():
   print("ALL NOVAGRID OPEN SOURCE REBUILD TESTS PASSED")
   quit(0)
