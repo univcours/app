@@ -134,19 +134,15 @@ func tick() -> bool:
 func soft_drop() -> bool:
  if over:
   return false
- var locked := tick()
- if not locked:
-  score += 1
-  best = maxi(score,best)
- return locked
+ # Soft dropping changes position but does not grant points.
+ return tick()
 
 func hard_drop() -> int:
  if over:
   return 0
  var distance := ghost_row()-active.y
  active.y += distance
- score += distance*2
- best = maxi(best,score)
+ # A hard drop alone is also worth zero: only cleared rows pay.
  _lock()
  return distance
 
@@ -171,10 +167,11 @@ func _lock() -> void:
    last_lines += 1
   else:
    y -= 1
- combo = combo+1 if last_lines>0 else 0
- var bonus: int = [0,100,300,500,800][mini(last_lines,4)] * level
+ # Multiple simultaneous rows are rewarded more than separate singles.
+ combo = maxi(last_lines,mini(8,combo+1)) if last_lines>0 else 0
+ var bonus: int = [0,140,440,850,1500][mini(last_lines,4)] * level
  if last_lines>0 and combo>1:
-  bonus += 50*(combo-1)
+  bonus += 45*(combo-1)*last_lines
  last_gained = bonus
  score += bonus
  best = maxi(best,score)
