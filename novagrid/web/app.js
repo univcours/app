@@ -251,7 +251,7 @@ function placeAt(row,col){if(puzzlePaused||state.over)return;audio.unlock();
   if(!blast){notify(lang==='ar'?'اختار منطقة فيها مكعبات':lang==='fr'?'Touchez des blocs occupés':'Tap an occupied region');return;}
   state=blast.state;bombArmed=false;selected=-1;hover=null;undoSnapshot=null;
   audio.effect('bombGlass');store();render();
-  arcadeEffect($('candyFxLayer'),{kind:'bomb',center:[row,col],groups:1});
+  arcadeEffect($('candyFxLayer'),{kind:'bomb',center:[row,col],groups:1,rows:state.board.length,cols:state.board[0].length});
   notify(lang==='ar'?`💣 تحيدو ${blast.removed} مكعبات · بلا نقاط`:`💣 ${blast.removed} blocks cleared · no score`);
   try{navigator.vibrate?.([30,35,55]);}catch{}
   return;
@@ -290,7 +290,7 @@ function placeAt(row,col){if(puzzlePaused||state.over)return;audio.unlock();
  else audio.effect('place');
  render();
  if(special)arcadeEffect($('candyFxLayer'),special);
- else if(result.groups>0)arcadeEffect($('candyFxLayer'),{kind:'combo',center:[row,col],combo:Math.max(result.groups,state.combo),bonus:result.gained,groups:result.groups});
+ else if(result.groups>0)arcadeEffect($('candyFxLayer'),{kind:'combo',center:[row,col],combo:Math.max(result.groups,state.combo),bonus:result.gained,groups:result.groups,rows:state.board.length,cols:state.board[0].length});
  if(state.over){
   if(state.won)audio.effect('victory');else if(state.mode==='stage')audio.effect('gameover');
   gameFinished();if(state.mode==='daily')storage.set('nova.daily.completed.'+today(),'1');
