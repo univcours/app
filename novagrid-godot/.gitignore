@@ -1,0 +1,14 @@
+# Local Godot editor import files; never commit generated platform caches.
+.godot/
+build/
+android/
+# Signing material and store bundles never belong in source control.
+*.keystore
+*.jks
+*.p12
+*.apk
+*.aab
+*.password
+*.key
+# Local credentials/configuration used by Android Studio / SDK.
+.local-debug.keystore
