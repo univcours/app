@@ -160,7 +160,10 @@ func place(slot: int, origin: Vector2i) -> bool:
  if not fits(shape, origin):
   return false
  previous = _snapshot()
- var color_id: int = 1 + (moves + slot * 2) % 6
+ # Seven vivid gem hues (amber, sapphire, emerald, ruby, violet, coral,
+ # cyan), deliberately avoiding monotonous pink-violet stacks.
+ var palette:Array=[2,7,5,6,1,4,3]
+ var color_id:int=int(palette[(moves*3+slot*2)%palette.size()])
  for p in shape:
   var at: Vector2i = origin + p
   cells[at.y][at.x] = color_id
