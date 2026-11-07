@@ -1,0 +1,72 @@
+name: NovaGrid Cosmic Glass Android QA
+on:
+  push:
+    branches: [novagrid-true-3d]
+    paths:
+      - 'novagrid/**'
+      - '.github/workflows/novagrid-cosmic-showcase.yml'
+  workflow_dispatch:
+jobs:
+  test-and-build-beta:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: novagrid
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Test both game modes and progression
+        run: npm test
+      - name: Build production-compatible web assets with TEST ads
+        env:
+          ADMOB_LIVE_ADS: 'false'
+        run: npm run build
+      - name: Capture REAL game screenshot in mobile Chrome
+        run: |
+          npm install --no-save --no-audit --no-fund playwright-core@1.58.2
+          node scripts/capture-reference-ui.mjs
+      - name: Upload actual mobile game screenshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: novagrid-cosmic-showcase-real-mobile-screens
+          path: novagrid/visual-qa/*.png
+          retention-days: 14
+          if-no-files-found: error
+      - name: Generate Android project
+        run: npx cap add android
+      - name: Sync web assets and isolate beta debug package
+        env:
+          ADMOB_LIVE_ADS: 'false'
+        run: npm run android:sync
+      - name: Build side-by-side Android debug APK
+        run: |
+          chmod +x android/gradlew
+          cd android
+          ./gradlew :app:assembleDebug --no-daemon
+      - name: Confirm app ID is not the Play Store package
+        run: |
+          set -euo pipefail
+          apk=android/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$apk"
+          tool="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          test -n "$tool"
+          "$tool" dump badging "$apk" | grep -F "package: name='com.novagrid.cosmicpuzzle.candytest'"
+          echo 'Original Google Play installation and game data are not touched.'
+      - name: Upload Android test APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: novagrid-cosmic-glass-TEST-apk
+          path: novagrid/android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14
+          if-no-files-found: error
