@@ -65,6 +65,7 @@ func _ready() -> void:
   style.shadow_offset = Vector2(0,1)
   gem_styles.append(style)
  _load_game()
+ visuals.set_theme(progress.active_theme)
  var gen := RandomNumberGenerator.new()
  gen.seed = 20261106
  for i in 110:
@@ -105,7 +106,8 @@ func _process(delta:float) -> void:
   var f: Dictionary = fragments[idx]
   f["life"] = float(f["life"])-delta
   f["pos"] = Vector2(f["pos"])+Vector2(f["speed"])*delta
-  f["speed"] = Vector2(f["speed"])*(1.0-delta*1.1)
+  f["speed"] = Vector2(f["speed"])*(1.0-delta*1.1)+Vector2(0,delta*48.0)
+  f["rotation"] = float(f["rotation"])+float(f["spin"])*delta
   if float(f["life"])<=0.0:
    fragments.remove_at(idx)
   else:
@@ -264,7 +266,7 @@ func _draw_progress_hud(layout:Dictionary) -> void:
  draw_rect(track,Color("#273366"),true)
  draw_rect(Rect2(track.position,Vector2(track.size.x*progress.level_progress(),track.size.y)),Color("#64f1ff"),true)
  var mission:Dictionary=progress.next_mission()
- _label("%s   %d/%d" % [mission["label"],mission["progress"],mission["target"]],Vector2(rect.position.x+12,y+41),9,Color("#b7daff"))
+ _label("%s  %d/%d   ·   %s GALAXY (TAP)" % [mission["label"],mission["progress"],mission["target"],progress.theme_name()],Vector2(rect.position.x+12,y+41),9,Color("#b7daff"))
 
 func _draw_tabs(layout:Dictionary) -> void:
  var titles := ["✦  BLOCK PUZZLE","▦  BLOCKFALL"]
@@ -296,12 +298,12 @@ func _gem(rect:Rect2,color_id:int,ghost:bool=false) -> void:
 
 func _board_back(board_rect:Rect2,cols:int,rows:int) -> float:
  _glass_panel(Rect2(board_rect.position-Vector2(4,4),board_rect.size+Vector2(8,8)),
-  Color(.055,.078,.19,.96),Color("#74ddff"))
+  Color(.055,.078,.19,.67),Color("#74ddff"))
  var cell:float = board_rect.size.x/float(cols)
  for y in rows:
   for x in cols:
    var rect := Rect2(board_rect.position+Vector2(x*cell,y*cell),Vector2(cell,cell))
-   draw_rect(Rect2(rect.position+Vector2(.9,.9),rect.size-Vector2(1.8,1.8)),Color(.14,.19,.39,.76),true)
+   draw_rect(Rect2(rect.position+Vector2(.9,.9),rect.size-Vector2(1.8,1.8)),Color(.12,.20,.40,.47),true)
    draw_rect(rect,Color(.33,.36,.62,.22),false,.6)
  return cell
 
@@ -391,12 +393,24 @@ func _draw_shockwaves() -> void:
 
 func _draw_fragments() -> void:
  for f in fragments:
-  var life:float = clampf(float(f["life"])/float(f["original"]),0,1)
-  var color:Color = f["color"]
-  color.a = life
-  var loc:Vector2 = f["pos"]
-  var size:float = float(f["radius"])*life
-  draw_rect(Rect2(loc-Vector2.ONE*size,Vector2.ONE*size*2),color,true)
+  var life:float=clampf(float(f["life"])/float(f["original"]),0,1)
+  var color:Color=f["color"]
+  color.a=life
+  var center:Vector2=f["pos"]
+  var size:float=float(f["radius"])*life
+  var angle:float=float(f["rotation"])
+  var axis:=Vector2(cos(angle),sin(angle))
+  var cross:=Vector2(-axis.y,axis.x)
+  # Three-sided prism shards replace flat confetti squares.
+  var triangle:=PackedVector2Array([
+   center+axis*size*1.9,
+   center-axis*size*.8+cross*size*.64,
+   center-axis*size*.8-cross*size*.64
+  ])
+  draw_colored_polygon(triangle,color)
+  if size>1.6:
+   draw_line(triangle[0],triangle[1],Color(1,1,1,life*.55),.8,true)
+
 
 func _draw_modal(layout:Dictionary) -> void:
  var viewport:Vector2 = layout["viewport"]
@@ -514,6 +528,16 @@ func _release(pos:Vector2) -> void:
    _restart_mode()
    audio.effect("tap")
   queue_redraw()
+  return
+ if Rect2(Vector2(layout["gutter"],layout["height"]-54.0),Vector2(layout["viewport"].x-2.0*layout["gutter"],46.0)).has_point(pos):
+  if progress.unlocked_themes()>1:
+   visuals.set_theme(progress.active_theme+1 if progress.active_theme+1<progress.unlocked_themes() else 0)
+   var theme_name:String=progress.cycle_theme()
+   _announce(theme_name+" GALAXY",Vector2(layout["viewport"].x*.5,layout["height"]*.5),Color("#c4f8ff"))
+   audio.effect("fever")
+   _save_game()
+  else:
+   _announce("NEXT GALAXY AT LEVEL 4",Vector2(layout["viewport"].x*.5,layout["height"]*.5),Color("#bdeaff"))
   return
  if layout["pause"].has_point(pos):
   paused=true
@@ -661,8 +685,11 @@ func _burst(center:Vector2,count:int,color:Color) -> void:
   var angle:float = gen.randf_range(0,TAU)
   var velocity:Vector2 = Vector2(cos(angle),sin(angle))*gen.randf_range(55,200)
   fragments.append({"pos":center,"speed":velocity,
-   "life":gen.randf_range(.25,.65),"original":.65,
-   "radius":gen.randf_range(2.2,5.1),"color":color})
+   "life":gen.randf_range(.33,.82),"original":.82,
+   "radius":gen.randf_range(2.2,5.1),"color":color,
+   "rotation":gen.randf_range(0.0,TAU),"spin":gen.randf_range(-9.0,9.0)})
+ if fragments.size()>240:
+  fragments=fragments.slice(fragments.size()-240)
 
 func _load_game() -> void:
  if not FileAccess.file_exists("user://novagrid-godot-save.json"):
