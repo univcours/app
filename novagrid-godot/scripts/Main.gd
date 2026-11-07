@@ -38,6 +38,7 @@ var fall_display := Vector2(3,0)
 var fall_drawn_drops := -1
 var fall_accum := 0.0
 var save_clock := 0.0
+var saves_enabled:bool=true # QA scenes disable persistence to protect actual player saves.
 var clock := 0.0
 var banner_height := 0.0 # Reserved only after native ad renderer reports success.
 var stars: Array = []
@@ -894,6 +895,8 @@ func _burst(center:Vector2,count:int,color:Color) -> void:
   fragments=fragments.slice(fragments.size()-230)
 
 func _load_game() -> void:
+ if not saves_enabled:
+  return
  if not FileAccess.file_exists("user://novagrid-godot-save.json"):
   return
  var f := FileAccess.open("user://novagrid-godot-save.json",FileAccess.READ)
@@ -915,7 +918,7 @@ func _save_audio_settings() -> void:
   session.call("update_audio_settings",audio.sounds_enabled,audio.music_enabled)
 
 func _save_game() -> void:
- if puzzle==null or falling==null:
+ if not saves_enabled or puzzle==null or falling==null:
   return
  var f := FileAccess.open("user://novagrid-godot-save.json",FileAccess.WRITE)
  if f:
