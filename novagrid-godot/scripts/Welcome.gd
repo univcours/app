@@ -23,6 +23,10 @@ func _ready() -> void:
  visuals.configure(GEMS)
  audio=AudioScript.new()
  add_child(audio)
+ var session:Node=get_node_or_null("/root/Session")
+ if session!=null:
+  audio.sounds_enabled=bool(session.get("sounds_enabled"))
+  audio.music_enabled=bool(session.get("music_enabled"))
  audio.select_music("puzzle")
  var random:=RandomNumberGenerator.new()
  random.seed=204812
@@ -47,7 +51,13 @@ func _process(delta:float) -> void:
  queue_redraw()
 
 func _rectangles() -> Array[Rect2]:
- var size:Vector2=get_viewport_rect().size
+ # Some headless tests inspect layout before the node enters SceneTree.
+ # get_viewport_rect() on a detached CanvasItem logs an engine error.
+ var size:Vector2=Vector2(
+  float(ProjectSettings.get_setting("display/window/size/viewport_width",432)),
+  float(ProjectSettings.get_setting("display/window/size/viewport_height",960)))
+ if is_inside_tree():
+  size=get_viewport_rect().size
  var margin:float=clampf(size.x*.046,12,28)
  var h:float=clampf(size.y*.205,146.0,196.0)
  var gap:float=clampf(size.y*.025,12,24)
