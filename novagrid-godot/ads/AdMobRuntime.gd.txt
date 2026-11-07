@@ -1,0 +1,192 @@
+extends Node
+## NovaGrid Godot 4.5.1 native Android AdMob controller for Poing Studios 5.1.0.
+## Installed by scripts/install-admob.ps1 ONLY AFTER the compatible plugin is added.
+## All Preview builds use Google's demo app/ad IDs; this never requests live ads.
+## Banner appears at the very bottom; gameplay reserves measured banner height.
+## Interstitial is offered only after completed rounds, with strong throttling.
+const BANNER_TEST = "ca-app-pub-3940256099942544/9214589741"
+const INTERSTITIAL_TEST = "ca-app-pub-3940256099942544/1033173712"
+const MIN_SECONDS_BETWEEN_FULL_SCREEN = 180.0
+var game: Node2D
+var banner: AdView
+var banner_listener := AdListener.new()
+var interstitial: InterstitialAd
+var interstitial_loader := InterstitialAdLoadCallback.new()
+var interstitial_content := FullScreenContentCallback.new()
+var initialization_listener := OnInitializationCompleteListener.new()
+var round_count := 0
+var last_interstitial_msec := 0
+var started_msec := 0
+var consent_ready := false
+var loading_interstitial := false
+var initialized := false
+
+func start(game_node: Node2D) -> void:
+ game = game_node
+ started_msec = Time.get_ticks_msec()
+ # Never execute on desktop; the editor's mock ad is NOT paid inventory.
+ if OS.get_name() != "Android":
+  return
+ # No banner height reserved until a real native ad reports a loaded size.
+ game.set_native_banner_height(0.0)
+ banner_listener.on_ad_loaded = _banner_loaded
+ banner_listener.on_ad_failed_to_load = _banner_failed
+ banner_listener.on_ad_closed = _banner_closed
+ interstitial_loader.on_ad_loaded = _interstitial_loaded
+ interstitial_loader.on_ad_failed_to_load = _interstitial_failed
+ interstitial_content.on_ad_dismissed_full_screen_content = _interstitial_dismissed
+ interstitial_content.on_ad_failed_to_show_full_screen_content = _interstitial_show_failed
+ initialization_listener.on_initialization_complete = _initialized
+ # Google UMP consent must be refreshed before ANY ad request, every startup.
+ var request := ConsentRequestParameters.new()
+ request.tag_for_under_age_of_consent = false
+ UserMessagingPlatform.consent_information.update(
+  request, _consent_updated, _consent_error)
+
+func _consent_updated() -> void:
+ var info := UserMessagingPlatform.consent_information
+ if info.get_consent_status() == info.ConsentStatus.REQUIRED:
+  if info.get_is_consent_form_available():
+   UserMessagingPlatform.load_consent_form(_consent_form_loaded, _consent_form_error)
+  else:
+   print("NovaGrid AdMob: consent required but form unavailable; ads remain off")
+ else:
+  _init_if_allowed()
+
+func _consent_form_loaded(form: ConsentForm) -> void:
+ form.show(_consent_form_dismissed)
+
+func _consent_form_dismissed(error: FormError) -> void:
+ if error:
+  print("NovaGrid AdMob: consent dismissed with error: ",error.message)
+ _init_if_allowed()
+
+func _consent_form_error(error: FormError) -> void:
+ print("NovaGrid AdMob: consent form error: ",error.message)
+ # No unconsented requests.
+ _init_if_allowed()
+
+func _consent_error(error: FormError) -> void:
+ print("NovaGrid AdMob: UMP error; no new ad requests: ",error.message)
+
+func _init_if_allowed() -> void:
+ var info := UserMessagingPlatform.consent_information
+ consent_ready = info.get_consent_status() in [
+  info.ConsentStatus.OBTAINED, info.ConsentStatus.NOT_REQUIRED]
+ if not consent_ready or initialized:
+  return
+ initialized = true
+ MobileAds.initialize(initialization_listener)
+
+func _initialized(_status: InitializationStatus) -> void:
+ _load_banner()
+ _load_interstitial()
+
+func _load_banner() -> void:
+ if not consent_ready or banner != null:
+  return
+ var ad_size := AdSize.get_current_orientation_anchored_adaptive_banner_ad_size(AdSize.FULL_WIDTH)
+ banner = AdView.new(BANNER_TEST,ad_size,AdPosition.BOTTOM)
+ banner.ad_listener = banner_listener
+ banner.load_ad(AdRequest.new())
+
+func _banner_loaded() -> void:
+ if banner == null or not is_instance_valid(game):
+  return
+ var px := banner.get_height_in_pixels()
+ if px <= 0:
+  # Never reserve an arbitrary ad block before a measured native banner exists.
+  return
+ var physical_height := float(DisplayServer.window_get_size().y)
+ var logical_height := game.get_viewport_rect().size.y
+ if physical_height <= 1.0 or logical_height <= 1.0:
+  return
+ var reserve := float(px) * logical_height / physical_height + 4.0
+ game.set_native_banner_height(reserve)
+ print("NovaGrid AdMob: native banner loaded; game dock=",reserve)
+
+func _banner_failed(error: LoadAdError) -> void:
+ print("NovaGrid AdMob: banner failed: ",error.message)
+ _destroy_banner()
+
+func _banner_closed() -> void:
+ # A closed collapsible banner can still leave its regular base shown.
+ if banner != null and banner.get_height_in_pixels() > 0:
+  _banner_loaded()
+ else:
+  _destroy_banner()
+
+func _destroy_banner() -> void:
+ if is_instance_valid(game):
+  game.set_native_banner_height(0.0)
+ if banner != null:
+  banner.destroy()
+  banner = null
+
+func _load_interstitial() -> void:
+ if not consent_ready or loading_interstitial or interstitial != null:
+  return
+ loading_interstitial = true
+ InterstitialAdLoader.new().load(INTERSTITIAL_TEST,AdRequest.new(),interstitial_loader)
+
+func _interstitial_loaded(ad: InterstitialAd) -> void:
+ loading_interstitial = false
+ if interstitial != null:
+  interstitial.destroy()
+ interstitial = ad
+ interstitial.full_screen_content_callback = interstitial_content
+
+func _interstitial_failed(error: LoadAdError) -> void:
+ loading_interstitial = false
+ print("NovaGrid AdMob: interstitial unavailable: ",error.message)
+
+func maybe_show_interstitial() -> void:
+ # Call ONLY when a finished round is being restarted, never during gameplay.
+ round_count += 1
+ if not consent_ready or interstitial == null:
+  return
+ var now := Time.get_ticks_msec()
+ if round_count % 2 != 0 or float(now-started_msec)<60000.0 or (
+  last_interstitial_msec > 0 and float(now-last_interstitial_msec)<MIN_SECONDS_BETWEEN_FULL_SCREEN*1000.0
+ ):
+  return
+ last_interstitial_msec = now
+ interstitial.show()
+
+func _interstitial_dismissed() -> void:
+ _release_interstitial()
+
+func _interstitial_show_failed(error: AdError) -> void:
+ print("NovaGrid AdMob: interstitial show failed: ",error.message)
+ _release_interstitial()
+
+func _release_interstitial() -> void:
+ if interstitial != null:
+  interstitial.destroy()
+  interstitial = null
+ _load_interstitial()
+
+func show_privacy_options() -> void:
+ if OS.get_name() != "Android":
+  return
+ UserMessagingPlatform.show_privacy_options_form(_privacy_closed)
+
+func _privacy_closed(error: FormError) -> void:
+ if error:
+  print("NovaGrid AdMob: privacy options error: ",error.message)
+ # Choices may change; destroy existing ad and renew UMP before more requests.
+ _destroy_banner()
+ if interstitial != null:
+  interstitial.destroy()
+  interstitial = null
+ loading_interstitial = false
+ consent_ready = false
+ initialized = false
+ var request := ConsentRequestParameters.new()
+ UserMessagingPlatform.consent_information.update(request,_consent_updated,_consent_error)
+
+func _exit_tree() -> void:
+ _destroy_banner()
+ if interstitial != null:
+  interstitial.destroy()
+  interstitial = null
