@@ -1,6 +1,6 @@
 import {intensityForMoves,intensityLabel} from './progressive.js';
 import {advanceFever} from './fever.js';
-import {GLASS_COLS,GLASS_ROWS,makeGlassGame,isGlassBoard,canPlaceGlass,runGlassMove} from './glass-engine.js';
+import {GLASS_COLS,GLASS_ROWS,makeGlassGame,isGlassBoard,canPlaceGlass,runGlassMove,detonateGlassBomb,bombProgress} from './glass-engine.js';
 import {initializeAds,gameFinished,maybeShowInterstitialOnReplay} from './ads.js';
 import {SIZE,makeGame,runMove,canPlace,hasMove} from './engine.js';
 import {shapeDimensions,projectDragPoint,dragLift} from './drag.js';
@@ -11,13 +11,13 @@ import {createGalaxyUI} from './galaxy-ui.js';
 import {calculateBoardSize} from './layout.js';
 import {createBlockfallUI} from './falling-ui.js';
 const T={
- en:{tagline:'A universe of puzzles',eyebrow:'YOUR DAILY BRAIN BOOST',hero1:'Think sharp.',hero2:'Glow brighter.',subtitle:'Place blocks. Clear lines. Chase your next high score.',classic:'Block Puzzle',stages:'Stages',daily:'Daily challenge',blockfall:'Blockfall',score:'SCORE',best:'BEST',streak:'COMBO',hint:'Select a shape, then tap the grid',selected:'Now tap where the shape should land',invalid:'Not enough space! Try another spot',undo:'Undo once',new:'New game',tipTitle:'Cosmic tip',tip:'Fill a row, column or 3×3 square to clear it.',offline:'Offline & private',playAgain:'Play again',close:'Close',gameOver:'Out of space!',gameOverBody:'Every brilliant run starts with another try.',nice:'Cosmic clear!',dailyDone:'Daily challenge completed',newConfirm:'Start a fresh game? Your current progress will be lost.',share:'NovaGrid score',copy:'Score copied!',undoUsed:'Your one undo has been used',none:'Play a move first',dailyLabel:'Daily · '},
- fr:{tagline:'Un univers de puzzles',eyebrow:'LE DÉFI DE VOTRE CERVEAU',hero1:'Pensez vite.',hero2:'Brillez encore.',subtitle:'Placez des blocs. Effacez des lignes. Battez votre record.',classic:'Puzzle Blocs',stages:'Niveaux',daily:'Défi du jour',blockfall:'Blockfall',score:'SCORE',best:'RECORD',streak:'COMBO',hint:'Choisissez une pièce, puis touchez la grille',selected:'Touchez une case pour placer la pièce',invalid:'Espace insuffisant !',undo:'Annuler une fois',new:'Nouvelle partie',tipTitle:'Astuce cosmique',tip:'Complétez une ligne, colonne ou carré 3×3.',offline:'Hors ligne et privé',playAgain:'Rejouer',close:'Fermer',gameOver:'Plus de place !',gameOverBody:'Chaque superbe partie commence par un nouvel essai.',nice:'Super combo !',dailyDone:'Défi quotidien terminé',newConfirm:'Recommencer ? Votre progression sera perdue.',share:'Score NovaGrid',copy:'Score copié !',undoUsed:'Annulation déjà utilisée',none:'Jouez d’abord',dailyLabel:'Défi · '},
- ar:{tagline:'عالم من الألغاز',eyebrow:'تحديك الذهني اليومي',hero1:'فكّر بذكاء.',hero2:'وتألّق أكثر.',subtitle:'ضع القطع. امسح الصفوف. حطّم رقمك القياسي.',classic:'ألغاز المربعات',stages:'المراحل',daily:'تحدي اليوم',blockfall:'بلوك فول',score:'النقاط',best:'الأفضل',streak:'السلسلة',hint:'اختر قطعة ثم اضغط على الشبكة',selected:'اضغط على مكان وضع القطعة',invalid:'لا توجد مساحة كافية!',undo:'تراجع واحد',new:'لعبة جديدة',tipTitle:'نصيحة ذكية',tip:'أكمل صفاً أو عموداً أو مربعاً 3×3 لمسحه.',offline:'دون إنترنت وخصوصي',playAgain:'العب مجدداً',close:'إغلاق',gameOver:'انتهت المساحة!',gameOverBody:'كل محاولة جديدة فرصة لتحطيم الرقم القياسي.',nice:'ممتاز!',dailyDone:'اكتمل تحدي اليوم',newConfirm:'بدء لعبة جديدة؟ سيضيع تقدمك الحالي.',share:'نقاط NovaGrid',copy:'تم نسخ النقاط!',undoUsed:'استخدمت التراجع',none:'العب أولاً',dailyLabel:'يومي · '}
+ en:{tagline:'A universe of puzzles',eyebrow:'YOUR DAILY BRAIN BOOST',hero1:'Think sharp.',hero2:'Glow brighter.',subtitle:'Place blocks. Clear lines. Chase your next high score.',classic:'Block Puzzle',stages:'Stages',daily:'Daily challenge',blockfall:'Blockfall',score:'SCORE',best:'BEST',streak:'COMBO',hint:'Clear complete lines to score · Multi-clear = Combo',selected:'Now tap where the shape should land',invalid:'Not enough space! Try another spot',undo:'Undo once',new:'New game',tipTitle:'Cosmic tip',tip:'Fill a row, column or 3×3 square to clear it.',offline:'Offline & private',playAgain:'Play again',close:'Close',gameOver:'Out of space!',gameOverBody:'Every brilliant run starts with another try.',nice:'Cosmic clear!',dailyDone:'Daily challenge completed',newConfirm:'Start a fresh game? Your current progress will be lost.',share:'NovaGrid score',copy:'Score copied!',undoUsed:'Your one undo has been used',none:'Play a move first',dailyLabel:'Daily · '},
+ fr:{tagline:'Un univers de puzzles',eyebrow:'LE DÉFI DE VOTRE CERVEAU',hero1:'Pensez vite.',hero2:'Brillez encore.',subtitle:'Placez des blocs. Effacez des lignes. Battez votre record.',classic:'Puzzle Blocs',stages:'Niveaux',daily:'Défi du jour',blockfall:'Blockfall',score:'SCORE',best:'RECORD',streak:'COMBO',hint:'Terminez des lignes pour marquer · Plusieurs lignes = Combo',selected:'Touchez une case pour placer la pièce',invalid:'Espace insuffisant !',undo:'Annuler une fois',new:'Nouvelle partie',tipTitle:'Astuce cosmique',tip:'Complétez une ligne, colonne ou carré 3×3.',offline:'Hors ligne et privé',playAgain:'Rejouer',close:'Fermer',gameOver:'Plus de place !',gameOverBody:'Chaque superbe partie commence par un nouvel essai.',nice:'Super combo !',dailyDone:'Défi quotidien terminé',newConfirm:'Recommencer ? Votre progression sera perdue.',share:'Score NovaGrid',copy:'Score copié !',undoUsed:'Annulation déjà utilisée',none:'Jouez d’abord',dailyLabel:'Défi · '},
+ ar:{tagline:'عالم من الألغاز',eyebrow:'تحديك الذهني اليومي',hero1:'فكّر بذكاء.',hero2:'وتألّق أكثر.',subtitle:'ضع القطع. امسح الصفوف. حطّم رقمك القياسي.',classic:'ألغاز المربعات',stages:'المراحل',daily:'تحدي اليوم',blockfall:'بلوك فول',score:'النقاط',best:'الأفضل',streak:'السلسلة',hint:'النقاط من إكمال الأسطر فقط · أسطر متعددة = كومبو',selected:'اضغط على مكان وضع القطعة',invalid:'لا توجد مساحة كافية!',undo:'تراجع واحد',new:'لعبة جديدة',tipTitle:'نصيحة ذكية',tip:'أكمل صفاً أو عموداً أو مربعاً 3×3 لمسحه.',offline:'دون إنترنت وخصوصي',playAgain:'العب مجدداً',close:'إغلاق',gameOver:'انتهت المساحة!',gameOverBody:'كل محاولة جديدة فرصة لتحطيم الرقم القياسي.',nice:'ممتاز!',dailyDone:'اكتمل تحدي اليوم',newConfirm:'بدء لعبة جديدة؟ سيضيع تقدمك الحالي.',share:'نقاط NovaGrid',copy:'تم نسخ النقاط!',undoUsed:'استخدمت التراجع',none:'العب أولاً',dailyLabel:'يومي · '}
 };
 const $=id=>document.getElementById(id);const today=()=>new Date().toLocaleDateString('en-CA',{timeZone:'UTC'});
 let lang='en';try{lang=localStorage.getItem('nova.lang')||((navigator.language||'en').slice(0,2));}catch{}if(!T[lang])lang='en';
-let state,selected=-1,hover=null,undoSnapshot=null,toastTimer=0,drag=null;
+let state,selected=-1,hover=null,undoSnapshot=null,toastTimer=0,drag=null,bombArmed=false;
 let progress=initialProgress(),galaxy=null,falling=null,lastEarned=0;
 try{progress=normalizeProgress(JSON.parse(localStorage.getItem('nova.candy.progress.v1')||'null'));}catch{}
 const tr=k=>T[lang][k]||T.en[k]||k;
@@ -74,7 +74,7 @@ function bestKey(){return state.mode==='stage'?`nova.best.candy.${state.stageLev
 function best(){return Number(storage.get(bestKey())||0);}
 function setMode(mode){
  if(!['classic','daily'].includes(mode))return;
- cancelDrag();
+ cancelDrag();bombArmed=false;
  if(mode==='stage'){
   let saved=null;try{saved=JSON.parse(storage.get('nova.candy.stage.current'));}catch{}
   state=saved?.mode==='stage'&&isStageUnlocked(progress,saved.stageLevel)&&saved.board?.length===9&&saved.tray?.length===3&&!saved.over?saved:startStage(progress.unlocked);
@@ -114,6 +114,7 @@ function cellClass(r,c){
  const filled=!!state.board[r][c],candy=state.mode==='classic'&&filled?(state.board[r][c]-1)%6:(r*7+c*3+(state.stageLevel||0)*2)%6;
  const inRegion=(Math.floor(r/3)+Math.floor(c/3))%2===0;
  let cl=filled?'cell block candy-'+candy:'cell'+(inRegion?' region':'');
+ if(bombArmed&&state.mode==='classic'&&Math.abs((hover?.[0]??-10)-r)<=1&&Math.abs((hover?.[1]??-10)-c)<=1)cl+=' nova-bomb-target';
  if(selected>=0&&state.tray[selected]&&hover){
   const shape=state.tray[selected];
   if(shape.some(([dr,dc])=>hover[0]+dr===r&&hover[1]+dc===c)){
@@ -128,7 +129,7 @@ function updateHighlights(){const cells=$('board').children,rows=state.board.len
 function makePiece(shape){const rows=Math.max(...shape.map(v=>v[0]))+1,cols=Math.max(...shape.map(v=>v[1]))+1;const g=document.createElement('span');g.className='piecegrid';g.style.gridTemplateColumns=`repeat(${cols},var(--micro-size,14px))`;g.style.gridTemplateRows=`repeat(${rows},var(--micro-size,14px))`;const occupied=new Set(shape.map(([r,c])=>`${r},${c}`));for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){const b=document.createElement('span');b.className='micro'+(occupied.has(`${r},${c}`)?' candy-'+((r*7+c*3+(state.stageLevel||0)*2)%6):' blank');g.append(b);}return g;}
 function selectPiece(index){
  if(puzzlePaused||!state.tray[index]||state.over)return;
- selected=index;hover=null;
+ bombArmed=false;selected=index;hover=null;
  [...$('pieces').children].forEach((el,i)=>el.classList.toggle('selected',i===index));
  $('message').textContent=tr('selected');
  updateHighlights();
@@ -228,18 +229,40 @@ function cancelDrag(){
  const d=clearDrag();
  if(d){hover=null;if(state)updateHighlights();}
 }
-function render(){document.documentElement.dataset.grid=state.mode==='classic'?'portrait':'square';document.documentElement.dataset.sector=state.mode==='stage'?stageConfig(state.stageLevel).sectorId:'classic';document.documentElement.lang=lang;document.documentElement.dir=lang==='ar'?'rtl':'ltr';const intensity=intensityForMoves(state.moves||0);const chip=$('intensityChip');if(chip){chip.textContent='⚡ '+intensity+'/9';chip.title=intensityLabel(intensity,lang);chip.setAttribute('aria-label',chip.title);}document.querySelectorAll('[data-i18n]').forEach(el=>{el.textContent=tr(el.dataset.i18n)});$('languageBtn').textContent=lang.toUpperCase()+'⌄';$('score').textContent=state.score.toLocaleString();$('best').textContent=Math.max(best(),state.score).toLocaleString();$('combo').textContent='×'+state.combo;$('undoBtn').disabled=state.usedUndo||!undoSnapshot||state.over;$('message').textContent=selected>=0?tr('selected'):tr('hint');renderAudioButtons();updateStageHUD();const dailyDot=$('dailyDot');if(dailyDot)dailyDot.style.display=storage.get('nova.daily.completed.'+today())?'none':'block';
+function render(){document.documentElement.dataset.bombArmed=bombArmed?'true':'false';document.documentElement.dataset.grid=state.mode==='classic'?'portrait':'square';document.documentElement.dataset.sector=state.mode==='stage'?stageConfig(state.stageLevel).sectorId:'classic';document.documentElement.lang=lang;document.documentElement.dir=lang==='ar'?'rtl':'ltr';const intensity=intensityForMoves(state.moves||0);const chip=$('intensityChip');if(chip){chip.textContent='⚡ '+intensity+'/9';chip.title=intensityLabel(intensity,lang);chip.setAttribute('aria-label',chip.title);}document.querySelectorAll('[data-i18n]').forEach(el=>{el.textContent=tr(el.dataset.i18n)});$('languageBtn').textContent=lang.toUpperCase()+'⌄';$('score').textContent=state.score.toLocaleString();$('best').textContent=Math.max(best(),state.score).toLocaleString();$('combo').textContent='×'+state.combo;$('undoBtn').disabled=state.usedUndo||!undoSnapshot||state.over;$('message').textContent=selected>=0?tr('selected'):tr('hint');renderAudioButtons();updateStageHUD();const dailyDot=$('dailyDot');if(dailyDot)dailyDot.style.display=storage.get('nova.daily.completed.'+today())?'none':'block';
  const feverPercent=Math.max(0,Math.min(100,Number(state.fever)||0));
  $('novaFeverFill').style.width=feverPercent+'%';
  $('novaFeverText').textContent=feverPercent+'%';
+ const bombBtn=$('bombBtn');if(bombBtn){
+  const charge=state.mode==='classic'?bombProgress(state):{percent:0};
+  const count=state.mode==='classic'?(state.bombs||0):0;
+  bombBtn.disabled=count===0||state.over||state.mode!=='classic';
+  bombBtn.setAttribute('aria-pressed',String(bombArmed));
+  bombBtn.setAttribute('aria-label',count?`${count} rescue bombs available. Tap then touch a 3 by 3 region.`:`Rare bomb charge ${charge.percent||0} percent. Clear lines to earn.`);
+  bombBtn.classList.toggle('armed',bombArmed);
+  $('bombCount').textContent=String(count);
+  $('bombCharge').style.width=(charge.percent||0)+'%';
+ }
  renderBoard();renderPieces();}
 function notify(text){$('toast').textContent=text;$('toast').classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').classList.remove('show'),1800);}
-function placeAt(row,col){if(puzzlePaused||state.over)return;audio.unlock();if(selected<0){notify(tr('hint'));return;}const snapshot=JSON.parse(JSON.stringify(state));const result=state.mode==='classic'?runGlassMove(state,selected,row,col):runMove(state,selected,row,col);if(!result){notify(tr('invalid'));audio.effect('invalid');return;}if(!state.usedUndo)undoSnapshot=snapshot;state=result.state;selected=-1;hover=null;
+function placeAt(row,col){if(puzzlePaused||state.over)return;audio.unlock();
+ if(bombArmed&&state.mode==='classic'){
+  const blast=detonateGlassBomb(state,row,col);
+  if(!blast){notify(lang==='ar'?'اختار منطقة فيها مكعبات':lang==='fr'?'Touchez des blocs occupés':'Tap an occupied region');return;}
+  state=blast.state;bombArmed=false;selected=-1;hover=null;undoSnapshot=null;
+  audio.effect('bombGlass');store();render();
+  arcadeEffect($('candyFxLayer'),{kind:'bomb',center:[row,col],groups:1});
+  notify(lang==='ar'?`💣 تحيدو ${blast.removed} مكعبات · بلا نقاط`:`💣 ${blast.removed} blocks cleared · no score`);
+  try{navigator.vibrate?.([30,35,55]);}catch{}
+  return;
+ }
+ if(selected<0){notify(tr('hint'));return;}const snapshot=JSON.parse(JSON.stringify(state));const result=state.mode==='classic'?runGlassMove(state,selected,row,col):runMove(state,selected,row,col);if(!result){notify(tr('invalid'));audio.effect('invalid');return;}if(!state.usedUndo)undoSnapshot=snapshot;state=result.state;selected=-1;hover=null;
  if(state.mode==='classic'){
   const fever=advanceFever(snapshot,result.groups,state.combo,result.gained);
   state.fever=fever.fever;state.feverTurns=fever.feverTurns;
   if(fever.bonus)state.score+=fever.bonus;
   if(fever.activated){audio.effect('candy');notify('⚡ NOVA FEVER!');}
+  if(result.earnedBombs>0){audio.effect('bombEarned');notify('💣 RARE BOMB EARNED!');}
  }
  if(state.mode==='stage'){
   state.clears=(snapshot.clears||0)+result.groups;
@@ -263,11 +286,11 @@ function placeAt(row,col){if(puzzlePaused||state.over)return;audio.unlock();if(s
   audio.effect(special.kind);
   notify((special.kind==='rocket'?'🚀 ROCKET RUSH!':special.kind==='bomb'?'💣 CANDY BOOM!':'🍬 CANDY POP!')+' +'+(special.bonus||result.gained));
   try{navigator.vibrate?.(special.kind==='bomb'?[26,40,55]:special.kind==='rocket'?[15,24,22]:[12,16,12]);}catch{} 
- }else if(result.groups){notify('🍬 '+tr('nice')+' +'+result.gained);audio.effect('clear');}
+ }else if(result.groups){notify('💎 '+tr('nice')+' +'+result.gained);audio.effect(result.groups>1?'glassCombo':'glassShatter');}
  else audio.effect('place');
  render();
  if(special)arcadeEffect($('candyFxLayer'),special);
- else if(result.groups>0)arcadeEffect($('candyFxLayer'),{kind:'combo',center:[row,col],combo:state.combo,bonus:result.gained,groups:result.groups});
+ else if(result.groups>0)arcadeEffect($('candyFxLayer'),{kind:'combo',center:[row,col],combo:Math.max(result.groups,state.combo),bonus:result.gained,groups:result.groups});
  if(state.over){
   if(state.won)audio.effect('victory');else if(state.mode==='stage')audio.effect('gameover');
   gameFinished();if(state.mode==='daily')storage.set('nova.daily.completed.'+today(),'1');
@@ -302,8 +325,14 @@ function showEnd(){
  }
  $('dialogScore').textContent=state.score.toLocaleString();$('dialog').hidden=false;
 }
-function restart(){cancelDrag();audio.effect('new');state=state.mode==='stage'?startStage(state.stageLevel):state.mode==='classic'?makeGlassGame():makeGame(state.mode,today());selected=-1;undoSnapshot=null;lastEarned=0;store();$('dialog').hidden=true;render();}
-$('undoBtn').addEventListener('click',()=>{if(!undoSnapshot||state.usedUndo)return;state={...undoSnapshot,usedUndo:true};undoSnapshot=null;audio.unlock();audio.effect('undo');selected=-1;hover=null;store();render();notify(tr('undoUsed'));});
+function restart(){cancelDrag();bombArmed=false;audio.effect('new');state=state.mode==='stage'?startStage(state.stageLevel):state.mode==='classic'?makeGlassGame():makeGame(state.mode,today());selected=-1;undoSnapshot=null;lastEarned=0;store();$('dialog').hidden=true;render();}
+$('undoBtn').addEventListener('click',()=>{bombArmed=false;if(!undoSnapshot||state.usedUndo)return;state={...undoSnapshot,usedUndo:true};undoSnapshot=null;audio.unlock();audio.effect('undo');selected=-1;hover=null;store();render();notify(tr('undoUsed'));});
+$('bombBtn').addEventListener('click',()=>{
+ if(puzzlePaused||state.mode!=='classic'||state.over||!(state.bombs>0))return;
+ cancelDrag();selected=-1;hover=null;bombArmed=!bombArmed;
+ audio.unlock();audio.effect('pick');render();
+ notify(bombArmed?(lang==='ar'?'💣 لمس 3×3 فيها مكعبات للتفجير':'💣 Tap a 3×3 block region to detonate'):'Bomb cancelled');
+});
 $('newBtn').addEventListener('click',()=>{if(state.moves>0&&!window.confirm(tr('newConfirm')))return;restart();});
 $('dialogPlay').addEventListener('click',async()=>{const btn=$('dialogPlay');btn.disabled=true;try{await maybeShowInterstitialOnReplay();}finally{btn.disabled=false;if(state.mode==='stage'&&state.won){$('dialog').hidden=true;galaxy?.open(state.stageLevel+1);}else restart();}});$('dialogClose').addEventListener('click',()=>$('dialog').hidden=true);
 document.querySelectorAll('[data-mode]').forEach(btn=>btn.addEventListener('click',()=>{
