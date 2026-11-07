@@ -45,8 +45,10 @@ try{
       const valid=shape.every(([dr,dc])=>r+dr<rows&&col+dc<cols&&!cells[(r+dr)*cols+col+dc]?.classList.contains('block'));
       if(!valid)continue;
       piece.dispatchEvent(new MouseEvent('click',{bubbles:true,detail:0}));
-      const old=score();cells[r*cols+col].click();
-      if(score()>old)played=true;
+      cells[r*cols+col].click();
+      // Placing a piece deliberately gives ZERO points unless it clears lines.
+      // This screenshot walker counts a valid placement, not a score increase.
+      played=true;
      }
      if(played)break;
     }
