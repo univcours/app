@@ -1,6 +1,7 @@
 extends RefCounted
 ## Original falling-block rules with seven-bag randomizer, collision, kicks,
 ## locked grid, hard/soft drop, ghost projection, long-form scoring.
+const WallKicks = preload("res://scripts/WallKicks.gd")
 const COLS := 10
 const ROWS := 18
 const FORMS = [
@@ -21,6 +22,9 @@ var kind := 0
 var next_kind := 0
 var hold_kind := -1
 var hold_used := false
+var rotation_state := 0
+var lock_delay_elapsed := 0.0
+const LOCK_DELAY_SECONDS := 0.42
 var score := 0
 var best := 0
 var lines := 0
@@ -62,6 +66,8 @@ func reset() -> void:
  last_gained = 0
  hold_kind = -1
  hold_used = false
+ rotation_state = 0
+ lock_delay_elapsed = 0.0
  next_kind = _take()
  _spawn()
 
@@ -81,6 +87,8 @@ func _spawn() -> void:
  next_kind = _take()
  piece = _shape(kind)
  active = Vector2i(3,0)
+ rotation_state = 0
+ lock_delay_elapsed = 0.0
  if not fits(piece,active):
   over = true
 
@@ -96,6 +104,8 @@ func hold_piece() -> bool:
   hold_kind=outgoing
   piece=_shape(kind)
   active=Vector2i(3,0)
+  rotation_state=0
+  lock_delay_elapsed=0.0
   if not fits(piece,active):
    over=true
  hold_used=true
@@ -114,27 +124,45 @@ func move(dx: int) -> bool:
  if over or not fits(piece,active+Vector2i(dx,0)):
   return false
  active.x += dx
+ lock_delay_elapsed=0.0
  return true
 
-func rotate() -> bool:
- if over or kind == 1:
+func rotate(direction:int=1) -> bool:
+ if over or kind==1:
   return false
- var rotated: Array = []
- var min_x := 999
- var min_y := 999
- for p in piece:
-  var v := Vector2i(-p.y,p.x)
-  rotated.append(v)
-  min_x = mini(min_x,v.x)
-  min_y = mini(min_y,v.y)
+ # Use permissive rotational tests adapted from the MIT-licensed
+ # PokeTetris SRS kick data, preserving our existing 2D piece rendering.
+ var rotated:Array=[]
+ var minimum:=Vector2i(999,999)
+ for tile in piece:
+  var q:Vector2i=Vector2i(-tile.y,tile.x) if direction>=0 else Vector2i(tile.y,-tile.x)
+  rotated.append(q)
+  minimum.x=mini(minimum.x,q.x)
+  minimum.y=mini(minimum.y,q.y)
  for i in rotated.size():
-  rotated[i] = rotated[i] - Vector2i(min_x,min_y)
- for kick in [0,-1,1,-2,2]:
-  var trial := active + Vector2i(kick,0)
+  rotated[i]=rotated[i]-minimum
+ for offset in WallKicks.offsets(kind,rotation_state,direction):
+  var trial:Vector2i=active+offset
   if fits(rotated,trial):
-   piece = rotated
-   active = trial
+   piece=rotated
+   active=trial
+   rotation_state=posmod(rotation_state+direction,4)
+   lock_delay_elapsed=0.0
    return true
+ return false
+
+func advance_lock(delta:float) -> bool:
+ # Standard mobile-friendly lock delay: movement and rotations reset it.
+ # Sliding a piece onto the floor is responsive instead of locking instantly.
+ if over:
+  return false
+ if fits(piece,active+Vector2i(0,1)):
+  lock_delay_elapsed=0.0
+  return false
+ lock_delay_elapsed+=maxf(0.0,delta)
+ if lock_delay_elapsed>=LOCK_DELAY_SECONDS:
+  _lock()
+  return true
  return false
 
 func ghost_row() -> int:
@@ -148,9 +176,10 @@ func tick() -> bool:
   return false
  if fits(piece,active+Vector2i(0,1)):
   active.y += 1
+  lock_delay_elapsed=0.0
   return false
- _lock()
- return true
+ # The grounded lock delay is advanced separately each frame.
+ return false
 
 func soft_drop() -> bool:
  if over:
@@ -213,6 +242,7 @@ func cell_at(col: int,row: int) -> int:
 func snapshot() -> Dictionary:
  return {"version":1,"board":board.duplicate(true),"bag":bag.duplicate(),
   "kind":kind,"next_kind":next_kind,"hold_kind":hold_kind,"hold_used":hold_used,
+  "rotation_state":rotation_state,"lock_delay_elapsed":lock_delay_elapsed,
   "piece":piece.map(func(p):return [p.x,p.y]),"active":[active.x,active.y],
   "score":score,"best":best,"lines":lines,"level":level,"combo":combo,
   "drops":drops,"over":over}
@@ -250,6 +280,8 @@ func restore(raw: Dictionary) -> bool:
  next_kind=candidate_next
  hold_kind=candidate_hold
  hold_used=bool(raw.get("hold_used",false))
+ rotation_state=clampi(int(raw.get("rotation_state",0)),0,3)
+ lock_delay_elapsed=clampf(float(raw.get("lock_delay_elapsed",0.0)),0.0,LOCK_DELAY_SECONDS)
  active=Vector2i(int(next_position[0]),int(next_position[1]))
  score=maxi(0,int(raw.get("score",0)))
  best=maxi(score,int(raw.get("best",score)))
