@@ -1,3 +1,22 @@
+## NEW: one double-click launcher on Windows
+
+The downloadable **NovaGrid-Godot-Project.zip** now includes
+**`Open-NovaGrid-Godot.cmd`** in the same folder as **`project.godot`**.
+
+1. Extract the ZIP to any folder. Do not try to run the APK inside Godot.
+2. Double-click **`Open-NovaGrid-Godot.cmd`**.
+3. If Godot 4.5.1 Standard is already on the computer, it is detected automatically. Otherwise a file chooser asks for its EXE. Obtain Godot only from the official website.
+4. Godot opens the **real native NovaGrid editor project**. Press **F5** to start the game and select the Block Puzzle or Blockfall card.
+5. Your Play Store application, signing key and Android Studio project are never touched. Android SDK/ADB and APK Downloads are not needed for PC gameplay.
+
+For PowerShell, from the extracted project folder:
+```powershell
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File '.\scripts\open-in-godot.ps1'
+```
+For direct game play without showing the editor, add `-Play`.
+
+---
+
 # OPEN NOVAGRID ON YOUR WINDOWS COMPUTER
 
 This folder is the complete **Godot editor project**, not an Android APK.
