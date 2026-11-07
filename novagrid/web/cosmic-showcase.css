@@ -54,15 +54,17 @@ html,body{background-color:#05071e!important}
  background:linear-gradient(110deg,#071b4cce,#271252cb,#101b53d8)!important;
  box-shadow:inset 0 2px 3px #fffffe34,0 0 13px #b03aff43!important;
 }
-.scorebar .intensity-chip,.scorebar .scoreline,.scorebar .scorebox:has(#best){display:none!important}
+.scorebar .intensity-chip,.scorebar .scoreline{display:none!important}
+.scorebar .nova-lines-box{display:flex!important;grid-column:2;grid-row:1}
+.scorebar .nova-lines-box #best[hidden]{display:none!important}
 .scorebar .scorebox{height:100%;display:flex!important;flex-direction:column;gap:0!important;align-items:center!important;
  justify-content:center!important;margin:0!important;background:transparent!important;min-width:0!important}
 .scorebar .scorebox:has(#score){grid-column:1;grid-row:1}
-.scorebar .scorebox:has(#combo){grid-column:2;grid-row:1}
+.scorebar .scorebox:has(#combo){grid-column:3;grid-row:1}
 .scorebox span{font-size:8px!important;letter-spacing:.05em!important;color:#ddcafa!important}
 .scorebox strong{color:#a9f9ff!important;font-size:clamp(14px,3.7vw,19px)!important;
  text-shadow:0 0 10px #28d5ffdd;font-variant-numeric:tabular-nums;white-space:nowrap}
-.nova-fever{grid-column:3/5;grid-row:1;align-self:center;min-width:0}
+.nova-fever{grid-column:4;grid-row:1;align-self:center;min-width:0}
 .nova-fever small{letter-spacing:.04em!important;color:#ffe4fc!important;font-size:9px!important}
 .nova-fever-rail{height:7px!important;border-color:#c88dfb!important}
 .nova-bomb-panel{
@@ -145,4 +147,11 @@ html[data-bomb-armed="true"] .board .cell{cursor:crosshair}
 @media(prefers-reduced-motion:reduce){
  .nova-sky::after{animation:none!important}
  .nova-bomb-track>i,.piece{transition:none!important}
+}
+
+/* Clearly show the only way to score; never hide the rule under the board. */
+html[data-grid="portrait"] .gamehint{
+ height:17px!important;min-height:17px!important;max-height:18px!important;
+ overflow:hidden!important;text-align:center!important;white-space:nowrap;
+ line-height:17px!important;opacity:.90!important;
 }
