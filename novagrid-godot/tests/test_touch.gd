@@ -21,10 +21,10 @@ func _run_touch() -> void:
  for s in 3:
   if found:
    break
-  for row in 12:
+  for row in 9:
    if found:
     break
-   for col in 10:
+   for col in 9:
     if app.puzzle.fits(app.puzzle.tray[s],Vector2i(col,row)):
      origin=Vector2i(col,row)
      slot=s
@@ -37,7 +37,7 @@ func _run_touch() -> void:
   app._press(tray_pt)
   app._release(tray_pt)
   verify(app.selected==slot,"tap selected a crystal")
-  var cell:float=layout["board"].size.x/10.0
+  var cell:float=layout["board"].size.x/9.0
   var play_pt:Vector2=layout["board"].position+Vector2((origin.x+.3)*cell,(origin.y+.3)*cell)
   app._press(play_pt)
   app._release(play_pt)
@@ -54,7 +54,7 @@ func _run_touch() -> void:
  app._release(bomb_button)
  verify(app.bomb_armed and app.puzzle.bombs==1,"glass bomb HUD arms with touch")
  var b:Rect2=app._layout()["board"]
- var square:float=b.size.x/10.0
+ var square:float=b.size.x/9.0
  var blast_position:Vector2=b.position+Vector2(square*4.5,square*4.5)
  app._press(blast_position)
  app._release(blast_position)
