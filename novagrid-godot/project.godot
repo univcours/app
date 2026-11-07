@@ -4,8 +4,12 @@ config_version=5
 
 config/name="NovaGrid"
 config/icon="res://assets/icon.svg"
-run/main_scene="res://scenes/Main.tscn"
+run/main_scene="res://scenes/Welcome.tscn"
 config/description="Original native 2D cosmic glass puzzle and falling blocks"
+
+[autoload]
+
+Session="*res://scripts/GameSession.gd"
 
 [display]
 
