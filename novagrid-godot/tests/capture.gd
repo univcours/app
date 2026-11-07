@@ -33,6 +33,24 @@ func _capture() -> void:
    break
  await create_timer(.3).timeout
  var screenshot:Image = root.get_texture().get_image()
+ # Visual regression: reject washed-out white mockup-like cubes. The
+ # approved reference contains richly saturated, glowing glass gemstones.
+ var puzzle_rect:Rect2=app._layout()["board"]
+ var tile_size:float=puzzle_rect.size.x/9.0
+ var max_saturation:float=0.0
+ for yy in 9:
+  for xx in 9:
+   if int(app.puzzle.cells[yy][xx])<=0:
+    continue
+   var px:Vector2i=Vector2i(puzzle_rect.position+Vector2((xx+.5)*tile_size,(yy+.5)*tile_size))
+   var color:Color=screenshot.get_pixelv(px)
+   var vivid:float=maxf(color.r,maxf(color.g,color.b))-minf(color.r,minf(color.g,color.b))
+   max_saturation=maxf(max_saturation,vivid)
+ if max_saturation<.38:
+  printerr("Crystal visual QA failed: colors look washed out: ",max_saturation)
+  quit(1)
+  return
+ print("CRYSTAL COLOR SATURATION QA PASSED: ",max_saturation)
  var err:int = screenshot.save_png("res://build/novagrid-real-puzzle.png")
  if err!=OK:
   printerr("Unable to capture Block Puzzle: ",err)
