@@ -6,7 +6,11 @@ export function arcadeEffect(layer,event){
  const reduce=typeof window!=='undefined'&&window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
  layer.replaceChildren();
  if(reduce)return;
- const [row,col]=event.center||[4,4],left=(col+.5)*100/9,top=(row+.5)*100/9;
+ // Mobile boards have different dimensions: Classic 10x12, Blockfall 10x18.
+ const cols=Math.max(1,Number(event.cols)||9),rows=Math.max(1,Number(event.rows)||9);
+ const [row,col]=event.center||[rows*.5,cols*.5];
+ const left=Math.max(0,Math.min(100,(col+.5)*100/cols));
+ const top=Math.max(0,Math.min(100,(row+.5)*100/rows));
  const icon=document.createElement('span');icon.className='candy-fx-icon '+event.kind;
  icon.style.left=left+'%';icon.style.top=top+'%';
  icon.textContent=event.kind==='rocket'?'🚀':event.kind==='bomb'?'💥':'✦';
