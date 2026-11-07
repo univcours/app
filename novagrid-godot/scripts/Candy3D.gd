@@ -42,7 +42,7 @@ func build_candies(palette:Array) -> void:
   var camera:=Camera3D.new()
   camera.name="CandyCamera"
   camera.projection=Camera3D.PROJECTION_ORTHOGONAL
-  camera.size=1.90
+  camera.size=1.67
   camera.position=Vector3(0,0,4.4)
   world.add_child(camera)
   camera.look_at(Vector3.ZERO,Vector3.UP)
@@ -52,14 +52,14 @@ func build_candies(palette:Array) -> void:
   keylight.name="SoftboxKey"
   keylight.rotation_degrees=Vector3(-37,-29,19)
   keylight.light_color=Color("#fff0dd")
-  keylight.light_energy=2.35
+  keylight.light_energy=1.85
   keylight.shadow_enabled=false
   world.add_child(keylight)
   var fill:=DirectionalLight3D.new()
   fill.name="CandyRimLight"
   fill.rotation_degrees=Vector3(22,135,-20)
   fill.light_color=Color("#b2deff")
-  fill.light_energy=1.50
+  fill.light_energy=1.08
   fill.shadow_enabled=false
   world.add_child(fill)
   _make_candy(world,idx,tint)
