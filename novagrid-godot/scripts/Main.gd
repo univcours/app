@@ -17,6 +17,18 @@ const SKY = Color("#070923")
 const EXACT_FALL_SKIN = "res://assets/skins/blockfall_exact_reference.png"
 const PUZZLE_COSMIC_SKIN = "res://assets/skins/blockpuzzle_cosmic_backdrop.png"
 const SKIN_CANVAS = Vector2(941.0,1672.0)
+# Exact seven candy faces cut from the approved AI-generated reference.
+# Each is a transparent native texture placed by the REAL game engine.
+const REFERENCE_CANDY_PATHS = [
+ "",
+ "res://assets/skins/gems/candy_1_ruby.png",
+ "res://assets/skins/gems/candy_2_gold.png",
+ "res://assets/skins/gems/candy_3_turquoise.png",
+ "res://assets/skins/gems/candy_4_grapes.png",
+ "res://assets/skins/gems/candy_5_emerald.png",
+ "res://assets/skins/gems/candy_6_citrus.png",
+ "res://assets/skins/gems/candy_7_sapphire.png"
+]
 # Shared premium Cosmic Candy arcade palette used for BOTH live modes.
 const GLOW_BLUE = Color("#39ebff")
 const GLOW_PINK = Color("#ff6df1")
@@ -53,6 +65,7 @@ var banner_height := 0.0 # Reserved only after an actual native banner reports i
 var native_ads: Node = null
 var skin_fall:Texture2D = null
 var skin_puzzle:Texture2D = null
+var exact_candy_textures:Array[Texture2D]=[]
 
 func set_native_banner_height(px:float) -> void:
  # Reserved for the native AdMob bridge: do not simulate real ad filling here.
@@ -79,6 +92,11 @@ func _ready() -> void:
   skin_fall = load(EXACT_FALL_SKIN) as Texture2D
  if ResourceLoader.exists(PUZZLE_COSMIC_SKIN):
   skin_puzzle = load(PUZZLE_COSMIC_SKIN) as Texture2D
+ for path in REFERENCE_CANDY_PATHS:
+  var tex:Texture2D=null
+  if path!="" and ResourceLoader.exists(path):
+   tex=load(path) as Texture2D
+  exact_candy_textures.append(tex)
  for gem in GEM_COLORS:
   var style := StyleBoxFlat.new()
   style.bg_color = gem.lightened(.10)
@@ -549,7 +567,11 @@ func _gem(rect:Rect2,color_id:int,ghost:bool=false) -> void:
    rect.size.x*.34,Color(.01,.01,.07,.25))
  if rect.size.x>=20.0:
   draw_circle(middle,rect.size.x*.42,Color(base.r,base.g,base.b,.10))
- var texture:Texture2D=visuals.get_gem_texture(color_id) if visuals else null
+ var texture:Texture2D=null
+ if (skin_fall!=null or skin_puzzle!=null) and color_id<exact_candy_textures.size():
+  texture=exact_candy_textures[color_id]
+ if texture==null:
+  texture=visuals.get_gem_texture(color_id) if visuals else null
  if texture!=null:
   draw_texture_rect(texture,candy_rect,false,Color.WHITE)
  else:
