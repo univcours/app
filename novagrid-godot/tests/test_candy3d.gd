@@ -55,6 +55,8 @@ func _run() -> void:
  studio.queue_free()
  await process_frame
  await process_frame
+ root.remove_child(studio)
+ studio.free()
  if failures.is_empty():
   print("ALL NOVAGRID REAL 3D CANDY ASSET TESTS PASSED")
   quit(0)
