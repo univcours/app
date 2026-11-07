@@ -200,22 +200,51 @@ func _draw() -> void:
   draw_line(r.position,Vector2(r.end.x,r.position.y),Color("#78dfff"),2.0)
 
 func _draw_sky(layout:Dictionary) -> void:
- # The real galaxy/nebula is rendered by GPU shader behind this CanvasItem.
- # These deterministic orbiting stars add crisp foreground parallax.
- var bounds:Vector2 = layout["viewport"]
+ var bounds:Vector2=layout["viewport"]
+ # Large decorative luminous planets, orbit rings and drifting stardust:
+ # the original reference's visual setting, never a screenshot backdrop.
+ _draw_cosmic_planet(Vector2(bounds.x*.035,68.0+sin(clock*.10)*6.0),31.0,Color("#8746ff"),Color("#d84dff"))
+ _draw_cosmic_planet(Vector2(bounds.x*1.055,bounds.y*.76+cos(clock*.085)*9.0),74.0,Color("#205cc8"),Color("#6d35ff"))
+ _draw_cosmic_planet(Vector2(bounds.x*.89,bounds.y*.22),17.0,Color("#fa3be8"),Color("#ff92e4"))
  for item in stars:
-  var x:float = float(item["x"])*bounds.x+sin(clock*.11+float(item["phase"]))*4.0
-  var y:float = fposmod(float(item["y"])*bounds.y+clock*(3.0+float(item["radius"])*2.3),bounds.y)
-  var brightness:float = .33+.47*sin(clock*.87+float(item["phase"]))
-  draw_circle(Vector2(x,y),float(item["radius"]),Color(.74,.91,1.0,maxf(.11,brightness)))
- var center := Vector2(bounds.x*.49,bounds.y*.37)
- var previous := Vector2.ZERO
- for i in 81:
-  var angle:float = float(i)/80.0*TAU
-  var point := center+Vector2(cos(angle)*bounds.x*.81,sin(angle)*bounds.y*.15)
+  var x:float=float(item["x"])*bounds.x+sin(clock*.11+float(item["phase"]))*5.0
+  var y:float=fposmod(float(item["y"])*bounds.y+clock*(3.0+float(item["radius"])*2.3),bounds.y)
+  var radius:float=float(item["radius"])
+  var brightness:float=.40+.42*sin(clock*.87+float(item["phase"]))
+  var col:=Color(.83,.91,1.0,clampf(brightness,.08,.90))
+  draw_circle(Vector2(x,y),radius,col)
+  if radius>1.22:
+   draw_line(Vector2(x-3.0,y),Vector2(x+3.0,y),Color(.57,.73,1.0,.28),.8,true)
+   draw_line(Vector2(x,y-3.0),Vector2(x,y+3.0),Color(.74,.54,1.0,.28),.8,true)
+ # Two translucent swirls that glide behind the actual game board.
+ var previous:=Vector2.ZERO
+ for i in 85:
+  var ratio:float=float(i)/84.0
+  var angle:float=ratio*TAU
+  var point:Vector2=Vector2(bounds.x*.52+cos(angle)*bounds.x*.94,
+   bounds.y*.48+sin(angle)*bounds.y*.19)
   if i>0:
-   draw_line(previous,point,Color(.31,.66,1.0,.065),1.2,true)
+   draw_line(previous,point,Color(.65,.36,1.0,.075),1.5,true)
   previous=point
+
+func _draw_cosmic_planet(center:Vector2,radius:float,base:Color,light:Color) -> void:
+ for glow in range(7,0,-1):
+  var halo_radius:float=radius+float(glow)*7.0
+  draw_circle(center,halo_radius,Color(light.r,light.g,light.b,.014))
+ draw_circle(center,radius,Color(base.r*.18,base.g*.14,base.b*.28,.96))
+ draw_circle(center+Vector2(-radius*.12,-radius*.18),radius*.78,
+  Color(base.r,base.g,base.b,.54))
+ draw_circle(center+Vector2(-radius*.3,-radius*.33),radius*.39,
+  Color(light.r,light.g,light.b,.26))
+ draw_arc(center,radius,0.0,TAU,64,Color(light.r,light.g,light.b,.83),1.5,true)
+ var previous:=Vector2.ZERO
+ for i in 73:
+  var a:float=float(i)/72.0*TAU
+  var ring:Vector2=Vector2(cos(a)*radius*1.68,sin(a)*radius*.36).rotated(-.32)
+  var pt:Vector2=center+ring
+  if i>0:
+   draw_line(previous,pt,Color(light.r,light.g,light.b,.55),1.55,true)
+  previous=pt
 
 func _label(text:String,pos:Vector2,size:int=16,color:Color=Color.WHITE,
  alignment:HorizontalAlignment=HORIZONTAL_ALIGNMENT_LEFT,width:float=-1.0) -> void:
