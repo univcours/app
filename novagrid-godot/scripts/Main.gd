@@ -123,6 +123,9 @@ func _process(delta:float) -> void:
   else:
    fragments[idx] = f
  if mode==1 and not paused and not falling.over:
+  # Proper lock delay from the rebuilt Blockfall engine.
+  if falling.advance_lock(delta):
+   _fall_locked()
   fall_accum += delta
   if fall_accum >= falling.fall_interval():
    fall_accum = 0
