@@ -341,26 +341,28 @@ func _gem(rect:Rect2,color_id:int,ghost:bool=false) -> void:
  if color_id<=0:
   return
  var base:Color=GEM_COLORS[clampi(color_id,1,GEM_COLORS.size()-1)]
+ var middle:Vector2=rect.get_center()
  if ghost:
-  draw_rect(rect.grow(-1.8),Color(base.r,base.g,base.b,.20),true)
-  draw_rect(rect.grow(-1.4),Color(base.r,base.g,base.b,.82),false,1.75)
+  # Candy-accurate transparent landing silhouette (not a full ghost cube).
+  draw_circle(middle,rect.size.x*.34,Color(base.r,base.g,base.b,.14))
+  draw_arc(middle,rect.size.x*.39,0,TAU,22,Color(base.r,base.g,base.b,.70),1.7,true)
   return
- var center_rect:Rect2=rect.grow(-1.15)
- # Neon aura / edge hot lines are necessary to approach the reference render.
- if rect.size.x>=19.0:
-  draw_rect(center_rect.grow(2.4),Color(base.r,base.g,base.b,.12),true)
-  draw_rect(center_rect.grow(1.6),Color(base.r,base.g,base.b,.47),false,2.0)
+ var padding:float=.55 if rect.size.x>=19.0 else .20
+ var candy_rect:=rect.grow(-padding)
+ # Contact shadow below each physically rendered PBR 3D sweet.
+ if rect.size.x>=12.0:
+  draw_circle(middle+Vector2(0,rect.size.y*.275),
+   rect.size.x*.34,Color(.01,.01,.07,.25))
+ if rect.size.x>=20.0:
+  draw_circle(middle,rect.size.x*.42,Color(base.r,base.g,base.b,.10))
  var texture:Texture2D=visuals.get_gem_texture(color_id) if visuals else null
  if texture!=null:
-  draw_texture_rect(texture,center_rect,false,Color.WHITE)
+  draw_texture_rect(texture,candy_rect,false,Color.WHITE)
  else:
-  draw_style_box(gem_styles[clampi(color_id,1,gem_styles.size()-1)],center_rect)
- if rect.size.x>=16.0:
-  var pos:Vector2=center_rect.position
-  var dim:Vector2=center_rect.size
-  draw_line(pos+Vector2(3.0,2.5),pos+Vector2(dim.x-4.0,2.5),Color(1,1,1,.57),1.4,true)
-  draw_line(pos+Vector2(2.1,3.5),pos+Vector2(2.1,dim.y-4.0),Color(1,1,1,.39),1.1,true)
-  draw_line(pos+Vector2(3.0,dim.y-2.2),pos+Vector2(dim.x-3.0,dim.y-2.2),Color(base.r,base.g,base.b,.88),1.5,true)
+  draw_style_box(gem_styles[clampi(color_id,1,gem_styles.size()-1)],candy_rect)
+ # 3D icing has real mesh highlights already; don't paint fake rectangular
+ # edges on top of round candies, which would undo the Candy look.
+
 
 func _board_back(board_rect:Rect2,cols:int,rows:int) -> float:
  var outer:=Rect2(board_rect.position-Vector2(4,4),board_rect.size+Vector2(8,8))
@@ -373,8 +375,8 @@ func _board_back(board_rect:Rect2,cols:int,rows:int) -> float:
  for y in rows:
   for x in cols:
    var rect:=Rect2(board_rect.position+Vector2(x*cell,y*cell),Vector2(cell,cell))
-   draw_rect(rect.grow(-.5),Color(.055,.065,.20,.38),true)
-   draw_rect(rect,Color(.29,.32,.65,.54),false,.85)
+   draw_rect(rect.grow(-.5),Color(.13,.16,.32,.63),true)
+   draw_rect(rect.grow(-.75),Color(.43,.39,.70,.36),false,.85)
  draw_line(outer.position,Vector2(outer.end.x,outer.position.y),Color("#78f1ff"),2.0,true)
  draw_line(Vector2(outer.position.x,outer.end.y),outer.end,Color("#77dbff"),1.8,true)
  for corner in [outer.position,Vector2(outer.end.x,outer.position.y),outer.end,Vector2(outer.position.x,outer.end.y)]:
