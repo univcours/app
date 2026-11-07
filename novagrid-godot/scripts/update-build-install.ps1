@@ -82,7 +82,7 @@ function LocateGodot {
 
 $project = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $root = (Resolve-Path (Join-Path $project '..')).Path
-$branch = 'novagrid-godot-hardening'
+$branch = 'novagrid-candy-ui'
 $package = 'com.novagrid.cosmicpuzzle.godotpreview'
 if (!(Test-Path (Join-Path $project 'project.godot'))) { throw 'Godot project missing.' }
 if (!(Test-Path (Join-Path $root '.git'))) { throw 'Git repository missing.' }
