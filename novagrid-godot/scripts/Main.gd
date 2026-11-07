@@ -74,7 +74,9 @@ func _ready() -> void:
  for i in 110:
   stars.append({"x": gen.randf(), "y": gen.randf(),
    "radius": gen.randf_range(0.4,1.7), "phase": gen.randf_range(0,TAU)})
- mode=Session.start_mode
+ var session:Node=get_node_or_null("/root/Session")
+ if session!=null:
+  mode=int(session.get("start_mode"))
  audio.select_music("puzzle" if mode==0 else "falling")
  get_viewport().size_changed.connect(queue_redraw)
  set_process(true)
