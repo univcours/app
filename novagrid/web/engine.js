@@ -66,8 +66,9 @@ export function runMove(state,trayIndex,row,col){
  const shape=state.tray[trayIndex],result=place(state.board,shape,row,col);
  if(!result)return null;
  const next={...state,board:result.board,tray:state.tray.map((s,i)=>i===trayIndex?null:s),moves:state.moves+1};
- next.combo=result.groups?state.combo+1:0;
- const gained=result.placed+result.groups*(18+Math.min(7,next.combo)*5)+Math.max(0,result.groups-1)*22;
+ next.combo=result.groups?Math.max(result.groups,Math.min(state.combo+1,8)):0;
+ // A normal placement never earns score: only cleared lines/3x3 groups pay.
+ const gained=result.groups===0?0:Math.round(100*result.groups*(1+.6*(result.groups-1))+Math.max(0,next.combo-1)*16*result.groups);
  next.score+=gained;
  if(next.tray.every(x=>x===null)){
  // Replay deterministic series by advancing the RNG once per generated tray.
