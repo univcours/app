@@ -82,7 +82,7 @@ function LocateGodot {
 
 $project = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $root = (Resolve-Path (Join-Path $project '..')).Path
-$branch = 'novagrid-godot-rebuild'
+$branch = 'novagrid-open-source-rebuild'
 $package = 'com.novagrid.cosmicpuzzle.godotpreview'
 if (!(Test-Path (Join-Path $project 'project.godot'))) { throw 'Godot project missing.' }
 if (!(Test-Path (Join-Path $root '.git'))) { throw 'Git repository missing.' }
@@ -93,8 +93,7 @@ if (!$SkipGitPull) {
     Write-Host 'Updating NovaGrid from GitHub...' -ForegroundColor Cyan
     git -C $root pull --ff-only origin $branch
     CheckExit 'Git pull'
-    git -C $root sparse-checkout set novagrid-godot
-    CheckExit 'Sparse checkout'
+    # Preserve all unrelated repository files and local worktrees. Do NOT enable sparse-checkout.
 }
 
 $godot = LocateGodot
