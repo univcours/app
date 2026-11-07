@@ -16,6 +16,9 @@ const SKY = Color("#070923")
 # The original procedural shader remains the safe fallback in source-only clones.
 const EXACT_FALL_SKIN = "res://assets/skins/blockfall_playable_chrome.png"
 const PUZZLE_COSMIC_SKIN = "res://assets/skins/blockpuzzle_cosmic_backdrop.png"
+# Dedicated live 9x9 playable art matching the reference Blockfall chrome.
+const EXACT_PUZZLE_CHROME = "res://assets/skins/blockpuzzle_playable_chrome.png"
+const PUZZLE_CHROME_CANVAS = Vector2(941.0,2091.0)
 const SKIN_CANVAS = Vector2(941.0,1672.0)
 # Exact seven candy faces cut from the approved AI-generated reference.
 # Each is a transparent native texture placed by the REAL game engine.
@@ -65,6 +68,7 @@ var banner_height := 0.0 # Reserved only after an actual native banner reports i
 var native_ads: Node = null
 var skin_fall:Texture2D = null
 var skin_puzzle:Texture2D = null
+var skin_puzzle_chrome:Texture2D = null
 var exact_candy_textures:Array[Texture2D]=[]
 
 func set_native_banner_height(px:float) -> void:
@@ -92,6 +96,8 @@ func _ready() -> void:
   skin_fall = load(EXACT_FALL_SKIN) as Texture2D
  if ResourceLoader.exists(PUZZLE_COSMIC_SKIN):
   skin_puzzle = load(PUZZLE_COSMIC_SKIN) as Texture2D
+ if ResourceLoader.exists(EXACT_PUZZLE_CHROME):
+  skin_puzzle_chrome = load(EXACT_PUZZLE_CHROME) as Texture2D
  for path in REFERENCE_CANDY_PATHS:
   var tex:Texture2D=null
   if path!="" and ResourceLoader.exists(path):
@@ -197,6 +203,8 @@ func _layout() -> Dictionary:
  var gutter:float=clampf(w*.031,9.0,18.0)
  if mode==1 and skin_fall!=null and h>=760.0:
   return _reference_blockfall_layout(viewport,h)
+ if mode==0 and skin_puzzle_chrome!=null and h>=760.0:
+  return _reference_blockpuzzle_layout(viewport,h)
  var header_scale:float=clampf(h/840.0,.72,1.0)
  var header_end:float=177.0*header_scale
  var board:Rect2
@@ -240,8 +248,11 @@ func _draw() -> void:
  var h:float=float(layout["height"])
  var w:float=float(layout["viewport"].x)
  var art:Texture2D=null
+ var exact_puzzle:bool=mode==0 and skin_puzzle_chrome!=null and h>=760.0
  if mode==1 and skin_fall!=null and h>=760.0:
   art=skin_fall
+ elif exact_puzzle:
+  art=skin_puzzle_chrome
  elif mode==0:
   art=skin_puzzle
  if art!=null:
@@ -249,6 +260,8 @@ func _draw() -> void:
   draw_texture_rect(art,Rect2(Vector2.ZERO,Vector2(w,h)),false)
   if mode==1:
    _reference_live_hud(layout)
+  elif exact_puzzle:
+   _reference_puzzle_hud(layout)
   else:
    draw_set_transform(Vector2.ZERO,0.0,Vector2(1.0,float(layout["header_scale"])))
    _draw_header(layout)
@@ -260,6 +273,11 @@ func _draw() -> void:
   draw_set_transform(Vector2.ZERO,0.0,Vector2.ONE)
  if mode==1 and art!=null:
   _draw_reference_progress(layout)
+  if native_ads!=null:
+   var privacy_rect:Rect2=layout["privacy"]
+   _label("PRIVACY",privacy_rect.position+Vector2(0,12),9,Color("#c6eeff"))
+ elif exact_puzzle:
+  _draw_reference_puzzle_progress(layout)
   if native_ads!=null:
    var privacy_rect:Rect2=layout["privacy"]
    _label("PRIVACY",privacy_rect.position+Vector2(0,12),9,Color("#c6eeff"))
@@ -283,6 +301,77 @@ func _draw() -> void:
   var r := Rect2(Vector2(0,layout["height"]),Vector2(float(layout["viewport"].x),banner_height))
   draw_rect(r,Color("#080f26"),true)
   draw_line(r.position,Vector2(r.end.x,r.position.y),Color("#78dfff"),2.0)
+
+func _reference_blockpuzzle_layout(viewport:Vector2,h:float) -> Dictionary:
+ # The approved 941x2091 art matches tall modern portrait displays.
+ # Board and each of the three candy wells are still real input rectangles.
+ var sx:float=viewport.x/PUZZLE_CHROME_CANVAS.x
+ var sy:float=h/PUZZLE_CHROME_CANVAS.y
+ var board:=Rect2(Vector2(73.0*sx,448.0*sy),Vector2(797.0*sx,797.0*sy))
+ var tray:Array=[]
+ for xpos in [50.0,335.0,618.0]:
+  tray.append(Rect2(Vector2(xpos*sx,1364.0*sy),Vector2(273.0*sx,222.0*sy)))
+ var gutter:float=clampf(viewport.x*.031,9.0,18.0)
+ return {
+  "viewport":viewport,"height":h,"gutter":gutter,"header_scale":1.0,
+  "board":board,"tray":tray,"buttons":[],"tabs":[],
+  "progress":Rect2(Vector2(44.0*sx,1861.0*sy),Vector2(855.0*sx,178.0*sy)),
+  "mode_switch":Rect2(Vector2(39.0*sx,26.0*sy),Vector2(87.0*sx,91.0*sy)),
+  "pause_visual":Rect2(Vector2(788.0*sx,191.0*sy),Vector2(99.0*sx,118.0*sy)),
+  "pause":Rect2(Vector2(788.0*sx,191.0*sy),Vector2(99.0*sx,118.0*sy)),
+  "bomb_visual":Rect2(Vector2(704.0*sx,324.0*sy),Vector2(186.0*sx,67.0*sy)),
+  "bomb":Rect2(Vector2(704.0*sx,324.0*sy),Vector2(186.0*sx,67.0*sy)),
+  "audio":Rect2(Vector2(44.0*sx,1692.0*sy),Vector2(73.0*sx,76.0*sy)),
+  "music":Rect2(Vector2(133.0*sx,1692.0*sy),Vector2(73.0*sx,76.0*sy)),
+  "privacy":Rect2(Vector2(226.0*sx,1698.0*sy),Vector2(110.0*sx,63.0*sy)),
+  "next":Rect2(),"hold":Rect2()
+ }
+
+
+func _reference_puzzle_hud(layout:Dictionary) -> void:
+ # HUD values are taken from the game engine, never baked into the artwork.
+ var sx:float=float(layout["viewport"].x)/PUZZLE_CHROME_CANVAS.x
+ var sy:float=float(layout["height"])/PUZZLE_CHROME_CANVAS.y
+ _premium_title(str(puzzle.score),Vector2(125.0*sx,287.0*sy),26,
+  252.0*sx,GLOW_GOLD)
+ _premium_title(str(puzzle.best),Vector2(487.0*sx,287.0*sy),26,
+  228.0*sx,GLOW_GOLD)
+ var percent:float=clampf(float(puzzle.fever)/100.0,0.0,1.0)
+ var meter:=Rect2(Vector2(222.0*sx,340.0*sy),
+  Vector2(441.0*sx*percent,17.0*sy))
+ if meter.size.x>0.9:
+  draw_rect(meter,Color("#fc63eb"),true)
+  draw_line(meter.position,Vector2(meter.end.x,meter.position.y),
+   Color("#ffffff",.75),1.2,true)
+ _label("x%d" % puzzle.combo,Vector2(194.0*sx,404.0*sy),15,
+  Color("#ffcfef"),HORIZONTAL_ALIGNMENT_CENTER,82.0*sx)
+ _label(str(puzzle.total_lines),Vector2(460.0*sx,404.0*sy),15,
+  Color("#a1eeff"),HORIZONTAL_ALIGNMENT_CENTER,88.0*sx)
+ var count:String=str(puzzle.bombs) if puzzle.bombs>0 else "%d%%"%puzzle.bomb_charge()
+ _label(count,Vector2(708.0*sx,379.0*sy),18,GLOW_GOLD,
+  HORIZONTAL_ALIGNMENT_CENTER,178.0*sx)
+ if bomb_armed:
+  draw_rect(layout["bomb_visual"].grow(-2.0),Color("#ff6bf1",.23),false,3.0)
+
+
+func _draw_reference_puzzle_progress(layout:Dictionary) -> void:
+ # The glossy rank dock is decorative; XP, stars and goals are always live.
+ var sx:float=float(layout["viewport"].x)/PUZZLE_CHROME_CANVAS.x
+ var sy:float=float(layout["height"])/PUZZLE_CHROME_CANVAS.y
+ _label("LV %d · %s"%[progress.level,progress.rank_name()],
+  Vector2(100.0*sx,1935.0*sy),16,Color("#eff9ff"))
+ _label("★ %d  ·  %dd streak"%[progress.stars,progress.streak],
+  Vector2(661.0*sx,1935.0*sy),12,GLOW_GOLD)
+ var percent:float=clampf(progress.level_progress(),0.0,1.0)
+ var fill:=Rect2(Vector2(299.0*sx,1950.0*sy),
+  Vector2(349.0*sx*percent,14.0*sy))
+ if fill.size.x>1.0:
+  draw_rect(fill,GLOW_BLUE,true)
+ var mission:Dictionary=progress.next_mission()
+ _label("%s  %d/%d  ·  %s (TAP)" %
+  [mission["label"],mission["progress"],mission["target"],progress.theme_name()],
+  Vector2(99.0*sx,2023.0*sy),10,Color("#c5eaff"))
+
 
 func _reference_blockfall_layout(viewport:Vector2,h:float) -> Dictionary:
  # Touch/gameplay rectangles calibrated from the actual 941x1672 reference.
