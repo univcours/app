@@ -40,6 +40,7 @@ var fall_accum := 0.0
 var save_clock := 0.0
 var clock := 0.0
 var banner_height := 0.0 # Reserved only after an actual native banner reports its measured height.
+var native_ads: Node = null
 
 func set_native_banner_height(px:float) -> void:
  # Reserved for the native AdMob bridge: do not simulate real ad filling here.
@@ -84,6 +85,13 @@ func _ready() -> void:
   mode=int(session.get("start_mode"))
  audio.select_music("puzzle" if mode==0 else "falling")
  get_viewport().size_changed.connect(queue_redraw)
+ # The optional real AdMob Android bridge is installed before Gradle export.
+ if OS.get_name()=="Android" and ResourceLoader.exists("res://ads/AdMobRuntime.gd"):
+  var ad_script:Script=load("res://ads/AdMobRuntime.gd")
+  if ad_script!=null:
+   native_ads=ad_script.new()
+   add_child(native_ads)
+   native_ads.call("start",self)
  set_process(true)
  queue_redraw()
 
@@ -188,6 +196,7 @@ func _layout() -> Dictionary:
   "pause":Rect2(w-gutter-48.0,80.0*header_scale,48.0,48.0*header_scale),
   "audio":Rect2(gutter,round(h-101.0),36.0,34.0),
   "music":Rect2(gutter+42.0,round(h-101.0),36.0,34.0),
+  "privacy":Rect2(gutter+84.0,round(h-101.0),72.0,34.0),
   "next":next_rect,"hold":hold_rect}
 
 func _draw() -> void:
@@ -347,6 +356,8 @@ func _draw_tabs(layout:Dictionary) -> void:
  _button(layout["mode_switch"],"▦" if mode==0 else "✦",false,true)
  _button(layout["audio"],"♪" if audio.sounds_enabled else "×",false,true)
  _button(layout["music"],"♫" if audio.music_enabled else "○",false,true)
+ if native_ads!=null:
+  _button(layout["privacy"],"PRIVACY",false,true)
 
 
 func _gem(rect:Rect2,color_id:int,ghost:bool=false) -> void:
@@ -712,6 +723,9 @@ func _release(pos:Vector2) -> void:
  if layout["music"].has_point(pos):
   audio.toggle_music("puzzle" if mode==0 else "falling")
   return
+ if native_ads!=null and layout["privacy"].has_point(pos):
+  native_ads.call("show_privacy_options")
+  return
  if layout["mode_switch"].has_point(pos):
   mode=1-mode
   bomb_armed=false
@@ -741,6 +755,10 @@ func _release(pos:Vector2) -> void:
  queue_redraw()
 
 func _restart_mode() -> void:
+ # Interstitials only after completed rounds; never on Pause/New Run.
+ var completed:bool=(puzzle.over if mode==0 else falling.over)
+ if completed and native_ads!=null:
+  native_ads.call("maybe_show_interstitial")
  if mode==0:
   puzzle.reset()
   selected=-1
