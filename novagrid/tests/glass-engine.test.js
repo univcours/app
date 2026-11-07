@@ -26,7 +26,7 @@ test('column clear is twelve cells and difficulty progresses by real placements'
  for(let r=0;r<12&&!played;r++)for(let c=0;c<10&&!played;c++)
   if(canPlaceGlass(game.board,shape,r,c))played=runGlassMove(game,0,r,c);
  assert.ok(played&&played.state.moves===1);
- assert.ok(played.state.score>0);
+ assert.equal(played.state.score,0,'placing without a complete line must not score');
 });
 test('tall game width respects both portrait height and device width',()=>{
  const n=calculateBoardSize({cardHeight:640,cardWidth:390,paddingVertical:12,paddingHorizontal:12,
