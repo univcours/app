@@ -30,6 +30,9 @@ func build_candies(palette:Array) -> void:
   viewport.size=Vector2i(SIZE,SIZE)
   viewport.transparent_bg=true
   viewport.disable_3d=false
+  # CRITICAL: independent studios. Without this all seven sweets and lights
+  # overlap in one World3D, washing every distinct candy out to white.
+  viewport.own_world_3d=true
   viewport.msaa_3d=Viewport.MSAA_2X
   viewport.render_target_update_mode=SubViewport.UPDATE_ALWAYS
   add_child(viewport)
