@@ -1,0 +1,32 @@
+name: NovaGrid One-Command Windows Bootstrap QA
+on:
+  push:
+    branches: [novagrid-godot-admob-test-20261107]
+    paths:
+      - "novagrid-godot/scripts/get-and-run-novagrid.ps1"
+      - ".github/workflows/novagrid-godot-bootstrap-qa.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  parse-and-inspect:
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse installer with native Windows PowerShell (no script execution)
+        shell: powershell
+        run: |
+          $path = 'novagrid-godot/scripts/get-and-run-novagrid.ps1'
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile($path, [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) {
+            $errors | ForEach-Object { Write-Host $_.ToString() }
+            throw 'NovaGrid bootstrap has PowerShell syntax errors'
+          }
+          $content = Get-Content -LiteralPath $path -Raw
+          foreach ($required in @('git clone','--sparse','blockfall_exact_reference.png','project.godot','Start-Process','--headless','Godot_v4.5.1-stable_win64.exe.zip')) {
+            if (!$content.Contains($required)) { throw "Missing setup feature: $required" }
+          }
+          Write-Host 'NOVAGRID ONE-COMMAND BOOTSTRAP PARSE AND STRUCTURE PASS'
