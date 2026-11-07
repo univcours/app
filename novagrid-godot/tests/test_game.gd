@@ -10,16 +10,16 @@ func expect(value:bool,description:String) -> void:
 
 func _initialize() -> void:
  var p = Puzzle.new()
- expect(p.cells.size()==12 and p.cells[0].size()==10,"puzzle is 10x12")
+ expect(p.cells.size()==9 and p.cells[0].size()==9,"Classic reference grid is truly 9x9")
  expect(p.tray.size()==3,"three pieces ready to play")
  var played := false
  for slot in 3:
   if played:
    break
-  for y in 12:
+  for y in 9:
    if played:
     break
-   for x in 10:
+   for x in 9:
     if p.fits(p.tray[slot],Vector2i(x,y)):
      played = p.place(slot,Vector2i(x,y))
      if played:
@@ -30,21 +30,30 @@ func _initialize() -> void:
  expect(p2.load_state(saved) and p2.score==p.score,"puzzle save round trip")
  expect(p2.undo()==false,"undo snapshots are not persisted")
  p.reset()
- for x in 9:
+ for x in 8:
   p.cells[1][x]=1
  p.tray[0]=[Vector2i(0,0)]
- expect(p.place(0,Vector2i(9,1)),"complete real row")
- expect(p.last_cleared==10 and p.last_groups==1 and p.combo==1 and p.score>0,"row gives real clear-only score")
+ expect(p.place(0,Vector2i(8,1)),"complete real row")
+ expect(p.last_cleared==9 and p.last_groups==1 and p.combo==1 and p.score>0,"completed 9-cell row scores exclusively by clearance")
  expect(p.total_lines==1,"puzzle counts complete rows instead of placement count")
  expect(p.undo() and p.cells[1][0]==1,"undo restores state")
  p.reset()
- for x in 9:
+ for x in 8:
   p.cells[2][x]=1
   p.cells[3][x]=1
  p.tray[0]=[Vector2i(0,0),Vector2i(0,1)]
- expect(p.place(0,Vector2i(9,2)),"two rows at the same time")
+ expect(p.place(0,Vector2i(8,2)),"two rows at the same time")
  expect(p.last_groups==2 and p.combo==2 and p.total_lines==2 and p.score>=300,
   "simultaneous 2-line clear multiplies the combo and pays more")
+ p.reset()
+ for yy in 3:
+  for xx in 3:
+   if xx!=2 or yy!=2:
+    p.cells[yy][xx]=2
+ p.tray[0]=[Vector2i(0,0)]
+ expect(p.place(0,Vector2i(2,2)),"complete original 3x3 sector")
+ expect(p.last_groups==1 and p.last_cleared==9 and p.score>0,
+  "9x9 Classic awards score for a fully cleared 3x3 sector")
  p.reset()
  p.score=4990
  p.total_lines=17
