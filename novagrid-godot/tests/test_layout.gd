@@ -16,6 +16,9 @@ func _run()->void:
  root.add_child(app)
  await process_frame
  for dims in [Vector2i(360,640),Vector2i(393,852),Vector2i(432,960)]:
+  # The project uses canvas_items stretching with a 432x960 design viewport.
+  # Alter its LOGICAL content scale as well as Window size for phone-size QA.
+  root.content_scale_size=dims
   root.size=dims
   await process_frame
   for ad_h in [0.0,64.0]:
@@ -27,7 +30,10 @@ func _run()->void:
     var h:float=float(layout["height"])
     var width:float=float(layout["viewport"].x)
     var label:String="%s mode%d banner%d"%[str(dims),mode_index,int(ad_h)]
-    verify(absf(h-(float(dims.y)-ad_h))<1.0,label+" native ad reserve is separate")
+    verify(absf(float(layout["viewport"].y)-float(dims.y))<1.0,
+     label+" logical viewport matches target size")
+    verify(absf(h-(float(layout["viewport"].y)-ad_h))<1.0,
+     label+" native ad reserve is separate")
     verify(board.position.x>=-1.0 and board.end.x<=width+1.0,label+" board fits viewport width")
     verify(board.position.y>=0.0 and board.end.y<h-90.0,label+" entire board stays above controls and ad")
     verify(layout["pause"].end.y<=board.position.y+8.0,label+" small pause button above gameboard")
