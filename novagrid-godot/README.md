@@ -1,3 +1,41 @@
+## NEW — Candy Galaxy: physically modelled 3D candies (2026-11-07)
+
+The visuals in BOTH **Block Puzzle** and **Blockfall**, the NEXT/HOLD panels,
+the draggable tray pieces and the native Galaxy menu all use original,
+physically-modelled candy pieces, **not premade pictures or a CSS imitation**.
+
+Art architecture:
+
+- \`scripts/Candy3D.gd\` procedurally builds **true 3D rounded candy meshes**
+  and jelly spheres with toppings, sugar dots and confectionery stripes.
+- \`StandardMaterial3D\`: colored jelly-like PBR **clearcoat**, low roughness,
+  reflective rim and modest emission; **two actual DirectionalLight3D softbox
+  lamps** and a perspective-free orthographic \`Camera3D\`.
+- **One isolated \`World3D\` per candy**. This is important: using the parent
+  world's shared lights caused overlapped washed-out candy colors, which was
+  caught and fixed during real screenshot QA.
+- \`Visuals.gd\` reuses one 128×128 \`SubViewportTexture\` for each sweet.
+  The source viewports render once, while every on-board piece draws the same
+  baked texture. This retains true 3D highlights while keeping gameplay
+  responsive on Android. A separate legacy 2D shader fallback remains.
+- Animated nebula backgrounds, real galaxy particles, glowy jelly panels and
+  original multicolored sugar/sprinkle explosion particles.
+- \`tests/test_candy3d.gd\` rejects versions without real meshes, 3D cameras,
+  PBR clearcoat or separated 3D worlds.
+- \`tests/capture_candy_gallery.gd\` renders a **real Godot showroom screenshot**
+  of seven candies and checks that pink vs cyan stay visibly distinct.
+- All sweets, textures, shader/material parameters and music are original; no
+  Candy Crush or other copyrighted game's image/sound assets are included.
+
+Quality controls and gameplay remain: **0 points for a placement without a
+clear**, scaled multi-line combos, earnable limited tactical bombs, 7-bag and
+MIT-attributed wall kicks, touch gestures, achievements and progress saves.
+The candy meshes do not change the rules or block touch input.
+
+`godot --headless --path novagrid-godot --script res://tests/test_candy3d.gd`
+
+---
+
 # NovaGrid: Open-Source Reborn (Godot 4.5.1)
 
 ## New professionally structured launch and gameplay foundation — 7 November 2026
