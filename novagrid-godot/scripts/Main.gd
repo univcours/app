@@ -162,7 +162,7 @@ func _layout() -> Dictionary:
  if mode==0:
   # A real 9x9 glass grid and three unframed glowing crystal tray shapes.
   var tray_height:float=clampf(h*.078,48.0,75.0)
-  var available:float=maxf(80.0,h-header_end-tray_height-133.0)
+  var available:float=maxf(80.0,h-header_end-tray_height-115.0)
   var cell:float=maxf(2.0,minf((w-2.0*gutter-10.0)/9.0,available/9.0))
   var size:Vector2=Vector2(cell*9.0,cell*9.0)
   board=Rect2(Vector2((w-size.x)*.5,header_end+minf(20.0,maxf(3.0,(available-size.y)*.10))),size)
@@ -180,6 +180,7 @@ func _layout() -> Dictionary:
  var hold_rect:=Rect2(Vector2(board.end.x+gutter,board.position.y+minf(187.0,board.size.y*.39)),Vector2(side_width,96.0))
  return {"viewport":viewport,"height":h,"gutter":gutter,"header_scale":header_scale,
   "tabs":[],"board":board,"tray":tray,"buttons":buttons,
+  "progress":Rect2(gutter,h-36.0,w-2.0*gutter,29.0),
   "mode_switch":Rect2(gutter,12.0*header_scale,43.0,43.0*header_scale),
   "bomb_visual":Rect2(w-gutter-61.0,146.0,61.0,30.0),
   "pause_visual":Rect2(w-gutter-48.0,80.0,48.0,48.0),
@@ -325,19 +326,20 @@ func _draw_header(layout:Dictionary) -> void:
   _label("COMBO x%d  •  LINES %d" % [falling.combo,falling.lines],Vector2(g,170),12,Color("#ff9dff"))
 
 func _draw_progress_hud(layout:Dictionary) -> void:
- var w:float=layout["viewport"].x
- var g:float=layout["gutter"]
- var y:float=layout["height"]-54.0
- var rect:=Rect2(g,y,w-2.0*g,46.0)
- _glass_panel(rect,Color(.08,.14,.34,.81),Color("#70cfff"))
+ # An unobtrusive, 29px high progression ribbon, outside the playfield.
+ var rect:Rect2=layout["progress"]
+ var y:float=rect.position.y
+ _glass_panel(rect,Color(.08,.14,.34,.80),Color("#70cfff"))
  var rank:String=progress.rank_name()
- _label("LV %d • %s" % [progress.level,rank],Vector2(rect.position.x+12,y+17),12,Color("#dcfaff"))
- _label("★ %d  |  STREAK %d" % [progress.stars,progress.streak],Vector2(rect.position.x, y+17),10,Color("#ffdc87"),HORIZONTAL_ALIGNMENT_RIGHT,rect.size.x-12)
- var track:=Rect2(rect.position+Vector2(12,23),Vector2(rect.size.x-24,5))
+ _label("LV %d • %s" % [progress.level,rank],Vector2(rect.position.x+9,y+12),10,Color("#dcfaff"))
+ _label("★ %d  ·  %dd streak" % [progress.stars,progress.streak],
+  Vector2(rect.position.x,y+12),9,Color("#ffdc87"),HORIZONTAL_ALIGNMENT_RIGHT,rect.size.x-10)
+ var track:=Rect2(rect.position+Vector2(9,16),Vector2(rect.size.x-18,3))
  draw_rect(track,Color("#273366"),true)
  draw_rect(Rect2(track.position,Vector2(track.size.x*progress.level_progress(),track.size.y)),Color("#64f1ff"),true)
  var mission:Dictionary=progress.next_mission()
- _label("%s  %d/%d   ·   %s GALAXY (TAP)" % [mission["label"],mission["progress"],mission["target"],progress.theme_name()],Vector2(rect.position.x+12,y+41),9,Color("#b7daff"))
+ _label("%s  %d/%d  ·  %s (TAP)" % [mission["label"],mission["progress"],mission["target"],progress.theme_name()],
+  Vector2(rect.position.x+9,y+26),8,Color("#b7daff"))
 
 func _draw_tabs(layout:Dictionary) -> void:
  # A single compact mode switch avoids breaking the hero-screen composition.
@@ -682,7 +684,7 @@ func _release(pos:Vector2) -> void:
    audio.effect("tap")
   queue_redraw()
   return
- if Rect2(Vector2(layout["gutter"],layout["height"]-54.0),Vector2(layout["viewport"].x-2.0*layout["gutter"],46.0)).has_point(pos):
+ if layout["progress"].has_point(pos):
   if progress.unlocked_themes()>1:
    visuals.set_theme(progress.active_theme+1 if progress.active_theme+1<progress.unlocked_themes() else 0)
    var theme_name:String=progress.cycle_theme()
