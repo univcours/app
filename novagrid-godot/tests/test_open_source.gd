@@ -10,6 +10,12 @@ func verify(condition:bool,reason:String)->void:
   printerr("OPEN SOURCE FAIL: "+reason)
 
 func _initialize()->void:
+ call_deferred("_run_tests")
+
+func _run_tests()->void:
+ # SceneTree._initialize is earlier than the first viewport-ready frame.
+ # Deferring prevents get_viewport_rect() calls on an unattached CanvasItem.
+ await process_frame
  var f=Falling.new()
  verify(Kicks.offsets(0,0).size()>=5,"MIT SRS I-piece source kick data loaded")
  verify(Kicks.offsets(2,1).size()>=5,"MIT SRS common piece kick data loaded")
@@ -42,11 +48,15 @@ func _initialize()->void:
  verify(restored.rotation_state==f.rotation_state,"rotation state restored")
  var home=Welcome.new()
  root.add_child(home)
+ await process_frame
+ verify(home.is_inside_tree(),"Welcome scene is attached before layout inspection")
  var cards:Array[Rect2]=home._rectangles()
  verify(cards.size()==2,"new Galaxy home has two real selectable modes")
  verify(cards[0].size.y>100 and cards[1].position.y>cards[0].end.y,
   "two touch cards do not overlap")
  home.queue_free()
+ await process_frame
+ await process_frame
  if faults.is_empty():
   print("ALL NOVAGRID OPEN SOURCE REBUILD TESTS PASSED")
   quit(0)
