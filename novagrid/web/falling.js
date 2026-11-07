@@ -101,9 +101,10 @@ export function fallingStars(state,config){
 function lockPiece(state,config){
  const board=state.board.map(row=>[...row]),a=state.active;
  for(const [r,c] of a.cells)board[a.row+r][a.col+c]=a.type;
- const clear=clearFallLines(board),combo=clear.cleared>0?state.combo+1:0;
- const gained=[0,120,340,580,950][clear.cleared]??1200;
- const score=state.score+gained*(config.tier+1)+Math.max(0,combo-1)*35+(state.softPoints||0);
+ const clear=clearFallLines(board),combo=clear.cleared>0?Math.max(clear.cleared,state.combo+1):0;
+ const gained=[0,140,440,850,1500][Math.min(clear.cleared,4)];
+ // No score for gravity, soft drop, hard drop or locking without a clear.
+ const score=state.score+(clear.cleared?gained*(config.tier+1)+Math.max(0,combo-1)*45:0);
  const next={...state,board:clear.board,score,lines:state.lines+clear.cleared,
   drops:state.drops+1,combo,bestCombo:Math.max(state.bestCombo,combo),
   softPoints:0,nextIndex:state.nextIndex+1,nextType:pieceAt(state.stageLevel,state.nextIndex+1)};
