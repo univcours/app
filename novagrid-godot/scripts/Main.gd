@@ -12,6 +12,11 @@ const GEM_COLORS = [
  Color("#963aff"), Color("#11db60"), Color("#ff751c"), Color("#127bff")
 ]
 const SKY = Color("#070923")
+# Shared premium Cosmic Candy arcade palette used for BOTH live modes.
+const GLOW_BLUE = Color("#39ebff")
+const GLOW_PINK = Color("#ff6df1")
+const GLOW_PURPLE = Color("#a55cff")
+const GLOW_GOLD = Color("#ffe48a")
 var puzzle
 var falling
 var audio
@@ -227,31 +232,49 @@ func _draw() -> void:
 
 func _draw_sky(layout:Dictionary) -> void:
  var bounds:Vector2=layout["viewport"]
- # Large decorative luminous planets, orbit rings and drifting stardust:
- # the original reference's visual setting, never a screenshot backdrop.
- _draw_cosmic_planet(Vector2(bounds.x*.035,68.0+sin(clock*.10)*6.0),31.0,Color("#8746ff"),Color("#d84dff"))
- _draw_cosmic_planet(Vector2(bounds.x*1.055,bounds.y*.76+cos(clock*.085)*9.0),74.0,Color("#205cc8"),Color("#6d35ff"))
- _draw_cosmic_planet(Vector2(bounds.x*.89,bounds.y*.22),17.0,Color("#fa3be8"),Color("#ff92e4"))
+ # Real-time layered nebula accents behind playable board, NOT a static
+ # screenshot. The galaxy shader continues animating underneath.
+ var glows:Array=[
+  {"p":Vector2(.02,.12),"r":142.0,"c":GLOW_PINK},
+  {"p":Vector2(.90,.30),"r":175.0,"c":GLOW_BLUE},
+  {"p":Vector2(.12,.82),"r":210.0,"c":GLOW_PURPLE},
+  {"p":Vector2(.94,.95),"r":190.0,"c":GLOW_PINK}
+ ]
+ for item in glows:
+  var center:Vector2=Vector2(bounds.x*float(item["p"].x),bounds.y*float(item["p"].y))
+  var hue:Color=item["c"]
+  for step in 5:
+   var radius:float=float(item["r"])*(1.0-float(step)*.14)
+   draw_circle(center,radius,Color(hue.r,hue.g,hue.b,.014))
+ _draw_cosmic_planet(Vector2(bounds.x*.035,73.0+sin(clock*.10)*5.0),
+  32.0,Color("#9d36ff"),Color("#fe63ff"))
+ _draw_cosmic_planet(Vector2(bounds.x*1.075,bounds.y*.76+cos(clock*.085)*7.0),
+  74.0,Color("#2459e8"),Color("#7d49ff"))
+ _draw_cosmic_planet(Vector2(bounds.x*.90,bounds.y*.23),
+  18.0,Color("#ec3bc9"),Color("#ff9bea"))
  for item in stars:
   var x:float=float(item["x"])*bounds.x+sin(clock*.11+float(item["phase"]))*5.0
-  var y:float=fposmod(float(item["y"])*bounds.y+clock*(3.0+float(item["radius"])*2.3),bounds.y)
+  var y:float=fposmod(float(item["y"])*bounds.y+clock*(2.0+float(item["radius"])*2.0),bounds.y)
   var radius:float=float(item["radius"])
-  var brightness:float=.40+.42*sin(clock*.87+float(item["phase"]))
-  var col:=Color(.83,.91,1.0,clampf(brightness,.08,.90))
+  var brightness:float=.48+.36*sin(clock*.73+float(item["phase"]))
+  var col:=Color(.85,.94,1.0,clampf(brightness,.12,.94))
   draw_circle(Vector2(x,y),radius,col)
-  if radius>1.22:
-   draw_line(Vector2(x-3.0,y),Vector2(x+3.0,y),Color(.57,.73,1.0,.28),.8,true)
-   draw_line(Vector2(x,y-3.0),Vector2(x,y+3.0),Color(.74,.54,1.0,.28),.8,true)
- # Two translucent swirls that glide behind the actual game board.
- var previous:=Vector2.ZERO
- for i in 85:
-  var ratio:float=float(i)/84.0
-  var angle:float=ratio*TAU
-  var point:Vector2=Vector2(bounds.x*.52+cos(angle)*bounds.x*.94,
-   bounds.y*.48+sin(angle)*bounds.y*.19)
+  if radius>1.28:
+   draw_line(Vector2(x-3.5,y),Vector2(x+3.5,y),Color(.57,.78,1.0,.35),.9,true)
+   draw_line(Vector2(x,y-3.5),Vector2(x,y+3.5),Color(.88,.65,1.0,.31),.9,true)
+ # Luminous moving galactic orbit, subtle enough behind the real gameplay.
+ var previous:Vector2=Vector2.ZERO
+ for i in 81:
+  var angle:float=float(i)/80.0*TAU
+  var point:Vector2=Vector2(bounds.x*.52+cos(angle)*bounds.x*.92,
+   bounds.y*.50+sin(angle)*bounds.y*.23)
   if i>0:
-   draw_line(previous,point,Color(.65,.36,1.0,.075),1.5,true)
+   draw_line(previous,point,Color(.64,.37,1.0,.11),1.4,true)
   previous=point
+ # Large corner glints, restrained so no player's tile looks highlighted.
+ _sparkle(Vector2(bounds.x*.11,bounds.y*.16),GLOW_GOLD,5.0)
+ _sparkle(Vector2(bounds.x*.91,bounds.y*.10),GLOW_BLUE,4.0)
+ _sparkle(Vector2(bounds.x*.08,bounds.y*.91),GLOW_PINK,5.0)
 
 func _draw_cosmic_planet(center:Vector2,radius:float,base:Color,light:Color) -> void:
  for glow in range(7,0,-1):
@@ -276,79 +299,144 @@ func _label(text:String,pos:Vector2,size:int=16,color:Color=Color.WHITE,
  alignment:HorizontalAlignment=HORIZONTAL_ALIGNMENT_LEFT,width:float=-1.0) -> void:
  draw_string(font,pos,text,alignment,width,size,color)
 
+func _sparkle(pos:Vector2,tint:Color,extent:float=5.0) -> void:
+ draw_circle(pos,extent*1.8,Color(tint.r,tint.g,tint.b,.11))
+ draw_line(pos-Vector2(extent*1.5,0),pos+Vector2(extent*1.5,0),
+  Color(tint.r,tint.g,tint.b,.57),1.1,true)
+ draw_line(pos-Vector2(0,extent*1.7),pos+Vector2(0,extent*1.7),
+  Color(tint.r,tint.g,tint.b,.70),1.1,true)
+ draw_circle(pos,maxf(1.1,extent*.25),Color("#ffffff"))
+
+
+func _premium_title(message:String,at:Vector2,large:int,width:float,accent:Color) -> void:
+ # Multi-pass additive-looking typography without bundling third-party fonts.
+ _label(message,at+Vector2(1.8,3.0),large,
+  Color(accent.r,accent.g,accent.b,.66),HORIZONTAL_ALIGNMENT_CENTER,width)
+ _label(message,at+Vector2(-.9,-.8),large,
+  Color("#a2ccff"),HORIZONTAL_ALIGNMENT_CENTER,width)
+ _label(message,at,large,Color("#ffffff"),
+  HORIZONTAL_ALIGNMENT_CENTER,width)
+
+
 func _glass_panel(rect:Rect2,fill:Color=Color("#17225b"),outline:Color=Color("#7deaff")) -> void:
+ # Cached rounded style; real-time glows remain lightweight on midrange phones.
  var key:String=fill.to_html(true)+":"+outline.to_html(true)
  if not panel_styles.has(key):
-  var panel := StyleBoxFlat.new()
+  var panel:=StyleBoxFlat.new()
   panel.bg_color=fill
   panel.border_color=outline
-  panel.set_corner_radius_all(10)
-  panel.set_border_width_all(1)
-  panel.shadow_color=Color(.04,.25,.88,.24)
-  panel.shadow_size=3
+  panel.set_corner_radius_all(14)
+  panel.set_border_width_all(2)
+  panel.shadow_color=Color(outline.r,outline.g,outline.b,.28)
+  panel.shadow_size=9
+  panel.shadow_offset=Vector2.ZERO
   panel_styles[key]=panel
+ draw_rect(rect.grow(4.0),Color(outline.r,outline.g,outline.b,.07),false,3.0)
  draw_style_box(panel_styles[key],rect)
- draw_line(rect.position+Vector2(11,2),Vector2(rect.end.x-11,rect.position.y+2),Color(1,1,1,.63),1.2,true)
- draw_line(rect.position+Vector2(11,4),Vector2(rect.end.x-11,rect.position.y+4),Color(.70,.88,1.0,.21),1.0,true)
- draw_circle(rect.position+Vector2(9,9),2.1,Color(1,1,1,.34))
+ var pad:float=minf(17.0,rect.size.x*.15)
+ if rect.size.x>30.0 and rect.size.y>15.0:
+  draw_line(rect.position+Vector2(pad,2.4),
+   Vector2(rect.end.x-pad,rect.position.y+2.4),
+   Color(1,1,1,.74),1.7,true)
+  draw_line(rect.position+Vector2(pad,5.0),
+   Vector2(rect.end.x-pad,rect.position.y+5.0),
+   Color(outline.r,outline.g,outline.b,.31),1.2,true)
+  draw_line(Vector2(rect.position.x+pad,rect.end.y-2.5),
+   Vector2(rect.end.x-pad,rect.end.y-2.5),
+   Color(outline.r,outline.g,outline.b,.48),1.6,true)
+  draw_circle(rect.position+Vector2(10,10),2.1,Color.WHITE)
 
 func _button(rect:Rect2,title:String,active:bool=false,small:bool=false) -> void:
- var fill := Color(.13,.43,.78,.80) if active else Color(.15,.18,.45,.83)
- _glass_panel(rect,fill,Color("#a3f7ff") if active else Color("#859de8"))
- var fontsize:int = 12 if small else 14
- _label(title,Vector2(rect.position.x,rect.position.y+rect.size.y*.64),fontsize,
-  Color.WHITE,HORIZONTAL_ALIGNMENT_CENTER,rect.size.x)
+ var hue:Color=GLOW_BLUE if active else GLOW_PURPLE
+ var fill:Color=Color("#0953a0") if active else Color("#1b235d")
+ _glass_panel(rect,fill,hue)
+ if rect.size.x>22.0 and rect.size.y>24.0:
+  # Crisp diagonal gloss in the upper third, independent of input hitboxes.
+  draw_line(rect.position+Vector2(9,rect.size.y*.33),
+   rect.position+Vector2(rect.size.x-9,rect.size.y*.33),
+   Color("#e6ffff",.28),1.1,true)
+ var fontsize:int=12 if small else 16
+ _label(title,Vector2(rect.position.x,rect.position.y+rect.size.y*.66+1),
+  fontsize,Color(hue.r,hue.g,hue.b,.52),
+  HORIZONTAL_ALIGNMENT_CENTER,rect.size.x)
+ _label(title,Vector2(rect.position.x,rect.position.y+rect.size.y*.66),
+  fontsize,Color.WHITE,HORIZONTAL_ALIGNMENT_CENTER,rect.size.x)
 
 func _draw_header(layout:Dictionary) -> void:
  var w:float=layout["viewport"].x
  var g:float=layout["gutter"]
- var mode_name:String="Classic Puzzle" if mode==0 else "Blockfall"
- # Match the reference hierarchy: enormous luminous mode title, two score
- # capsules and a single sapphire glass pause button at the right.
- _label(mode_name,Vector2(1.2,42.0),29,Color(.12,.46,1.0,.56),HORIZONTAL_ALIGNMENT_CENTER,w)
- _label(mode_name,Vector2(0.0,40.0),29,Color("#f5fbff"),HORIZONTAL_ALIGNMENT_CENTER,w)
- _label("✦ 3D CANDY GALAXY ✦",Vector2(0,59),10,Color("#ffd3f1"),HORIZONTAL_ALIGNMENT_CENTER,w)
+ var mode_name:String="BLOCK PUZZLE" if mode==0 else "BLOCKFALL"
+ var accent:Color=GLOW_BLUE if mode==0 else GLOW_PINK
+ # Bright arcade headline, cosmic underline and gold subtitle.
+ _premium_title(mode_name,Vector2(0,44),29,w,accent)
+ _label("✦  3D CANDY GALAXY  ✦",Vector2(0,62),11,
+  GLOW_GOLD,HORIZONTAL_ALIGNMENT_CENTER,w)
+ draw_line(Vector2(w*.36,68),Vector2(w*.64,68),accent,1.7,true)
+ _sparkle(Vector2(w*.65,68),GLOW_GOLD,3.0)
  var score:int=puzzle.score if mode==0 else falling.score
  var best:int=puzzle.best if mode==0 else falling.best
- var other:String="BEST" if mode==0 else "LEVEL"
- var other_value:String=str(best) if mode==0 else str(falling.level)
+ var second_label:String="BEST" if mode==0 else "LEVEL"
+ var second_value:String=str(best) if mode==0 else str(falling.level)
  var left_card:=Rect2(Vector2(g,77),Vector2((w-3.0*g-55.0)*.51,57))
- var right_card:=Rect2(Vector2(left_card.end.x+g,77),Vector2((w-3.0*g-55.0)*.49,57))
- _glass_panel(left_card,Color(.14,.075,.29,.94),Color(.84,.48,.92,.82))
- _glass_panel(right_card,Color(.075,.15,.34,.92),Color(.39,.81,1.0,.88))
- _label("SCORE",Vector2(left_card.position.x,left_card.position.y+17),11,Color("#f1e9ff"),HORIZONTAL_ALIGNMENT_CENTER,left_card.size.x)
- _label("%s" % score,Vector2(left_card.position.x,left_card.position.y+44),24,Color("#ffe7a4"),HORIZONTAL_ALIGNMENT_CENTER,left_card.size.x)
- _label(other,Vector2(right_card.position.x,right_card.position.y+17),11,Color("#ffe0a9"),HORIZONTAL_ALIGNMENT_CENTER,right_card.size.x)
- _label(other_value,Vector2(right_card.position.x,right_card.position.y+44),24,Color("#fff1c2"),HORIZONTAL_ALIGNMENT_CENTER,right_card.size.x)
+ var right_card:=Rect2(Vector2(left_card.end.x+g,77),
+  Vector2((w-3.0*g-55.0)*.49,57))
+ _glass_panel(left_card,Color("#270d4e"),GLOW_PINK)
+ _glass_panel(right_card,Color("#08285a"),GLOW_BLUE)
+ _label("SCORE",Vector2(left_card.position.x,left_card.position.y+17),
+  12,Color("#f4d9ff"),HORIZONTAL_ALIGNMENT_CENTER,left_card.size.x)
+ _label(str(score),Vector2(left_card.position.x+1,left_card.position.y+44),
+  26,Color("#e49c45"),HORIZONTAL_ALIGNMENT_CENTER,left_card.size.x)
+ _label(str(score),Vector2(left_card.position.x,left_card.position.y+42),
+  26,GLOW_GOLD,HORIZONTAL_ALIGNMENT_CENTER,left_card.size.x)
+ _label(second_label,Vector2(right_card.position.x,right_card.position.y+17),
+  12,Color("#d1f7ff"),HORIZONTAL_ALIGNMENT_CENTER,right_card.size.x)
+ _label(second_value,Vector2(right_card.position.x+1,right_card.position.y+44),
+  26,Color("#d59149"),HORIZONTAL_ALIGNMENT_CENTER,right_card.size.x)
+ _label(second_value,Vector2(right_card.position.x,right_card.position.y+42),
+  26,GLOW_GOLD,HORIZONTAL_ALIGNMENT_CENTER,right_card.size.x)
  _button(layout["pause_visual"],"▶" if paused else "Ⅱ",true,false)
  if mode==0:
-  var progress_bar:=Rect2(Vector2(g,147),Vector2(w-2.0*g-73.0,9))
-  draw_rect(progress_bar,Color("#24113d"),true)
-  draw_rect(Rect2(progress_bar.position,Vector2(progress_bar.size.x*float(puzzle.fever)/100.0,progress_bar.size.y)),Color("#e953ff"),true)
-  _label("FEVER  %d%%" % puzzle.fever,Vector2(g,171),9,Color("#f1b3ff"))
+  var progress_bar:=Rect2(Vector2(g,147),Vector2(w-2.0*g-73.0,10))
+  _glass_panel(progress_bar,Color("#221048"),GLOW_PINK)
+  var gauge:=Rect2(progress_bar.position+Vector2(2,2),
+   Vector2(maxf(0.0,(progress_bar.size.x-4)*float(puzzle.fever)/100.0),progress_bar.size.y-4))
+  if gauge.size.x>1.0:
+   draw_rect(gauge,Color("#f467f7"),true)
+   draw_line(gauge.position,Vector2(gauge.end.x,gauge.position.y),Color("#ffffff",.67),1.2,true)
+  _label("FEVER  %d%%" % puzzle.fever,Vector2(g,172),10,GLOW_PINK)
   var bomb:Rect2=layout["bomb_visual"]
-  _glass_panel(bomb,Color(.33,.07,.33,.85) if bomb_armed else Color(.15,.09,.40,.85),Color("#ff84de") if bomb_armed else Color("#b466ed"))
-  _label("●  %s" % (str(puzzle.bombs) if puzzle.bombs>0 else "%d%%" % puzzle.bomb_charge()),
-   Vector2(bomb.position.x,bomb.position.y+21),14,Color("#ffe6ad"),HORIZONTAL_ALIGNMENT_CENTER,bomb.size.x)
-  _label("COMBO x%d  •  LINES %d" % [puzzle.combo,puzzle.total_lines],Vector2(g+75,171),10,Color("#fff1a2"))
+  _glass_panel(bomb,Color("#501157") if bomb_armed else Color("#19134a"),
+   GLOW_PINK)
+  _label("✦  %s" % (str(puzzle.bombs) if puzzle.bombs>0 else "%d%%" % puzzle.bomb_charge()),
+   Vector2(bomb.position.x,bomb.position.y+21),13,
+   GLOW_GOLD,HORIZONTAL_ALIGNMENT_CENTER,bomb.size.x)
+  _label("COMBO x%d  •  LINES %d" % [puzzle.combo,puzzle.total_lines],
+   Vector2(g+79,172),10,Color("#f9dcff"))
  else:
-  _label("COMBO x%d  •  LINES %d" % [falling.combo,falling.lines],Vector2(g,170),12,Color("#ff9dff"))
+  _label("COMBO x%d  ✦  LINES %d" % [falling.combo,falling.lines],
+   Vector2(g,171),13,Color("#ffc3f8"))
 
 func _draw_progress_hud(layout:Dictionary) -> void:
- # An unobtrusive, 29px high progression ribbon, outside the playfield.
+ # Premium rank ribbon anchored outside the playable cells and native ad dock.
  var rect:Rect2=layout["progress"]
  var y:float=rect.position.y
- _glass_panel(rect,Color(.08,.14,.34,.80),Color("#70cfff"))
- var rank:String=progress.rank_name()
- _label("LV %d • %s" % [progress.level,rank],Vector2(rect.position.x+9,y+12),10,Color("#dcfaff"))
+ _glass_panel(rect,Color("#0e1744"),GLOW_PURPLE)
+ _label("✦ LV %d · %s" % [progress.level,progress.rank_name()],
+  Vector2(rect.position.x+9,y+12),11,Color("#f0f9ff"))
  _label("★ %d  ·  %dd streak" % [progress.stars,progress.streak],
-  Vector2(rect.position.x,y+12),9,Color("#ffdc87"),HORIZONTAL_ALIGNMENT_RIGHT,rect.size.x-10)
- var track:=Rect2(rect.position+Vector2(9,16),Vector2(rect.size.x-18,3))
- draw_rect(track,Color("#273366"),true)
- draw_rect(Rect2(track.position,Vector2(track.size.x*progress.level_progress(),track.size.y)),Color("#64f1ff"),true)
+  Vector2(rect.position.x,y+12),10,GLOW_GOLD,
+  HORIZONTAL_ALIGNMENT_RIGHT,rect.size.x-10)
+ var track:=Rect2(rect.position+Vector2(9,16),Vector2(rect.size.x-18,4))
+ draw_rect(track,Color("#152b61"),true)
+ var fill:=Rect2(track.position,
+  Vector2(track.size.x*progress.level_progress(),track.size.y))
+ draw_rect(fill,GLOW_BLUE,true)
+ draw_line(track.position,Vector2(track.end.x,track.position.y),
+  Color("#ffffff",.45),1.0,true)
  var mission:Dictionary=progress.next_mission()
- _label("%s  %d/%d  ·  %s (TAP)" % [mission["label"],mission["progress"],mission["target"],progress.theme_name()],
-  Vector2(rect.position.x+9,y+26),8,Color("#b7daff"))
+ _label("%s  %d/%d  ·  %s (TAP)" %
+  [mission["label"],mission["progress"],mission["target"],progress.theme_name()],
+  Vector2(rect.position.x+9,y+27),8,Color("#c3e9ff"))
 
 func _draw_tabs(layout:Dictionary) -> void:
  # A single compact mode switch avoids breaking the hero-screen composition.
@@ -388,23 +476,36 @@ func _gem(rect:Rect2,color_id:int,ghost:bool=false) -> void:
 
 
 func _board_back(board_rect:Rect2,cols:int,rows:int) -> float:
- var outer:=Rect2(board_rect.position-Vector2(4,4),board_rect.size+Vector2(8,8))
- # Multi-layer neon glass frame with blue-white corner lighting.
- draw_rect(outer.grow(5.0),Color(.08,.46,1.0,.12),false,5.0)
- draw_rect(outer.grow(2.5),Color(.12,.58,1.0,.21),false,3.0)
- _glass_panel(outer,Color(.056,.031,.14,.85),Color("#ba93ff"))
- draw_rect(board_rect,Color(.014,.017,.070,.48),true)
+ # Identical luxury neon system in Puzzle and Blockfall, but each has its
+ # own accent. Real 9x9 and 10x18 grids are left fully interactive.
+ var accent:Color=GLOW_BLUE if mode==0 else GLOW_PINK
+ var secondary:Color=GLOW_PINK if mode==0 else GLOW_BLUE
+ var outer:=board_rect.grow(5.0)
+ var breathe:float=.68+.20*sin(clock*1.45)
+ draw_rect(outer.grow(10.0),Color(accent.r,accent.g,accent.b,.10*breathe),false,8.0)
+ draw_rect(outer.grow(5.0),Color(secondary.r,secondary.g,secondary.b,.18*breathe),false,4.0)
+ _glass_panel(outer,Color("#080c2c"),accent)
+ draw_rect(board_rect,Color("#080e2c"),true)
  var cell:float=board_rect.size.x/float(cols)
  for y in rows:
   for x in cols:
-   var rect:=Rect2(board_rect.position+Vector2(x*cell,y*cell),Vector2(cell,cell))
-   draw_rect(rect.grow(-.5),Color(.13,.16,.32,.63),true)
-   draw_rect(rect.grow(-.75),Color(.43,.39,.70,.36),false,.85)
- draw_line(outer.position,Vector2(outer.end.x,outer.position.y),Color("#78f1ff"),2.0,true)
- draw_line(Vector2(outer.position.x,outer.end.y),outer.end,Color("#77dbff"),1.8,true)
- for corner in [outer.position,Vector2(outer.end.x,outer.position.y),outer.end,Vector2(outer.position.x,outer.end.y)]:
-  draw_circle(corner,2.7,Color("#d3faff"))
-  draw_circle(corner,6.2,Color(.19,.75,1.0,.10))
+   var rect:=Rect2(board_rect.position+Vector2(x*cell,y*cell),
+    Vector2(cell,cell))
+   var back:Color=Color("#0f1b43") if (x+y)%2==0 else Color("#0b1638")
+   draw_rect(rect.grow(-.55),back,true)
+   draw_rect(rect.grow(-.70),Color(.30,.31,.66,.27),false,.70)
+ # Directional dual-color prism-edge highlights.
+ draw_line(outer.position+Vector2(13,1),outer.position+Vector2(outer.size.x-13,1),
+  GLOW_BLUE,2.6,true)
+ draw_line(outer.position+Vector2(2,13),outer.position+Vector2(2,outer.size.y-13),
+  Color(GLOW_PURPLE.r,GLOW_PURPLE.g,GLOW_PURPLE.b,.94),2.3,true)
+ draw_line(outer.position+Vector2(13,outer.size.y-1),
+  Vector2(outer.end.x-13,outer.end.y-1),GLOW_PINK,2.7,true)
+ draw_line(Vector2(outer.end.x-2,outer.position.y+13),
+  Vector2(outer.end.x-2,outer.end.y-13),GLOW_BLUE,2.3,true)
+ for corner in [outer.position,Vector2(outer.end.x,outer.position.y),
+  outer.end,Vector2(outer.position.x,outer.end.y)]:
+  _sparkle(corner,secondary,4.4)
  return cell
 
 func _draw_puzzle(layout:Dictionary) -> void:
@@ -420,9 +521,11 @@ func _draw_puzzle(layout:Dictionary) -> void:
    clampi(int((touch_at.y-board.position.y)/cell),0,8))
   for yy in range(maxi(0,target.y-1),mini(9,target.y+2)):
    for xx in range(maxi(0,target.x-1),mini(9,target.x+2)):
-    var tile:=Rect2(board.position+Vector2(xx*cell,yy*cell),Vector2(cell,cell))
-    draw_rect(tile.grow(-1),Color(.99,.26,.79,.40 if puzzle.cells[yy][xx]>0 else .16),true)
-    draw_rect(tile.grow(-1),Color("#ff9eec"),false,1.4)
+    var tile:=Rect2(board.position+Vector2(xx*cell,yy*cell),
+     Vector2(cell,cell))
+    draw_rect(tile.grow(-1),
+     Color(.99,.26,.79,.40 if puzzle.cells[yy][xx]>0 else .16),true)
+    draw_rect(tile.grow(-1),GLOW_PINK,false,1.4)
  if selected>=0 and selected<puzzle.tray.size() and not puzzle.tray[selected].is_empty():
   var near:Vector2=touch_at-Vector2(0,52) if dragging else touch_at
   if board.has_point(near):
@@ -431,31 +534,42 @@ func _draw_puzzle(layout:Dictionary) -> void:
     var preview_color:int=int(puzzle.tray_colors[selected])
     for p in puzzle.tray[selected]:
      var q:Vector2i=origin+p
-     _gem(Rect2(board.position+Vector2(q.x*cell,q.y*cell),Vector2(cell,cell)),preview_color,true)
- # Three freestanding, very glossy and vividly colored crystals as the collage.
+     _gem(Rect2(board.position+Vector2(q.x*cell,q.y*cell),
+      Vector2(cell,cell)),preview_color,true)
+ # Full-width play area: 3 touchable glass trays, not small inert artwork.
  var colors:Array=puzzle.tray_colors
  for i in 3:
   var tray_rect:Rect2=layout["tray"][i]
-  var highlight:Color=GEM_COLORS[colors[i]]
-  if i==selected:
-   draw_rect(tray_rect.grow(1.0),Color(highlight.r,highlight.g,highlight.b,.17),true)
-   draw_rect(tray_rect,Color(highlight.r,highlight.g,highlight.b,.85),false,1.7)
+  var gem_id:int=int(colors[i])
+  var highlight:Color=GEM_COLORS[gem_id]
+  var active:bool=i==selected
+  _glass_panel(tray_rect,Color("#142151") if active else Color("#10183f"),
+   GLOW_PINK if active else Color("#417bc7"))
+  if active:
+   draw_rect(tray_rect.grow(3.0),Color(highlight.r,highlight.g,highlight.b,.20),false,3.0)
   var shape:Array=puzzle.tray[i]
   if shape.is_empty():
    continue
   var bounds:Vector2i=puzzle.shape_size(shape)
-  var micro:float=minf((tray_rect.size.x-8.0)/float(bounds.x),(tray_rect.size.y-4.0)/float(bounds.y))
+  var micro:float=minf((tray_rect.size.x-13.0)/float(bounds.x),
+   (tray_rect.size.y-9.0)/float(bounds.y))
   micro=minf(micro,30.0)
-  var offset:Vector2=tray_rect.position+(tray_rect.size-Vector2(micro*bounds.x,micro*bounds.y))*.5
+  var offset:Vector2=tray_rect.position+(tray_rect.size-
+   Vector2(micro*bounds.x,micro*bounds.y))*.5
   for p in shape:
-   _gem(Rect2(offset+Vector2(p.x*micro,p.y*micro),Vector2(micro,micro)),colors[i])
- _label("CLEAR ROWS • COLUMNS • 3×3 SECTORS",Vector2(0,layout["height"]-117.0),11,Color("#e4d4ff"),HORIZONTAL_ALIGNMENT_CENTER,layout["viewport"].x)
+   _gem(Rect2(offset+Vector2(p.x*micro,p.y*micro),
+    Vector2(micro,micro)),gem_id)
+ _label("✦  DRAG CANDIES  ·  CLEAR LINES  ·  COMBO BLAST  ✦",
+  Vector2(0,layout["height"]-117.0),10,Color("#c5f8ff"),
+  HORIZONTAL_ALIGNMENT_CENTER,layout["viewport"].x)
  if dragging and selected>=0 and not puzzle.tray[selected].is_empty():
   var s:Array=puzzle.tray[selected]
   var shape_size:Vector2i=puzzle.shape_size(s)
-  var left:Vector2=visual_pointer-Vector2(shape_size.x*cell*.5,shape_size.y*cell*.5+54)
+  var left:Vector2=visual_pointer-
+   Vector2(shape_size.x*cell*.5,shape_size.y*cell*.5+54)
   for p in s:
-   _gem(Rect2(left+Vector2(p.x*cell,p.y*cell),Vector2(cell,cell)),colors[selected],true)
+   _gem(Rect2(left+Vector2(p.x*cell,p.y*cell),
+    Vector2(cell,cell)),int(colors[selected]),true)
 
 func _draw_falling(layout:Dictionary) -> void:
  var board:Rect2=layout["board"]
@@ -465,33 +579,49 @@ func _draw_falling(layout:Dictionary) -> void:
   for x in 10:
    var id:int=falling.cell_at(x,y)
    if id>0:
-    _gem(Rect2(board.position+Vector2(x*cell,y*cell),Vector2(cell,cell)),id)
+    _gem(Rect2(board.position+Vector2(x*cell,y*cell),
+     Vector2(cell,cell)),id)
  for p in falling.piece:
   var pos:Vector2i=ghost+p
   if pos.y>=0 and pos.y<18 and falling.board[pos.y][pos.x]==0:
-   _gem(Rect2(board.position+Vector2(pos.x*cell,pos.y*cell),Vector2(cell,cell)),falling.kind+1,true)
+   # The real upcoming landing position is a luminous hollow tetromino.
+   _gem(Rect2(board.position+Vector2(pos.x*cell,pos.y*cell),
+    Vector2(cell,cell)),falling.kind+1,true)
  for p in falling.piece:
   var pos:Vector2=fall_display+Vector2(p)
   if pos.y>=0 and pos.y<18:
-   _gem(Rect2(board.position+Vector2(pos.x*cell,pos.y*cell),Vector2(cell,cell)),falling.kind+1)
- # Real reference-style NEXT and HOLD panels at the right, not a fake preview.
+   _gem(Rect2(board.position+Vector2(pos.x*cell,pos.y*cell),
+    Vector2(cell,cell)),falling.kind+1)
  var next_rect:Rect2=layout["next"]
  var hold_rect:Rect2=layout["hold"]
- _label("NEXT",Vector2(next_rect.position.x,next_rect.position.y-10),15,Color("#f2f5ff"),HORIZONTAL_ALIGNMENT_CENTER,next_rect.size.x)
- _glass_panel(next_rect,Color(.03,.04,.15,.93),Color("#ffb348"))
+ _label("✦ NEXT",Vector2(next_rect.position.x,next_rect.position.y-10),14,
+  Color("#ffd3ff"),HORIZONTAL_ALIGNMENT_CENTER,next_rect.size.x)
+ _glass_panel(next_rect,Color("#090f39"),GLOW_PINK)
  _draw_side_piece(next_rect,falling.next_kind)
- _label("HOLD",Vector2(hold_rect.position.x,hold_rect.position.y-10),15,Color("#f2f5ff"),HORIZONTAL_ALIGNMENT_CENTER,hold_rect.size.x)
- _glass_panel(hold_rect,Color(.03,.04,.15,.93),Color("#4adaff"))
+ _label("✦ HOLD",Vector2(hold_rect.position.x,hold_rect.position.y-10),14,
+  Color("#8ef5ff"),HORIZONTAL_ALIGNMENT_CENTER,hold_rect.size.x)
+ _glass_panel(hold_rect,Color("#08143d"),GLOW_BLUE)
  if falling.hold_kind>=0:
   _draw_side_piece(hold_rect,falling.hold_kind)
+ else:
+  _sparkle(hold_rect.get_center(),GLOW_BLUE,8.0)
  if falling.hold_used:
-  draw_rect(hold_rect.grow(-2),Color(.06,.09,.20,.47),true)
- var combo_gap:float=minf(39.0,maxf(8.0,board.end.y-hold_rect.end.y-85.0))
- var combo_rect:=Rect2(Vector2(next_rect.position.x,hold_rect.end.y+combo_gap),Vector2(next_rect.size.x,85.0))
- _glass_panel(combo_rect,Color(.27,.04,.32,.74),Color("#f34ce1"))
- _label("COMBO",Vector2(combo_rect.position.x,combo_rect.position.y+28),14,Color("#ffbbfb"),HORIZONTAL_ALIGNMENT_CENTER,combo_rect.size.x)
- _label("x%d" % falling.combo,Vector2(combo_rect.position.x,combo_rect.position.y+68),30,Color("#fff4ba"),HORIZONTAL_ALIGNMENT_CENTER,combo_rect.size.x)
- _label("SWIPE ↔  MOVE    TAP  ROTATE    SWIPE ↓  DROP",Vector2(0,layout["height"]-117.0),9,Color("#dccfff"),HORIZONTAL_ALIGNMENT_CENTER,layout["viewport"].x)
+  draw_rect(hold_rect.grow(-2.0),Color(.06,.09,.20,.43),true)
+ var gap:float=minf(39.0,maxf(8.0,board.end.y-hold_rect.end.y-85.0))
+ var combo:=Rect2(Vector2(next_rect.position.x,hold_rect.end.y+gap),
+  Vector2(next_rect.size.x,85.0))
+ _glass_panel(combo,Color("#420d60"),GLOW_PINK)
+ _label("COMBO",Vector2(combo.position.x,combo.position.y+23),14,
+  Color("#f5d5ff"),HORIZONTAL_ALIGNMENT_CENTER,combo.size.x)
+ _label("x%d" % falling.combo,Vector2(combo.position.x+1,combo.position.y+68),
+  29,Color("#c67842"),HORIZONTAL_ALIGNMENT_CENTER,combo.size.x)
+ _label("x%d" % falling.combo,Vector2(combo.position.x,combo.position.y+66),
+  29,GLOW_GOLD,HORIZONTAL_ALIGNMENT_CENTER,combo.size.x)
+ _sparkle(combo.position+Vector2(combo.size.x*.27,32),GLOW_GOLD,3.0)
+ _sparkle(combo.position+Vector2(combo.size.x*.73,32),GLOW_GOLD,3.0)
+ _label("SWIPE ↔ MOVE   ·   TAP ROTATE   ·   SWIPE ↓ DROP",
+  Vector2(0,layout["height"]-117.0),9,
+  Color("#fff2bd"),HORIZONTAL_ALIGNMENT_CENTER,layout["viewport"].x)
 
 func _draw_side_piece(panel:Rect2,kind_id:int) -> void:
  if kind_id<0 or kind_id>=falling.FORMS.size():
