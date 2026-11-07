@@ -51,8 +51,8 @@ foreach($file in @($archives|Sort-Object LastWriteTime -Descending|Select-Object
     $name=$entry.FullName.Replace('\','/')
     if($name -notmatch '(?:^|/)assets/(skins/(?:gems/)?[A-Za-z0-9_-]+\.png|menu/novagrid_cosmic_candy_arcade\.png)$'){continue}
     $rel=$Matches[1]
-    if($rel -notmatch '^skins/(blockfall_exact_reference|blockfall_playable_chrome|blockpuzzle_cosmic_backdrop)\\.png$' -and
-       $rel -notmatch '^skins/gems/candy_[1-7]_[a-z]+\\.png$' -and
+    if($rel -notmatch '^skins/(blockfall_exact_reference|blockfall_playable_chrome|blockpuzzle_cosmic_backdrop)\.png$' -and
+       $rel -notmatch '^skins/gems/candy_[1-7]_[a-z]+\.png$' -and
        $rel -ne 'menu/novagrid_cosmic_candy_arcade.png'){continue}
     if($entry.Length -lt 200 -or $entry.Length -gt 12000000){continue}
     $dest=Join-Path $assetRoot ($rel.Replace('/','\'))
