@@ -1,8 +1,9 @@
 extends RefCounted
-## Deterministic rules for an original 10x12 endless Block Puzzle.
+## Native 9x9 Classic Puzzle, based on the approved reference composition.
 ## No HTML/Capacitor dependencies. Can be tested without a renderer.
-const COLS := 10
-const ROWS := 12
+const COLS := 9
+const ROWS := 9
+const SECTOR_SIZE := 3
 const BOMB_MILESTONES = [
  {"score":5000,"lines":18},{"score":14500,"lines":45},
  {"score":32000,"lines":95},{"score":56000,"lines":155},
@@ -188,10 +189,23 @@ func place(slot: int, origin: Vector2i) -> bool:
  for x in clear_columns:
   for y in ROWS:
    marked[Vector2i(x, y)] = true
+ var clear_sectors: Array = []
+ for by in 3:
+  for bx in 3:
+   var sector_full := true
+   for dy in 3:
+    for dx in 3:
+     if cells[by*3+dy][bx*3+dx] == 0:
+      sector_full = false
+   if sector_full:
+    clear_sectors.append(Vector2i(bx,by))
+    for dy in 3:
+     for dx in 3:
+      marked[Vector2i(bx*3+dx,by*3+dy)] = true
  for p in marked:
   cells[p.y][p.x] = 0
  last_cleared = marked.size()
- last_groups = clear_rows.size() + clear_columns.size()
+ last_groups = clear_rows.size() + clear_columns.size() + clear_sectors.size()
  last_bomb_award = 0
  # A placement is NOT a scoring event. Completing multiple lines at once
  # earns a larger per-group multiplier and raises the displayed combo.
@@ -284,7 +298,26 @@ func save_state() -> Dictionary:
 
 func load_state(raw: Dictionary) -> bool:
  var board_value: Variant = raw.get("cells", [])
- if not board_value is Array or board_value.size() != ROWS:
+ if not board_value is Array:
+  return false
+ if board_value.size()==12:
+  # Safe legacy 10x12-to-9x9 upgrade: keep account score/milestones and
+  # start a fresh board, rather than silently dropping an incompatible save.
+  var legacy:Dictionary=raw.duplicate(true)
+  legacy["cells"]=[]
+  for _y in ROWS:
+   legacy["cells"].append(_empty_row())
+  var safe_tray:Array=[]
+  for raw_shape in raw.get("tray",[]):
+   safe_tray.append(raw_shape)
+  if safe_tray.size()==3:
+   legacy["tray"]=safe_tray
+  else:
+   return false
+  legacy["over"]=false
+  raw=legacy
+  board_value=raw["cells"]
+ if board_value.size()!=ROWS:
   return false
  for row in board_value:
   if not row is Array or row.size() != COLS:
