@@ -1,0 +1,55 @@
+extends SceneTree
+## Test real Godot board coordinates on compact Android viewports, including
+## the separate native-banner reserved region. Never simulates an actual ad.
+var faults:Array[String]=[]
+func verify(ok:bool,label:String)->void:
+ if not ok:
+  faults.append(label)
+  printerr("LAYOUT FAIL: "+label)
+
+func _initialize()->void:
+ call_deferred("_run")
+
+func _run()->void:
+ var packed=load("res://scenes/Main.tscn")
+ var app=packed.instantiate()
+ root.add_child(app)
+ await process_frame
+ for dims in [Vector2i(360,640),Vector2i(393,852),Vector2i(432,960)]:
+  root.size=dims
+  await process_frame
+  for ad_h in [0.0,64.0]:
+   app.set_native_banner_height(ad_h)
+   for mode_index in 2:
+    app.mode=mode_index
+    var layout:Dictionary=app._layout()
+    var board:Rect2=layout["board"]
+    var h:float=float(layout["height"])
+    var width:float=float(layout["viewport"].x)
+    var label:String="%s mode%d banner%d"%[str(dims),mode_index,int(ad_h)]
+    verify(absf(h-(float(dims.y)-ad_h))<1.0,label+" native ad reserve is separate")
+    verify(board.position.x>=-1.0 and board.end.x<=width+1.0,label+" board fits viewport width")
+    verify(board.position.y>=0.0 and board.end.y<h-90.0,label+" entire board stays above controls and ad")
+    verify(layout["pause"].end.y<=board.position.y+8.0,label+" small pause button above gameboard")
+    verify(layout["mode_switch"].end.y<=board.position.y+8.0,label+" small mode toggle above gameboard")
+    if mode_index==0:
+     verify(board.size.x>=width*.70,label+" puzzle uses most available width")
+     verify(layout["tray"].size()==3,label+" three real draggable pieces")
+     for tray in layout["tray"]:
+      verify(tray.position.y>=board.end.y+2.0 and tray.end.y<=h-94.0,
+       label+" all pieces remain between board and footer")
+    else:
+     verify(board.size.y>=board.size.x*1.78,label+" true tall 10x18 field")
+     verify(layout["next"].position.x>=board.end.x,label+" NEXT cannot cover field")
+     verify(layout["hold"].end.x<=width+1.0,label+" HOLD remains touchable")
+   app.mode=0
+   app.set_native_banner_height(0.0)
+ app.queue_free()
+ await process_frame
+ await process_frame
+ if faults.is_empty():
+  print("ALL NOVAGRID RESPONSIVE LAYOUT AND BANNER-DOCK TESTS PASSED")
+  quit(0)
+ else:
+  printerr("%d NOVAGRID RESPONSIVE LAYOUT FAILURES"%faults.size())
+  quit(1)
