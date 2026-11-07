@@ -61,6 +61,18 @@ jobs:
           godot --headless --path novagrid-godot --script res://tests/test_progression.gd 2>&1 | tee /tmp/progression.log
           grep -F 'ALL NOVAGRID METAGAME TESTS PASSED' /tmp/progression.log
           if grep -E 'SCRIPT ERROR|Parse Error|Parser Error' /tmp/progression.log; then exit 1; fi
+      - name: Native audio preferences and procedural WAV cache
+        run: |
+          set -euo pipefail
+          godot --headless --audio-driver Dummy --path novagrid-godot --script res://tests/test_audio.gd 2>&1 | tee /tmp/audio.log
+          grep -F 'ALL NOVAGRID AUDIO PERSISTENCE AND CACHE TESTS PASSED' /tmp/audio.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Parser Error' /tmp/audio.log; then exit 1; fi
+      - name: Phone-size and bottom native banner dock layout QA
+        run: |
+          set -euo pipefail
+          godot --headless --audio-driver Dummy --path novagrid-godot --script res://tests/test_layout.gd 2>&1 | tee /tmp/layout.log
+          grep -F 'ALL NOVAGRID RESPONSIVE LAYOUT AND BANNER-DOCK TESTS PASSED' /tmp/layout.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Parser Error' /tmp/layout.log; then exit 1; fi
       - name: Real touch and swipe controls QA
         run: |
           set -euo pipefail
@@ -173,4 +185,6 @@ jobs:
             /tmp/candy3d.log
             /tmp/candy-gallery.log
             /tmp/welcome.log
+            /tmp/audio.log
+            /tmp/layout.log
           if-no-files-found: ignore
