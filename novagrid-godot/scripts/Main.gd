@@ -241,7 +241,8 @@ func _draw_sky(layout:Dictionary) -> void:
   {"p":Vector2(.94,.95),"r":190.0,"c":GLOW_PINK}
  ]
  for item in glows:
-  var center:Vector2=Vector2(bounds.x*float(item["p"].x),bounds.y*float(item["p"].y))
+  var normalized:Vector2=item["p"]
+  var center:Vector2=Vector2(bounds.x*normalized.x,bounds.y*normalized.y)
   var hue:Color=item["c"]
   for step in 5:
    var radius:float=float(item["r"])*(1.0-float(step)*.14)
@@ -565,8 +566,7 @@ func _draw_puzzle(layout:Dictionary) -> void:
  if dragging and selected>=0 and not puzzle.tray[selected].is_empty():
   var s:Array=puzzle.tray[selected]
   var shape_size:Vector2i=puzzle.shape_size(s)
-  var left:Vector2=visual_pointer-
-   Vector2(shape_size.x*cell*.5,shape_size.y*cell*.5+54)
+  var left:Vector2=visual_pointer-Vector2(shape_size.x*cell*.5,shape_size.y*cell*.5+54)
   for p in s:
    _gem(Rect2(left+Vector2(p.x*cell,p.y*cell),
     Vector2(cell,cell)),int(colors[selected]),true)
