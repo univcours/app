@@ -24,7 +24,7 @@ jobs:
       - name: Parse audio, game rules and main UI directly
         run: |
           set -euo pipefail
-          for script in Audio.gd Puzzle.gd Falling.gd Main.gd; do
+          for script in Audio.gd Puzzle.gd Falling.gd Progression.gd Visuals.gd Main.gd; do
             godot --headless --path novagrid-godot --check-only --script "res://scripts/$script"
           done
       - name: Import project and parse all game scripts
@@ -38,6 +38,12 @@ jobs:
           godot --headless --path novagrid-godot --script res://tests/test_game.gd 2>&1 | tee /tmp/test.log
           grep -F 'ALL NOVAGRID GODOT RULE TESTS PASSED' /tmp/test.log
           if grep -E 'SCRIPT ERROR|Parse Error|Parser Error' /tmp/test.log; then exit 1; fi
+      - name: Progression integrity and daily mission tests
+        run: |
+          set -euo pipefail
+          godot --headless --path novagrid-godot --script res://tests/test_progression.gd 2>&1 | tee /tmp/progression.log
+          grep -F 'ALL NOVAGRID METAGAME TESTS PASSED' /tmp/progression.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Parser Error' /tmp/progression.log; then exit 1; fi
       - name: Launch actual main scene headlessly
         run: |
           set -euo pipefail
@@ -114,4 +120,5 @@ jobs:
             /tmp/import.log
             /tmp/test.log
             /tmp/runtime.log
+            /tmp/progression.log
           if-no-files-found: ignore
