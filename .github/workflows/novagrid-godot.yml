@@ -67,6 +67,12 @@ jobs:
           godot --headless --path novagrid-godot --script res://tests/test_settings.gd 2>&1 | tee /tmp/settings.log
           grep -F 'ALL NOVAGRID AUDIO PERSISTENCE TESTS PASSED' /tmp/settings.log
           if grep -E 'SCRIPT ERROR|Parse Error|Parser Error' /tmp/settings.log; then exit 1; fi
+      - name: Atomic save, backup recovery and real-data isolation
+        run: |
+          set -euo pipefail
+          godot --headless --path novagrid-godot --script res://tests/test_save.gd 2>&1 | tee /tmp/save.log
+          grep -F 'ALL NOVAGRID SAVE RECOVERY TESTS PASSED' /tmp/save.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Parser Error' /tmp/save.log; then exit 1; fi
       - name: Real touch and swipe controls QA
         run: |
           set -euo pipefail
@@ -177,6 +183,7 @@ jobs:
             /tmp/touch.log
             /tmp/open-source.log
             /tmp/settings.log
+            /tmp/save.log
             /tmp/candy3d.log
             /tmp/candy-gallery.log
             /tmp/welcome.log
