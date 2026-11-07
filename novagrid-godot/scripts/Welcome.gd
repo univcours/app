@@ -2,6 +2,7 @@ extends Node2D
 ## NovaGrid Reborn: real Godot 4.5.1 responsive menu, not a screenshot.
 ## The animated nebula and crystal textures are shared by both live game modes.
 const VisualsScript = preload("res://scripts/Visuals.gd")
+const CandyUIScript = preload("res://scripts/CandyUI.gd")
 const AudioScript = preload("res://scripts/Audio.gd")
 const GEMS = [
  Color("#132255"),Color("#ff287f"),Color("#ffc323"),Color("#13e5ff"),
@@ -71,25 +72,10 @@ func _rectangles() -> Array[Rect2]:
 
 func _label(message:String,pos:Vector2,size:int,color:Color=Color.WHITE,
  alignment:HorizontalAlignment=HORIZONTAL_ALIGNMENT_LEFT,width:float=-1.0) -> void:
- draw_string(font,pos,message,alignment,width,size,color)
+ CandyUIScript.candy_text(self,font,message,pos,size,color,alignment,width)
 
 func _glass(box:Rect2,fill:Color,outline:Color,strong:bool=false) -> void:
- var key:String=fill.to_html(true)+outline.to_html(true)+("Y" if strong else "N")
- if not panel_cache.has(key):
-  var style:=StyleBoxFlat.new()
-  style.bg_color=fill
-  style.border_color=outline
-  style.set_corner_radius_all(22 if strong else 15)
-  style.set_border_width_all(2 if strong else 1)
-  style.shadow_color=Color(outline.r,outline.g,outline.b,.22 if strong else .12)
-  style.shadow_size=15 if strong else 8
-  panel_cache[key]=style
- draw_style_box(panel_cache[key],box)
- var line_from:=box.position+Vector2(18,3)
- var line_to:=Vector2(box.end.x-18,box.position.y+3)
- draw_line(line_from,line_to,Color(1,1,1,.52),1.7,true)
- draw_line(line_from+Vector2(0,2.5),line_to+Vector2(0,2.5),
-  Color(.55,.90,1.0,.19),1.0,true)
+ CandyUIScript.candy_panel(self,box,fill,outline,strong,clock)
 
 func _planet(center:Vector2,radius:float,main:Color,halo:Color) -> void:
  for step in range(5,0,-1):
@@ -165,9 +151,9 @@ func _card(rect:Rect2,index:int) -> void:
  _label("01   SWEET PUZZLE" if index==0 else "02   JELLY SURVIVAL",
   Vector2(text_left,text_top),11,Color("#bdeafa") if index==0 else Color("#f3c6ff"))
  _label("BLOCK" if index==0 else "BLOCK",Vector2(text_left,text_top+33),
-  30,Color.WHITE)
+  30,Color("#fff7e2"))
  _label("PUZZLE" if index==0 else "FALL",Vector2(text_left,text_top+65),
-  29,main_color)
+  29,Color("#8affea") if index==0 else Color("#ff9cdb"))
  _label("3D CANDIES  /  SWEET COMBOS" if index==0 else "3D JELLIES  /  ARCADE ACTION",
   Vector2(text_left,text_top+85),9,Color("#d2dcff"))
  var tag:=Rect2(Vector2(text_left,card.end.y-44),Vector2(minf(145,card.size.x*.49),30))
@@ -205,9 +191,8 @@ func _draw() -> void:
    draw_circle(p+Vector2(side*.5,side*.5),side*.48,Color(tint.r,tint.g,tint.b,.12))
    draw_texture_rect(candy,Rect2(p,Vector2(side,side)),false,Color(1,1,1,.82))
  var center:float=view.x*.5
- _label("NOVA",Vector2(0,110),55,Color("#1587ef"),HORIZONTAL_ALIGNMENT_CENTER,view.x)
- _label("NOVA",Vector2(0,106),55,Color("#f6fcff"),HORIZONTAL_ALIGNMENT_CENTER,view.x)
- _label("G R I D",Vector2(0,144),27,Color("#9bf9ff"),HORIZONTAL_ALIGNMENT_CENTER,view.x)
+ _label("NOVA",Vector2(0,106),55,Color("#ffb6ec"),HORIZONTAL_ALIGNMENT_CENTER,view.x)
+ _label("G R I D",Vector2(0,144),27,Color("#b8fff3"),HORIZONTAL_ALIGNMENT_CENTER,view.x)
  _label("3 D    C A N D Y    G A L A X Y",Vector2(0,171),14,Color("#ffd3ff"),HORIZONTAL_ALIGNMENT_CENTER,view.x)
  var cards:Array[Rect2]=_rectangles()
  _label("C H O O S E    Y O U R    C A N D Y    W O R L D",
