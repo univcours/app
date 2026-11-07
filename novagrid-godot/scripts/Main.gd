@@ -525,7 +525,7 @@ func _draw_modal(layout:Dictionary) -> void:
  var viewport:Vector2 = layout["viewport"]
  draw_rect(Rect2(Vector2.ZERO,viewport),Color(.01,.015,.08,.75),true)
  var modal := Rect2(Vector2(viewport.x*.09,viewport.y*.34),
-  Vector2(viewport.x*.82,180))
+  Vector2(viewport.x*.82,222))
  _glass_panel(modal,Color("#222c79"),Color("#90f6ff"))
  var title := "PAUSED" if paused else "GAME OVER"
  _label(title,Vector2(modal.position.x,modal.position.y+56),26,
@@ -537,6 +537,7 @@ func _draw_modal(layout:Dictionary) -> void:
  _button(Rect2(modal.position+Vector2(27,107),Vector2(modal.size.x-54,36)),action,true)
  if paused:
   _button(Rect2(modal.position+Vector2(27,148),Vector2(modal.size.x-54,27)),"↻ NEW RUN",false,true)
+ _button(Rect2(modal.position+Vector2(27,184),Vector2(modal.size.x-54,28)),"⌂  GALAXY HOME",false,true)
 
 func _origin_from_position(pos:Vector2,centered:bool,board:Rect2,shape:Array) -> Vector2i:
  var cell:float = board.size.x/9.0
@@ -624,9 +625,14 @@ func _release(pos:Vector2) -> void:
  var layout:Dictionary=_layout()
  if paused or (mode==0 and puzzle.over) or (mode==1 and falling.over):
   var viewport:Vector2=layout["viewport"]
-  var modal:=Rect2(Vector2(viewport.x*.09,viewport.y*.34),Vector2(viewport.x*.82,180.0))
+  var modal:=Rect2(Vector2(viewport.x*.09,viewport.y*.34),Vector2(viewport.x*.82,222.0))
   var primary:=Rect2(modal.position+Vector2(27,107),Vector2(modal.size.x-54,36))
   var restart:=Rect2(modal.position+Vector2(27,148),Vector2(modal.size.x-54,27))
+  var home:=Rect2(modal.position+Vector2(27,184),Vector2(modal.size.x-54,28))
+  if home.has_point(pos):
+   _save_game()
+   get_tree().change_scene_to_file("res://scenes/Welcome.tscn")
+   return
   if primary.has_point(pos):
    if paused:
     paused=false
