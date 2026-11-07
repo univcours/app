@@ -19,6 +19,8 @@ var piece: Array = []
 var active := Vector2i.ZERO
 var kind := 0
 var next_kind := 0
+var hold_kind := -1
+var hold_used := false
 var score := 0
 var best := 0
 var lines := 0
@@ -58,6 +60,8 @@ func reset() -> void:
  over = false
  last_lines = 0
  last_gained = 0
+ hold_kind = -1
+ hold_used = false
  next_kind = _take()
  _spawn()
 
@@ -79,6 +83,23 @@ func _spawn() -> void:
  active = Vector2i(3,0)
  if not fits(piece,active):
   over = true
+
+func hold_piece() -> bool:
+ if over or hold_used:
+  return false
+ var outgoing:int=kind
+ if hold_kind<0:
+  hold_kind=outgoing
+  _spawn()
+ else:
+  kind=hold_kind
+  hold_kind=outgoing
+  piece=_shape(kind)
+  active=Vector2i(3,0)
+  if not fits(piece,active):
+   over=true
+ hold_used=true
+ return true
 
 func fits(shape: Array, at: Vector2i) -> bool:
  for p in shape:
@@ -178,6 +199,7 @@ func _lock() -> void:
  lines += last_lines
  level = 1 + int(lines/10)
  drops += 1
+ hold_used=false
  _spawn()
 
 func fall_interval() -> float:
@@ -190,7 +212,7 @@ func cell_at(col: int,row: int) -> int:
 
 func snapshot() -> Dictionary:
  return {"version":1,"board":board.duplicate(true),"bag":bag.duplicate(),
-  "kind":kind,"next_kind":next_kind,
+  "kind":kind,"next_kind":next_kind,"hold_kind":hold_kind,"hold_used":hold_used,
   "piece":piece.map(func(p):return [p.x,p.y]),"active":[active.x,active.y],
   "score":score,"best":best,"lines":lines,"level":level,"combo":combo,
   "drops":drops,"over":over}
@@ -218,13 +240,16 @@ func restore(raw: Dictionary) -> bool:
   decoded.append(Vector2i(int(p[0]),int(p[1])))
  var candidate_kind := int(raw.get("kind",0))
  var candidate_next := int(raw.get("next_kind",0))
- if candidate_kind<0 or candidate_kind>6 or candidate_next<0 or candidate_next>6:
+ var candidate_hold:int=int(raw.get("hold_kind",-1))
+ if candidate_kind<0 or candidate_kind>6 or candidate_next<0 or candidate_next>6 or candidate_hold<-1 or candidate_hold>6:
   return false
  board=source.duplicate(true)
  bag=raw.get("bag",[]).duplicate()
  piece=decoded
  kind=candidate_kind
  next_kind=candidate_next
+ hold_kind=candidate_hold
+ hold_used=bool(raw.get("hold_used",false))
  active=Vector2i(int(next_position[0]),int(next_position[1]))
  score=maxi(0,int(raw.get("score",0)))
  best=maxi(score,int(raw.get("best",score)))
