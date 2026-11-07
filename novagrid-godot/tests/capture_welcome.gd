@@ -28,5 +28,8 @@ func _capture()->void:
   printerr("Unable to save actual Welcome screenshot:",err)
   quit(1)
   return
+ welcome.queue_free()
+ await process_frame
+ await process_frame
  print("REAL NOVAGRID OPEN SOURCE HOME SCREENSHOT SAVED")
  quit(0)
