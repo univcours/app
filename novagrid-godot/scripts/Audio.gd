@@ -2,6 +2,8 @@ extends Node
 ## Original procedural electronic soundtrack / layered audio. Created locally at
 ## runtime: no licensed files, copyrighted melodies, external APIs or downloads.
 const RATE := 22050
+const AUDIO_SETTINGS_PATH := "user://novagrid-audio.cfg"
+static var shared_samples:Dictionary = {}
 var fx_players: Array[AudioStreamPlayer] = []
 var fx_cursor := 0
 var music_player: AudioStreamPlayer
@@ -12,6 +14,10 @@ var music_enabled := true
 var current_mode := "puzzle"
 
 func _ready() -> void:
+ var settings:=ConfigFile.new()
+ if settings.load(AUDIO_SETTINGS_PATH)==OK:
+  sounds_enabled=bool(settings.get_value("audio","effects",true))
+  music_enabled=bool(settings.get_value("audio","music",true))
  for i in 6:
   var player := AudioStreamPlayer.new()
   player.name = "GlassFX%02d" % i
@@ -22,6 +28,10 @@ func _ready() -> void:
  music_player.name = "OriginalGalaxyMusic"
  music_player.volume_db = -16.0
  add_child(music_player)
+ if not shared_samples.is_empty():
+  sounds=shared_samples.get("effects",{}).duplicate()
+  music_tracks=shared_samples.get("music",{}).duplicate()
+  return
  sounds = {
   "tap": _make_effect(620.0,.076,.30,1.15,.12),
   "pick": _make_effect(495.0,.11,.31,1.72,.04),
@@ -44,6 +54,7 @@ func _ready() -> void:
  sounds["falling_big_shatter"]=_shatter(610.0,.60,.95,true)
  music_tracks["puzzle"] = _compose(false)
  music_tracks["falling"] = _compose(true)
+ shared_samples={"effects":sounds.duplicate(),"music":music_tracks.duplicate()}
 
 func _make_effect(hz:float,duration:float,gain:float,glide:float,noise:float) -> AudioStreamWAV:
  var count := int(float(RATE)*duration)
@@ -115,7 +126,7 @@ func _compose(fast:bool) -> AudioStreamWAV:
  # chords, moving subbass, gated pads, kick, clap/snare and crisp hi-hats.
  # 16 bars looping perfectly at 4 beats per bar.
  var beat := .31 if fast else .37
- var steps := 64
+ var steps := 32
  var count := int(float(RATE)*beat*float(steps))
  var data := PackedByteArray()
  data.resize(count*2)
@@ -188,6 +199,15 @@ func select_music(mode:String) -> void:
 func toggle_music(mode:String) -> void:
  music_enabled=not music_enabled
  select_music(mode)
+ _save_preferences()
 
 func toggle_sound() -> void:
  sounds_enabled=not sounds_enabled
+ _save_preferences()
+
+func _save_preferences() -> void:
+ var settings:=ConfigFile.new()
+ settings.set_value("audio","effects",sounds_enabled)
+ settings.set_value("audio","music",music_enabled)
+ if settings.save(AUDIO_SETTINGS_PATH)!=OK:
+  push_warning("NovaGrid audio preferences could not be saved")
