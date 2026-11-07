@@ -330,7 +330,7 @@ func load_state(raw: Dictionary) -> bool:
   if not row is Array or row.size() != COLS:
    return false
   for value in row:
-   if int(value) < 0 or int(value) > 6:
+   if int(value) < 0 or int(value) > 7:
     return false
  var tray_value: Variant = raw.get("tray", [])
  if not tray_value is Array or tray_value.size() != 3:
