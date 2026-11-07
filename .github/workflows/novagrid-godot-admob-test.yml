@@ -1,0 +1,141 @@
+name: NovaGrid Godot AdMob TEST — Native Android Gradle
+on:
+  push:
+    branches: [novagrid-godot-admob-test-20261107]
+    paths:
+      - 'novagrid-godot/**'
+      - '.github/workflows/novagrid-godot-admob-test.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build-native-ads-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      PROJECT: novagrid-godot
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install pinned Godot 4.5.1
+        run: |
+          set -euo pipefail
+          curl --retry 3 -fL -o /tmp/godot.zip https://github.com/godotengine/godot-builds/releases/download/4.5.1-stable/Godot_v4.5.1-stable_linux.x86_64.zip
+          unzip -q /tmp/godot.zip -d /tmp
+          sudo install -m 755 /tmp/Godot_v4.5.1-stable_linux.x86_64 /usr/local/bin/godot
+          godot --version
+      - name: Check installer PowerShell parses
+        shell: pwsh
+        run: |
+          foreach($path in @("novagrid-godot/scripts/install-admob.ps1","novagrid-godot/scripts/update-build-install.ps1")){
+            $tokens=$null;$errors=$null
+            [System.Management.Automation.Language.Parser]::ParseFile($path,[ref]$tokens,[ref]$errors)|Out-Null
+            if($errors.Count){$errors|ForEach-Object{Write-Error "$path : $($_.Message)"};exit 1}
+          }
+          Write-Host "NOVAGRID ADMOB POWERSHELL SYNTAX PASSED"
+      - name: Install checksummed official Poing AdMob 5.1.0 addon and Android AAR
+        run: |
+          set -euo pipefail
+          base=https://github.com/poingstudios/godot-admob-plugin/releases/download/v5.1.0
+          curl --retry 3 -fL -o /tmp/poing.zip "$base/poing-godot-admob-v5.1.0.zip"
+          printf '8c53ff52719edf6a81cc7d32a9cdaad2d9e11693c85faca25008a1c19355726f  /tmp/poing.zip\n' | sha256sum -c -
+          curl --retry 3 -fL -o /tmp/poing-android.zip "$base/android-template-v4.5.1.zip"
+          printf 'f7fdf644d50c0e231d8f02ae044057e489d0bcafcf50e908a4858477e7ee05ee  /tmp/poing-android.zip\n' | sha256sum -c -
+          mkdir -p /tmp/poing-addon
+          unzip -q /tmp/poing.zip -d /tmp/poing-addon
+          found="$(find /tmp/poing-addon -path '*/addons/admob/plugin.cfg' -print -quit)"
+          test -n "$found"
+          mkdir -p "$PROJECT/addons"
+          cp -a "$(dirname "$found")" "$PROJECT/addons/admob"
+          mkdir -p "$PROJECT/addons/admob/android/bin"
+          unzip -q /tmp/poing-android.zip -d "$PROJECT/addons/admob/android/bin"
+          find "$PROJECT/addons/admob/android/bin" -type f -name '*.aar' | grep .
+          cp "$PROJECT/ads/AdMobRuntime.gd.txt" "$PROJECT/ads/AdMobRuntime.gd"
+      - name: Configure TEST AdMob ID and dedicated Gradle Android export preset
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          project=Path("novagrid-godot")
+          cfg=project/"project.godot"
+          content=cfg.read_text()
+          assert "[editor_plugins]" not in content
+          assert "[admob]" not in content
+          content+='\n[editor_plugins]\nenabled=PackedStringArray("res://addons/admob/plugin.cfg")\n\n'
+          content+='[admob]\ngeneral/android/enabled=true\ngeneral/android/app_id="ca-app-pub-3940256099942544~3347511713"\n'
+          cfg.write_text(content)
+          preset_path=project/"export_presets.cfg"
+          current=preset_path.read_text()
+          assert "[preset.1]" not in current
+          extra=current.replace("[preset.0]","[preset.1]").replace("[preset.0.options]","[preset.1.options]")
+          extra=extra.replace('name="Android Preview"','name="Android AdMob Test"')
+          extra=extra.replace("gradle_build/use_gradle_build=false","gradle_build/use_gradle_build=true")
+          extra=extra.replace("build/NovaGrid-Godot-Preview.apk","build/NovaGrid-Godot-AdMob-TEST.apk")
+          extra=extra.replace("version/code=2","version/code=3")
+          extra=extra.replace('package/name="NovaGrid Godot Preview"','package/name="NovaGrid Godot AdMob Test"')
+          extra=extra.replace('version/name="0.2.0-native-preview"','version/name="0.3.0-admob-test"')
+          preset_path.write_text(current+"\n"+extra)
+          assert 'com.novagrid.cosmicpuzzle.godotpreview' in extra
+          assert 'gradle_build/use_gradle_build=true' in extra
+          print('SAFE TEST APP ID and Godot Gradle preset configured')
+          PY
+      - name: Import AdMob plugin and compile actual runtime
+        run: |
+          set -euo pipefail
+          godot --headless --editor --path "$PROJECT" --quit 2>&1 | tee /tmp/admob-import.log
+          godot --headless --path "$PROJECT" --check-only --script res://ads/AdMobRuntime.gd 2>&1 | tee /tmp/admob-check.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Parser Error' /tmp/admob-import.log /tmp/admob-check.log; then exit 1; fi
+      - name: Prepare official Android export templates and SDK
+        run: |
+          set -euo pipefail
+          curl --retry 3 -fL -o /tmp/godot-templates.tpz https://github.com/godotengine/godot-builds/releases/download/4.5.1-stable/Godot_v4.5.1-stable_export_templates.tpz
+          mkdir -p /tmp/godot-template-extract "$HOME/.local/share/godot/export_templates/4.5.1.stable"
+          unzip -q /tmp/godot-templates.tpz -d /tmp/godot-template-extract
+          cp -a /tmp/godot-template-extract/templates/. "$HOME/.local/share/godot/export_templates/4.5.1.stable/"
+          ls "$ANDROID_HOME/platforms"
+          if [ ! -d "$ANDROID_HOME/platforms/android-35" ]; then
+            yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" || true
+          fi
+          test -d "$ANDROID_HOME/platforms/android-35"
+          NOVAGRID_ANDROID_SDK="$ANDROID_HOME" NOVAGRID_JAVA_SDK="$JAVA_HOME" \
+            godot --headless --editor --path "$PROJECT" --script res://scripts/configure_android_editor.gd
+      - name: Create isolated CI debug key
+        run: |
+          mkdir -p "$HOME/.android"
+          keytool -genkeypair -keystore "$HOME/.android/novagrid-ads-debug.keystore" -alias androiddebugkey -storepass android -keypass android -keyalg RSA -keysize 2048 -validity 4000 -dname "CN=NovaGrid Test,O=Development,C=MA" -noprompt
+      - name: Export signed AdMob TEST Android APK with Gradle
+        env:
+          GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
+          GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
+        run: |
+          set -euo pipefail
+          mkdir -p "$PROJECT/build"
+          export GODOT_ANDROID_KEYSTORE_DEBUG_PATH="$HOME/.android/novagrid-ads-debug.keystore"
+          godot --headless --path "$PROJECT" --install-android-build-template \
+            --export-debug "Android AdMob Test" "$PWD/$PROJECT/build/NovaGrid-Godot-AdMob-TEST.apk" 2>&1 | tee /tmp/admob-export.log
+          test -s "$PROJECT/build/NovaGrid-Godot-AdMob-TEST.apk"
+          tool="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          "$tool" dump badging "$PROJECT/build/NovaGrid-Godot-AdMob-TEST.apk" |
+            grep -F "package: name='com.novagrid.cosmicpuzzle.godotpreview'"
+          "$tool" dump xmltree "$PROJECT/build/NovaGrid-Godot-AdMob-TEST.apk" AndroidManifest.xml |
+            grep -F "ca-app-pub-3940256099942544~3347511713"
+          echo "REAL NATIVE ADMOB TEST APK BUILT, WITH DEMO APP ID; NOT A MONETIZABLE RELEASE"
+      - name: Upload test APK — never publish to Play Production
+        uses: actions/upload-artifact@v4
+        with:
+          name: novagrid-godot-admob-TEST-apk
+          path: novagrid-godot/build/NovaGrid-Godot-AdMob-TEST.apk
+          if-no-files-found: error
+          retention-days: 14
+      - name: Retain diagnostic logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: novagrid-godot-admob-test-logs
+          path: |
+            /tmp/admob-import.log
+            /tmp/admob-check.log
+            /tmp/admob-export.log
+          if-no-files-found: ignore
