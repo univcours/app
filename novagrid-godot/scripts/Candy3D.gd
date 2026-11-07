@@ -52,14 +52,14 @@ func build_candies(palette:Array) -> void:
   keylight.name="SoftboxKey"
   keylight.rotation_degrees=Vector3(-37,-29,19)
   keylight.light_color=Color("#fff0dd")
-  keylight.light_energy=1.85
+  keylight.light_energy=1.40
   keylight.shadow_enabled=false
   world.add_child(keylight)
   var fill:=DirectionalLight3D.new()
   fill.name="CandyRimLight"
   fill.rotation_degrees=Vector3(22,135,-20)
   fill.light_color=Color("#b2deff")
-  fill.light_energy=1.08
+  fill.light_energy=.72
   fill.shadow_enabled=false
   world.add_child(fill)
   _make_candy(world,idx,tint)
@@ -77,9 +77,9 @@ func candy_count() -> int:
 
 func _coating(base:Color,bright:bool=false) -> StandardMaterial3D:
  var mat:=StandardMaterial3D.new()
- mat.albedo_color=base
- mat.metallic=.10 if not bright else .04
- mat.roughness=.13 if not bright else .07
+ mat.albedo_color=base.darkened(.12) if not bright else base
+ mat.metallic=.035 if not bright else .02
+ mat.roughness=.19 if not bright else .08
  mat.clearcoat_enabled=true
  mat.clearcoat=.97
  mat.clearcoat_roughness=.06
@@ -87,8 +87,8 @@ func _coating(base:Color,bright:bool=false) -> StandardMaterial3D:
  mat.rim=.32
  mat.rim_tint=.33
  mat.emission_enabled=true
- mat.emission=base.lightened(.30)
- mat.emission_energy_multiplier=.11 if not bright else .26
+ mat.emission=base
+ mat.emission_energy_multiplier=.035 if not bright else .14
  return mat
 
 func _add_mesh(parent:Node3D,name:String,mesh:Mesh,mat:Material,
@@ -126,9 +126,10 @@ func _make_candy(parent:Node3D,index:int,base:Color) -> void:
   2: # Bubblegum blue jelly bonbon.
    jelly_mesh=round_body
    scaling=Vector3(1.02,.94,.57)
-  3: # Amethyst faceted plum candy.
-   scaling=Vector3(.87,1.02,1.13)
-   tilt=Vector3(-.10,.18,.58)
+  3: # Amethyst jelly-flower: a cluster of actual 3D sugar petals.
+   jelly_mesh=round_body
+   scaling=Vector3(.55,.55,.38)
+   tilt=Vector3(-.08,.13,.14)
   4: # Emerald gummy tablet.
    scaling=Vector3(.99,.90,1.0)
    tilt=Vector3(-.08,-.18,-.08)
@@ -139,6 +140,18 @@ func _make_candy(parent:Node3D,index:int,base:Color) -> void:
    jelly_mesh=round_body
    scaling=Vector3(1.02,.96,.56)
  _add_mesh(parent,"Real3D_Candy_Body",jelly_mesh,material,Vector3.ZERO,scaling,tilt)
+ if kind==3:
+  # Six separate physically lit petal meshes, not a flat flower sticker.
+  var petal_mesh:=SphereMesh.new()
+  petal_mesh.radius=.26
+  petal_mesh.height=.52
+  petal_mesh.radial_segments=24
+  petal_mesh.rings=12
+  for j in 6:
+   var angle:float=float(j)*TAU/6.0+PI/6.0
+   _add_mesh(parent,"3D_JellyPetal%02d"%j,petal_mesh,material,
+    Vector3(cos(angle)*.37,sin(angle)*.37,.035),
+    Vector3(1.0,.92,.88),Vector3(0,0,angle*.2))
 
  # Raised confectionery stripes, sugar sprinkles and sweet emblems.
  var icing:StandardMaterial3D=_coating(Color("#fff3f7"),true)
