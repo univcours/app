@@ -92,6 +92,13 @@ jobs:
           xvfb-run -a -s "-screen 0 432x960x24" godot --path novagrid-godot --script res://tests/capture_welcome.gd 2>&1 | tee /tmp/welcome.log
           grep -F 'REAL NOVAGRID OPEN SOURCE HOME SCREENSHOT SAVED' /tmp/welcome.log
           test -s novagrid-godot/build/novagrid-real-welcome.png
+      - name: Capture genuine 3D candy PBR asset gallery
+        run: |
+          set -euo pipefail
+          xvfb-run -a -s "-screen 0 432x960x24" godot --path novagrid-godot --script res://tests/capture_candy_gallery.gd 2>&1 | tee /tmp/candy-gallery.log
+          grep -F 'REAL NOVAGRID 3D CANDY GALLERY SCREENSHOT SAVED' /tmp/candy-gallery.log
+          test -s novagrid-godot/build/novagrid-real-candy3d-gallery.png
+          if grep -E 'SCRIPT ERROR|Parse Error|Parser Error' /tmp/candy-gallery.log; then exit 1; fi
       - name: Upload true Godot screenshots
         uses: actions/upload-artifact@v4
         with:
@@ -164,5 +171,6 @@ jobs:
             /tmp/touch.log
             /tmp/open-source.log
             /tmp/candy3d.log
+            /tmp/candy-gallery.log
             /tmp/welcome.log
           if-no-files-found: ignore
