@@ -391,7 +391,7 @@ func _draw_reference_puzzle_progress(layout:Dictionary) -> void:
  var mission:Dictionary=progress.next_mission()
  _label("%s  %d/%d  ·  %s (TAP)" %
   [mission["label"],mission["progress"],mission["target"],progress.theme_name()],
-  Vector2(99.0*sx,2023.0*sy),10,Color("#c5eaff"))
+  Vector2(99.0*sx,2009.0*sy),10,Color("#c5eaff"))
 
 
 func _reference_blockfall_layout(viewport:Vector2,h:float) -> Dictionary:
