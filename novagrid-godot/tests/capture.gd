@@ -8,6 +8,7 @@ func _capture() -> void:
  DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://build"))
  var packed = load("res://scenes/Main.tscn")
  var app = packed.instantiate()
+ app.saves_enabled=false
  root.add_child(app)
  # A real run with pieces locked onto the board makes screenshots representative.
  for n in 15:
@@ -91,5 +92,6 @@ func _capture() -> void:
   printerr("Unable to capture live particle effects: ",err)
   quit(1)
   return
+ app.free()
  print("REAL GODOT SCREENSHOTS SAVED")
  quit(0)
