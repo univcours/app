@@ -505,6 +505,8 @@ func _draw_shockwaves() -> void:
   _label(message,label_at,20,color,HORIZONTAL_ALIGNMENT_CENTER,300.0)
 
 func _draw_fragments() -> void:
+ # 4 distinct candy particles: glossy bubble / sprinkle / prism / sparkle.
+ # Motion is deterministic once spawned and fully inside Godot CanvasItem.
  for f in fragments:
   var life:float=clampf(float(f["life"])/float(f["original"]),0,1)
   var color:Color=f["color"]
@@ -513,16 +515,35 @@ func _draw_fragments() -> void:
   var size:float=float(f["radius"])*life
   var angle:float=float(f["rotation"])
   var axis:=Vector2(cos(angle),sin(angle))
-  var cross:=Vector2(-axis.y,axis.x)
-  # Three-sided prism shards replace flat confetti squares.
-  var triangle:=PackedVector2Array([
-   center+axis*size*1.9,
-   center-axis*size*.8+cross*size*.64,
-   center-axis*size*.8-cross*size*.64
-  ])
-  draw_colored_polygon(triangle,color)
-  if size>1.6:
-   draw_line(triangle[0],triangle[1],Color(1,1,1,life*.55),.8,true)
+  var across:=Vector2(-axis.y,axis.x)
+  var kind:int=int(f.get("type",0))
+  if kind==0:
+   var triangle:=PackedVector2Array([
+    center+axis*size*1.8,
+    center-axis*size*.9+across*size*.70,
+    center-axis*size*.9-across*size*.70])
+   draw_colored_polygon(triangle,color)
+   if size>1.3:
+    draw_line(triangle[0],triangle[1],Color(1,1,1,life*.59),.85,true)
+  elif kind==1:
+   # Raised sugar bubble, bright translucent rim and white glaze dot.
+   draw_circle(center,size,Color(color.r,color.g,color.b,life*.73))
+   draw_arc(center,size*.77,PI*.82,TAU*.9,13,
+    Color(1,1,1,life*.52),maxf(.65,size*.13),true)
+   draw_circle(center-across*size*.29-axis*size*.26,size*.18,Color(1,1,1,life*.78))
+  elif kind==2:
+   var poly:=PackedVector2Array([
+    center-axis*size*1.15-across*size*.42,
+    center+axis*size*1.15-across*size*.42,
+    center+axis*size*1.15+across*size*.42,
+    center-axis*size*1.15+across*size*.42])
+   draw_colored_polygon(poly,color)
+   draw_line(poly[0],poly[1],Color(1,1,1,life*.66),maxf(.55,size*.1),true)
+  else:
+   var shine:=Color(1,1,1,life*.8)
+   draw_line(center-axis*size*1.35,center+axis*size*1.35,shine,1.2,true)
+   draw_line(center-across*size*1.35,center+across*size*1.35,shine,1.2,true)
+   draw_circle(center,size*.24,color)
 
 
 func _draw_modal(layout:Dictionary) -> void:
@@ -731,12 +752,12 @@ func _release_puzzle(pos:Vector2,layout:Dictionary) -> void:
     var impact:Vector2=board.position+Vector2((target.x+.5)*cell,(target.y+.5)*cell)
     audio.effect_for("puzzle","big_shatter")
     _burst(impact,55+removed*5,Color("#ff62db"))
-    _announce("GLASS BOMB!  %d CRYSTALS" % removed,impact-Vector2(0,45),Color("#ffe7ff"))
+    _announce("CANDY BOMB!  %d SWEETS" % removed,impact-Vector2(0,45),Color("#ffe7ff"))
     flash=.78
     shake=.46
     _save_game()
    else:
-    _announce("SELECT AN OCCUPIED AREA",board.get_center(),Color("#ffb6d8"))
+    _announce("TAP CANDY TO EXPLODE",board.get_center(),Color("#ffb6d8"))
   return
  var drop:Vector2 = pos-Vector2(0,52) if dragging else pos
  if selected>=0 and selected<puzzle.tray.size() and board.has_point(drop):
@@ -757,7 +778,7 @@ func _release_puzzle(pos:Vector2,layout:Dictionary) -> void:
      flash=.28 if count<20 else .7
      shake=.25
      _burst(board.get_center(),18+count,Color("#7ceaff"))
-     var combo_message:String="GLASS COMBO x%d  +%d" % [puzzle.last_groups,puzzle.last_gained] if puzzle.last_groups>1 else "CRYSTAL CLEAR  +%d" % puzzle.last_gained
+     var combo_message:String="CANDY COMBO x%d  +%d" % [puzzle.last_groups,puzzle.last_gained] if puzzle.last_groups>1 else "SWEET CLEAR  +%d" % puzzle.last_gained
      _announce(combo_message,board.get_center()+Vector2(0,-12),Color("#91f7ff"))
     if puzzle.fever_moves==5:
      audio.effect("fever")
@@ -841,20 +862,28 @@ func _announce(message:String,at:Vector2,color:Color) -> void:
   headlines.pop_front()
 
 func _burst(center:Vector2,count:int,color:Color) -> void:
- shockwaves.append({"pos":center,"color":color,"age":0.0,"duration":.6,"radius":125.0})
+ shockwaves.append({"pos":center,"color":color,"age":0.0,"duration":.68,"radius":160.0})
  if shockwaves.size()>9:
   shockwaves.pop_front()
- var gen := RandomNumberGenerator.new()
+ var gen:=RandomNumberGenerator.new()
  gen.randomize()
+ var candy_colors=[
+  Color("#ff3d85"),Color("#ffce2c"),Color("#23eaf5"),
+  Color("#a950ff"),Color("#75ff57"),Color("#ff9632"),
+  Color("#ffffff")]
  for i in count:
-  var angle:float = gen.randf_range(0,TAU)
-  var velocity:Vector2 = Vector2(cos(angle),sin(angle))*gen.randf_range(55,200)
+  var angle:float=gen.randf_range(0,TAU)
+  var velocity:Vector2=Vector2(cos(angle),sin(angle))*gen.randf_range(52,248)
+  var visual_color:Color=candy_colors[gen.randi_range(0,candy_colors.size()-1)]
+  if i%7==0:
+   visual_color=color.lightened(.23)
   fragments.append({"pos":center,"speed":velocity,
-   "life":gen.randf_range(.33,.82),"original":.82,
-   "radius":gen.randf_range(2.2,5.1),"color":color,
-   "rotation":gen.randf_range(0.0,TAU),"spin":gen.randf_range(-9.0,9.0)})
- if fragments.size()>240:
-  fragments=fragments.slice(fragments.size()-240)
+   "life":gen.randf_range(.32,.92),"original":.92,
+   "radius":gen.randf_range(1.7,5.3),"color":visual_color,
+   "rotation":gen.randf_range(0.0,TAU),"spin":gen.randf_range(-10.0,10.0),
+   "type":gen.randi_range(0,3)})
+ if fragments.size()>230:
+  fragments=fragments.slice(fragments.size()-230)
 
 func _load_game() -> void:
  if not FileAccess.file_exists("user://novagrid-godot-save.json"):
