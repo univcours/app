@@ -34,3 +34,28 @@ If Windows blocks opening Godot, use **More info → Run anyway** only after
 confirming it came from the **official Godot website**.
 
 You can also open this project directly after `git sparse-checkout` without downloading a ZIP.
+
+
+## Direct Android device testing from Android Studio Terminal
+
+Android Studio's normal Run button cannot directly launch this independent
+Godot project because it is not an Android Studio Gradle app.
+
+The Godot project includes a Windows PowerShell helper at:
+novagrid-godot/scripts/update-build-install.ps1
+
+Once the branch has been fetched, run the helper from Android Studio Terminal
+with powershell.exe -NoProfile -ExecutionPolicy Bypass -File and that full path.
+
+The helper automatically updates the branch (unless SkipGitPull is supplied),
+configures Godot's Android SDK/Java settings, exports an actual signed debug APK,
+installs it with adb over USB and launches it on your phone.
+
+One-time prerequisites:
+- Godot 4.5.1 export templates (Editor > Manage Export Templates).
+- Android Studio SDK and its Java runtime or JDK 17.
+- A connected Android phone with USB debugging authorized.
+
+It reuses a local DEBUG signing key, leaves the original Play Store package
+and signing key alone, and never uninstalls any phone app automatically.
+An existing preview signed with a different key causes a safe stop, not data loss.
