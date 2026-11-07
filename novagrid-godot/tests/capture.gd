@@ -24,6 +24,9 @@ func _capture() -> void:
     for x in 10:
      if app.puzzle.fits(shape,Vector2i(x,y)):
       app.puzzle.place(slot,Vector2i(x,y))
+      app.progress.placed_piece()
+      if app.puzzle.last_cleared>0:
+       app.progress.cleared_lines(maxi(1,int(app.puzzle.last_cleared/10)),app.puzzle.combo)
       played = true
       break
   if not played or app.puzzle.over:
@@ -41,6 +44,9 @@ func _capture() -> void:
    break
   app.falling.move(-1 if n%2==0 else 1)
   app.falling.hard_drop()
+  app.progress.locked_falling_piece()
+  if app.falling.last_lines>0:
+   app.progress.cleared_lines(app.falling.last_lines,app.falling.combo)
  await create_timer(.3).timeout
  screenshot = root.get_texture().get_image()
  err = screenshot.save_png("res://build/novagrid-real-blockfall.png")
