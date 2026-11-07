@@ -1,5 +1,15 @@
 # NovaGrid — Native Godot Rebuild (experimental)
 
+## Visual reference fidelity — Glass Galaxy
+
+This branch is the **native Godot 4.5.1** game, not the earlier Capacitor/Android Studio build. The approved **NovaGrid Cosmic Puzzle UI Collage** is the art direction: large illuminated Classic Puzzle/Blockfall headings, dark purple nebula and glowing planets, vivid X-faceted glass gems, sapphire neon board, dark glass Score/Best cards, pause button, and NEXT / HOLD / COMBO side rail in Blockfall.
+
+**Classic Puzzle** now uses a **9x9** grid. Clearing complete rows, columns or 3x3 sectors earns points; placing pieces without a clear earns **zero** score. Simultaneously cleared groups earn a multi-line combo, and rare 3x3 tactical bombs unlock only after clearing many lines and passing actual score milestones.
+
+**Blockfall** keeps a **10x18** grid, a ghost, real next-piece and touch-operated Hold (limited to one per locked piece), seven-bag tetrominoes, swipe movement, line-only scoring and distinct original audio.
+
+**Visual QA:** capture.gd draws the actual native Godot screens, and also verifies that at least one rendered crystal is saturated rather than washed out. GitHub Actions exports the same Godot project as a side-by-side Android test APK. The original Play Store app is unchanged.
+
 ## Glass Galaxy Arcade update — 2026-11-07
 
 The **actual Godot editor project** now uses a full animated procedural nebula backdrop, reusable glass cube shaders, translucent boards, rounded glass navigation, spinning prism shards, shockwaves and separate original glass-break/impact sound banks for Puzzle versus Blockfall.
