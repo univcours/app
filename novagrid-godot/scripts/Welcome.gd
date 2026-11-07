@@ -47,7 +47,7 @@ func _process(delta:float) -> void:
  queue_redraw()
 
 func _rectangles() -> Array[Rect2]:
- var size:Vector2=get_viewport_rect().size
+ var size:Vector2=get_viewport_rect().size if is_inside_tree() else Vector2(432.0,960.0)
  var margin:float=clampf(size.x*.046,12,28)
  var h:float=clampf(size.y*.205,146.0,196.0)
  var gap:float=clampf(size.y*.025,12,24)
