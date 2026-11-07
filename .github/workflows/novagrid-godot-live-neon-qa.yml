@@ -8,6 +8,7 @@ on:
       - "novagrid-godot/tests/capture.gd"
       - "novagrid-godot/tests/test_layout.gd"
       - "novagrid-godot/tests/test_touch.gd"
+      - "novagrid-godot/tests/test_back_navigation.gd"
       - ".github/workflows/novagrid-godot-live-neon-qa.yml"
   workflow_dispatch:
 permissions:
@@ -38,6 +39,8 @@ jobs:
           grep -F 'ALL NOVAGRID RESPONSIVE LAYOUT AND BANNER-DOCK TESTS PASSED' /tmp/neon-layout.log
           godot --headless --audio-driver Dummy --path novagrid-godot --script res://tests/test_touch.gd 2>&1 | tee /tmp/neon-touch.log
           grep -F 'ALL NOVAGRID TOUCH CONTROLS PASSED' /tmp/neon-touch.log
+          godot --headless --audio-driver Dummy --path novagrid-godot --script res://tests/test_back_navigation.gd 2>&1 | tee /tmp/neon-back.log
+          grep -F 'ALL NOVAGRID BOTH-MODE BACK-TO-MENU TESTS PASSED' /tmp/neon-back.log
       - name: Capture REAL gameplay in both modes (432 x 960)
         run: |
           set -euo pipefail
