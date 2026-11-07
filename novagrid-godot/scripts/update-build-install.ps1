@@ -82,7 +82,7 @@ function LocateGodot {
 
 $project = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $root = (Resolve-Path (Join-Path $project '..')).Path
-$branch = 'novagrid-godot-rebuild'
+$branch = 'novagrid-godot-hardening'
 $package = 'com.novagrid.cosmicpuzzle.godotpreview'
 if (!(Test-Path (Join-Path $project 'project.godot'))) { throw 'Godot project missing.' }
 if (!(Test-Path (Join-Path $root '.git'))) { throw 'Git repository missing.' }
@@ -91,10 +91,18 @@ if (!$SkipGitPull) {
     $active = (git -C $root branch --show-current).Trim()
     if ($active -ne $branch) { throw "Wrong branch: $active" }
     Write-Host 'Updating NovaGrid from GitHub...' -ForegroundColor Cyan
+    $dirty = @(git -C $root status --porcelain -- novagrid-godot)
+    CheckExit 'Check Godot local changes'
+    if ($dirty.Count -gt 0) {
+        throw 'Local Godot modifications exist. Commit or stash them before pulling; no files changed.'
+    }
     git -C $root pull --ff-only origin $branch
     CheckExit 'Git pull'
-    git -C $root sparse-checkout set novagrid-godot
-    CheckExit 'Sparse checkout'
+    $sparse = (git -C $root config --get core.sparseCheckout | Out-String).Trim()
+    if ($sparse -eq 'true') {
+        git -C $root sparse-checkout add novagrid-godot
+        CheckExit 'Add Godot project to sparse checkout'
+    }
 }
 
 $godot = LocateGodot
@@ -156,6 +164,21 @@ Write-Host 'Exporting latest native Godot Android debug APK...' -ForegroundColor
 CheckExit 'Godot APK export'
 if (!(Test-Path $fresh) -or (Get-Item $fresh).Length -lt 100000) { throw 'Godot did not produce a valid APK.' }
 Move-Item -LiteralPath $fresh -Destination $apk -Force
+
+# Never install a preview unless its signed package is confirmed as distinct
+# from the original Google Play NovaGrid application.
+$buildTools = Join-Path $sdk 'build-tools'
+$aapt = $null
+if (Test-Path $buildTools) {
+    $aapt = Get-ChildItem -LiteralPath $buildTools -Filter 'aapt.exe' -Recurse -File -ErrorAction SilentlyContinue |
+        Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
+}
+if (!$aapt) { throw 'Android SDK aapt.exe missing; cannot verify safe preview APK identity.' }
+$badging = (& $aapt dump badging $apk | Out-String)
+CheckExit 'APK package inspection'
+if ($badging -notmatch "package:\s+name='com\.novagrid\.cosmicpuzzle\.godotpreview'") {
+    throw 'Unsafe APK package ID. Installation blocked to protect the Play Store version.'
+}
 
 $devices = @(& $adb devices | ForEach-Object {
     if ($_ -match '^(\S+)\s+device(?:\s|$)') { $Matches[1] }
