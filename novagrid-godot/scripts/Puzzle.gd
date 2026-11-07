@@ -25,6 +25,7 @@ const SHAPES = [
 var rng := RandomNumberGenerator.new()
 var cells: Array = []
 var tray: Array = []
+var tray_colors: Array = [7,1,5]
 var score := 0
 var best := 0
 var combo := 0
@@ -111,6 +112,9 @@ func _choose_shape() -> Array:
 
 func _new_tray() -> void:
  tray.clear()
+ var palette:Array=[7,1,5,2,6,4,3]
+ var phase:int=int(moves/3)%palette.size()
+ tray_colors=[7,1,5] if moves==0 else [palette[phase],palette[(phase+2)%palette.size()],palette[(phase+4)%palette.size()]]
  for _i in 3:
   tray.append(_choose_shape())
  # As long as the board has a possible fit, grant at least two
@@ -142,6 +146,7 @@ func any_move() -> bool:
 func _snapshot() -> Dictionary:
  return {"cells": cells.duplicate(true), "tray": tray.duplicate(true),
   "score": score, "best": best, "combo": combo, "moves": moves,
+  "tray_colors": tray_colors.duplicate(),
   "fever": fever, "fever_moves": fever_moves, "over": over,
   "total_lines": total_lines, "bombs": bombs,
   "bomb_milestone": bomb_milestone}
@@ -160,10 +165,8 @@ func place(slot: int, origin: Vector2i) -> bool:
  if not fits(shape, origin):
   return false
  previous = _snapshot()
- # Seven vivid gem hues (amber, sapphire, emerald, ruby, violet, coral,
- # cyan), deliberately avoiding monotonous pink-violet stacks.
- var palette:Array=[2,7,5,6,1,4,3]
- var color_id:int=int(palette[(moves*3+slot*2)%palette.size()])
+ # Every placed crystal retains the exact hue shown in its tray preview.
+ var color_id:int=int(tray_colors[slot])
  for p in shape:
   var at: Vector2i = origin + p
   cells[at.y][at.x] = color_id
@@ -296,6 +299,7 @@ func save_state() -> Dictionary:
   raw_tray.append(item)
  return {"version": 1, "cells": cells.duplicate(true), "tray": raw_tray,
   "score": score, "best": best, "combo": combo, "moves": moves,
+  "tray_colors": tray_colors.duplicate(),
   "fever": fever, "fever_moves": fever_moves, "over": over,
   "total_lines": total_lines, "bombs": bombs, "bomb_milestone": bomb_milestone}
 
@@ -346,6 +350,11 @@ func load_state(raw: Dictionary) -> bool:
   decoded.append(points)
  cells = board_value.duplicate(true)
  tray = decoded
+ var stored_colors:Variant=raw.get("tray_colors",[7,1,5])
+ tray_colors=[7,1,5]
+ if stored_colors is Array and stored_colors.size()==3:
+  for i in 3:
+   tray_colors[i]=clampi(int(stored_colors[i]),1,7)
  score = maxi(0, int(raw.get("score", 0)))
  best = maxi(score, int(raw.get("best", score)))
  combo = maxi(0, int(raw.get("combo", 0)))
