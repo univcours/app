@@ -93,11 +93,10 @@ func _run_touch() -> void:
  app._release(mid+Vector2(0,stride*4.1))
  verify(app.falling.drops==previous_drops+1 and app.progress.total_drops==1,"down swipe hard-drops and rewards once")
  verify(app.progress.snapshot().has("active_theme"),"cosmetic unlock state persists")
- app.queue_free()
- await process_frame
- await process_frame
+ # One cleanup path; Godot 4.5 crashes on remove_child of a freed Node.
  root.remove_child(app)
  app.free()
+ await process_frame
  if faults.is_empty():
   print("ALL NOVAGRID TOUCH CONTROLS PASSED")
   quit(0)
