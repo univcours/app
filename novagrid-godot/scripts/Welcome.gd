@@ -203,7 +203,7 @@ func _card(rect:Rect2,index:int) -> void:
  if active:
   draw_arc(Vector2(294,116),106.0,-.65,.75,26,
    Color(accent.r,accent.g,accent.b,.60),3.0,true)
- draw_set_transform()
+ draw_set_transform(Vector2.ZERO,0.0,Vector2.ONE)
 
 func _draw() -> void:
  var view:Vector2=get_viewport_rect().size
