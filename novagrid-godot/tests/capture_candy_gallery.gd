@@ -84,5 +84,7 @@ func _capture()->void:
  stage.queue_free()
  await process_frame
  await process_frame
+ root.remove_child(stage)
+ stage.free()
  print("REAL NOVAGRID 3D CANDY GALLERY SCREENSHOT SAVED")
  quit(0)
