@@ -1,0 +1,32 @@
+name: NovaGrid Full Auto Download QA (Windows)
+on:
+  push:
+    branches: [novagrid-godot-admob-test-20261107]
+    paths:
+      - 'novagrid-godot/scripts/download-complete-godot.ps1'
+      - '.github/workflows/novagrid-full-auto-download-qa.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify-one-command:
+    runs-on: windows-latest
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify PowerShell 5.1 parser
+        shell: powershell
+        run: |
+          $path='novagrid-godot/scripts/download-complete-godot.ps1'
+          $tokens=$null
+          $errors=$null
+          [System.Management.Automation.Language.Parser]::ParseFile($path,[ref]$tokens,[ref]$errors)|Out-Null
+          if($errors.Count -gt 0){$errors | ForEach-Object { Write-Host $_.ToString() }; throw 'PowerShell syntax error'}
+          Write-Host 'NOVAGRID FULL BOOTSTRAP POWERSHELL PARSE PASS'
+      - name: Download actual source and ALL FIVE original hosted images
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          & .\novagrid-godot\scripts\download-complete-godot.ps1 -DownloadOnly
+          if($LASTEXITCODE -and $LASTEXITCODE -ne 0){throw 'Auto download returned nonzero exit'}
+          Write-Host 'NOVAGRID ONLINE COMPLETE SOURCE + ART DOWNLOAD PASS'
