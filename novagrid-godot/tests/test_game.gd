@@ -57,10 +57,10 @@ func _initialize() -> void:
  p.reset()
  p.score=4990
  p.total_lines=17
- for x in 9:
+ for x in 8:
   p.cells[1][x]=1
  p.tray[0]=[Vector2i(0,0)]
- expect(p.place(0,Vector2i(9,1)) and p.bombs==1 and p.last_bomb_award==1,
+ expect(p.place(0,Vector2i(8,1)) and p.bombs==1 and p.last_bomb_award==1,
   "rare bomb requires genuine final line clear and threshold score")
  var before_bomb_score:int=p.score
  p.cells[5][5]=3
@@ -76,6 +76,15 @@ func _initialize() -> void:
  var f = Falling.new()
  expect(f.board.size()==18 and f.board[0].size()==10,"falling board is 10x18")
  expect(f.piece.size()==4 and not f.over,"falling first piece spawns")
+ var original_kind:int=f.kind
+ expect(f.hold_piece() and f.hold_kind==original_kind and f.hold_used,"hold preview stores outgoing piece")
+ expect(not f.hold_piece(),"hold can be used only once per falling piece")
+ f.hard_drop()
+ expect(not f.hold_used,"locking enables hold again")
+ var new_kind:int=f.kind
+ expect(f.hold_piece() and f.kind==original_kind and f.hold_kind==new_kind,
+  "touch Hold swaps a real tetromino and preserves stored kind")
+ f.reset()
  expect(f.ghost_row()>=f.active.y,"ghost projection valid")
  var initial_score:int = f.score
  f.hard_drop()
