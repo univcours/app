@@ -30,7 +30,10 @@ Write-Host '[1/4] Downloading latest Godot game from GitHub...' -ForegroundColor
 $sourceZip=Join-Path $root 'novagrid-code.zip'
 Grab "https://github.com/univcours/app/archive/refs/heads/$branch.zip" $sourceZip
 $source=Join-Path $root 'source'
-Expand-Archive -LiteralPath $sourceZip -DestinationPath $source
+# Windows PowerShell 5.1 Expand-Archive has a cleanup bug on GitHub archives
+# containing .github/ directories. Use the native .NET ZIP extractor.
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+[System.IO.Compression.ZipFile]::ExtractToDirectory($sourceZip,$source)
 $match=Get-ChildItem -LiteralPath $source -Filter 'project.godot' -File -Recurse |
  Where-Object {$_.Directory.Name -eq 'novagrid-godot'} | Select-Object -First 1
 if(!$match){throw 'Native project.godot missing from GitHub archive'}
