@@ -81,5 +81,8 @@ func _capture()->void:
   printerr("Saving real 3D candy screenshot failed:",err)
   quit(1)
   return
+ stage.queue_free()
+ await process_frame
+ await process_frame
  print("REAL NOVAGRID 3D CANDY GALLERY SCREENSHOT SAVED")
  quit(0)
