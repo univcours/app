@@ -4,7 +4,7 @@
  Package com.novagrid.cosmicpuzzle.godotpreview remains independent of Play.
  Original production application, original signing key and data are untouched.
 #>
-param([switch]$SkipGitPull)
+param([switch]$SkipGitPull,[switch]$AdMobTest)
 $ErrorActionPreference = 'Stop'
 
 function CheckExit([string]$step) {
@@ -185,12 +185,22 @@ if (!(Test-Path (Join-Path $templates 'android_debug.apk'))) { throw 'Godot Andr
 
 $build = Join-Path $project 'build'
 New-Item -ItemType Directory -Force -Path $build | Out-Null
-$apk = Join-Path $build 'NovaGrid-Godot-Preview.apk'
-$fresh = Join-Path $build 'NovaGrid-Godot-Preview-fresh.apk'
+$apk = Join-Path $build $(if ($AdMobTest) { 'NovaGrid-Godot-AdMob-TEST.apk' } else { 'NovaGrid-Godot-Preview.apk' })
+$fresh = Join-Path $build $(if ($AdMobTest) { 'NovaGrid-Godot-AdMob-TEST-fresh.apk' } else { 'NovaGrid-Godot-Preview-fresh.apk' })
 if (Test-Path $fresh) { Remove-Item -LiteralPath $fresh -Force }
 
-Write-Host 'Exporting latest native Godot Android debug APK...' -ForegroundColor Cyan
-& $godot --headless --path $project --export-debug 'Android Preview' $fresh
+$presetName='Android Preview'
+$exportArgs=@('--headless','--path',$project)
+if($AdMobTest){
+ if(!(Test-Path (Join-Path $project 'addons\admob\plugin.cfg'))){throw 'Native AdMob plugin missing'}
+ if(!(Test-Path (Join-Path $project 'ads\AdMobRuntime.gd'))){throw 'Native AdMob controller missing'}
+ $presetName='Android AdMob Test'
+ $exportArgs+=@('--install-android-build-template')
+ Write-Host 'Installing Gradle Android build template for Poing native plugin...' -ForegroundColor Cyan
+}
+Write-Host "Exporting Godot Android debug APK: $presetName" -ForegroundColor Cyan
+$exportArgs+=@('--export-debug',$presetName,$fresh)
+& $godot @exportArgs
 CheckExit 'Godot APK export'
 if (!(Test-Path $fresh) -or (Get-Item $fresh).Length -lt 100000) { throw 'Godot did not produce a valid APK.' }
 Move-Item -LiteralPath $fresh -Destination $apk -Force
