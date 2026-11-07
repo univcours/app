@@ -1,6 +1,7 @@
 import {FALL_WIDTH,FALL_HEIGHT,FALL_PALETTE,fallingConfig,fallingObjective,makeFallingState,
  tryMoveFalling,tryRotateFalling,stepFalling,hardDropFalling,renderFallCells,shapeFor} from './falling.js';
 import {createSwipeTracker} from './swipe.js';
+import {arcadeEffect} from './arcade-fx.js';
 
 export function createBlockfallUI({onFinish,onExit,getLanguage,onSound,onAdBreak}){
  let game=null,config=null,interval=null,paused=false,reported=false,active=false,gesture=null,earned=0,endless=false;
@@ -14,7 +15,7 @@ export function createBlockfallUI({onFinish,onExit,getLanguage,onSound,onAdBreak
  '<div><span id="fallGoalLabel"></span><strong id="fallGoal"></strong></div>'+
  '<div class="fall-next"><span id="fallNextLabel"></span><div id="fallNext"></div></div></div>'+
  '<div class="fall-fever-compact"><span id="fallFeverLabel">FEVER</span><div class="fall-fever-track"><i id="fallFeverFill"></i></div></div>'+
- '<div class="fall-board-holder"><div id="fallBoard" class="fall-board" role="grid" aria-label="10 by 18 falling blocks"></div></div>'+
+ '<div class="fall-board-holder"><div id="fallBoard" class="fall-board" role="grid" aria-label="10 by 18 falling blocks"></div><div class="candy-fx fall-crystal-fx" id="fallGlassFx" aria-hidden="true"></div></div>'+
  
  '<div class="fall-tip" id="fallTip"></div>'+
  '<div class="fall-result" id="fallResult" hidden><div class="fall-result-inner"><strong id="fallResultTitle"></strong><p id="fallResultDetails"></p><button id="fallResultAction" type="button"></button></div></div></div>';
@@ -102,14 +103,17 @@ export function createBlockfallUI({onFinish,onExit,getLanguage,onSound,onAdBreak
   else if(action==='drop')game=hardDropFalling(game,config);
   else game=stepFalling(game,config);
   if(game!==prior){
-   if(game.lastClear>0&&game.drops!==prior.drops)onSound?.('clear');
-   else if(game.drops!==prior.drops)onSound?.('place');
-   else if(action!=='tick')onSound?.('pick');
+   if(game.lastClear>0&&game.drops!==prior.drops)onSound?.(game.lastClear>=2?'fallCombo':'fallShatter');
+   else if(game.drops!==prior.drops)onSound?.('fallLock');
+   else if(action==='rotate')onSound?.('fallRotate');
+   else if(action==='left'||action==='right')onSound?.('fallMove');
    persist();render();
    if(endless&&game.drops!==prior.drops)syncTimer();
    if(game.lastClear>0&&game.drops!==prior.drops){
     const board=get('fallBoard');board.classList.remove('fall-line-burst');
     void board.offsetWidth;board.classList.add('fall-line-burst');
+    arcadeEffect(get('fallGlassFx'),{kind:'combo',groups:game.lastClear,
+     combo:Math.max(game.lastClear,game.combo),bonus:game.score-prior.score,center:[4,4]});
    }
   }
  }
@@ -167,9 +171,12 @@ export function createBlockfallUI({onFinish,onExit,getLanguage,onSound,onAdBreak
   game=next;
   persist();
   render();
-  if(game.drops!==before.drops)onSound?.(game.lastClear?'clear':'place');
-  else if(horizontal&&Date.now()-gesture.lastAudio>110){
-   onSound?.('pick');gesture.lastAudio=Date.now();
+  if(game.drops!==before.drops){
+   onSound?.(game.lastClear?(game.lastClear>=2?'fallCombo':'fallShatter'):'fallLock');
+   if(game.lastClear>0)arcadeEffect(get('fallGlassFx'),{kind:'combo',groups:game.lastClear,
+    combo:Math.max(game.lastClear,game.combo),bonus:game.score-before.score,center:[4,4]});
+  }else if(horizontal&&Date.now()-gesture.lastAudio>110){
+   onSound?.('fallMove');gesture.lastAudio=Date.now();
   }
  }
  boardNode.addEventListener('pointerdown',e=>{
