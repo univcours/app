@@ -256,16 +256,23 @@ func _draw() -> void:
  elif mode==0:
   art=skin_puzzle
  if art!=null:
-  # Scale actual user-approved artwork as part of the game, not as a mockup.
-  draw_texture_rect(art,Rect2(Vector2.ZERO,Vector2(w,h)),false)
-  if mode==1:
-   _reference_live_hud(layout)
-  elif exact_puzzle:
+  if exact_puzzle:
+   # Preserve authored proportions, even on phones with an AdMob dock.
+   var frame:Rect2=_puzzle_chrome_frame(layout["viewport"],h)
+   if skin_puzzle!=null:
+    draw_texture_rect(skin_puzzle,Rect2(Vector2.ZERO,Vector2(w,h)),false)
+   draw_texture_rect(art,frame,false)
+   draw_set_transform(frame.position,0.0,Vector2.ONE)
    _reference_puzzle_hud(layout)
-  else:
-   draw_set_transform(Vector2.ZERO,0.0,Vector2(1.0,float(layout["header_scale"])))
-   _draw_header(layout)
    draw_set_transform(Vector2.ZERO,0.0,Vector2.ONE)
+  else:
+   draw_texture_rect(art,Rect2(Vector2.ZERO,Vector2(w,h)),false)
+   if mode==1:
+    _reference_live_hud(layout)
+   else:
+    draw_set_transform(Vector2.ZERO,0.0,Vector2(1.0,float(layout["header_scale"])))
+    _draw_header(layout)
+    draw_set_transform(Vector2.ZERO,0.0,Vector2.ONE)
  else:
   _draw_sky(layout)
   draw_set_transform(Vector2.ZERO,0.0,Vector2(1.0,float(layout["header_scale"])))
@@ -277,7 +284,10 @@ func _draw() -> void:
    var privacy_rect:Rect2=layout["privacy"]
    _label("PRIVACY",privacy_rect.position+Vector2(0,12),9,Color("#c6eeff"))
  elif exact_puzzle:
+  var art_frame:Rect2=_puzzle_chrome_frame(layout["viewport"],h)
+  draw_set_transform(art_frame.position,0.0,Vector2.ONE)
   _draw_reference_puzzle_progress(layout)
+  draw_set_transform(Vector2.ZERO,0.0,Vector2.ONE)
   if native_ads!=null:
    var privacy_rect:Rect2=layout["privacy"]
    _label("PRIVACY",privacy_rect.position+Vector2(0,12),9,Color("#c6eeff"))
@@ -302,36 +312,46 @@ func _draw() -> void:
   draw_rect(r,Color("#080f26"),true)
   draw_line(r.position,Vector2(r.end.x,r.position.y),Color("#78dfff"),2.0)
 
+func _puzzle_chrome_frame(viewport:Vector2,h:float) -> Rect2:
+ # Uniform scale preserves square 9x9 cells, never stretches on tall/short phones.
+ var scale:float=minf(viewport.x/PUZZLE_CHROME_CANVAS.x,
+  h/PUZZLE_CHROME_CANVAS.y)
+ var size:Vector2=PUZZLE_CHROME_CANVAS*scale
+ return Rect2(Vector2((viewport.x-size.x)*.5,(h-size.y)*.5),size)
+
+
 func _reference_blockpuzzle_layout(viewport:Vector2,h:float) -> Dictionary:
- # The approved 941x2091 art matches tall modern portrait displays.
- # Board and each of the three candy wells are still real input rectangles.
- var sx:float=viewport.x/PUZZLE_CHROME_CANVAS.x
- var sy:float=h/PUZZLE_CHROME_CANVAS.y
- var board:=Rect2(Vector2(73.0*sx,448.0*sy),Vector2(797.0*sx,797.0*sy))
+ # Gameplay and artwork use identical isotropic scaling and origin.
+ var frame:Rect2=_puzzle_chrome_frame(viewport,h)
+ var offset:Vector2=frame.position
+ var sx:float=frame.size.x/PUZZLE_CHROME_CANVAS.x
+ var sy:float=sx
+ var board:=Rect2(offset+Vector2(73.0*sx,448.0*sy),Vector2(797.0*sx,797.0*sy))
  var tray:Array=[]
  for xpos in [50.0,335.0,618.0]:
-  tray.append(Rect2(Vector2(xpos*sx,1364.0*sy),Vector2(273.0*sx,222.0*sy)))
+  tray.append(Rect2(offset+Vector2(xpos*sx,1364.0*sy),Vector2(273.0*sx,222.0*sy)))
  var gutter:float=clampf(viewport.x*.031,9.0,18.0)
  return {
   "viewport":viewport,"height":h,"gutter":gutter,"header_scale":1.0,
   "board":board,"tray":tray,"buttons":[],"tabs":[],
-  "progress":Rect2(Vector2(44.0*sx,1861.0*sy),Vector2(855.0*sx,178.0*sy)),
-  "mode_switch":Rect2(Vector2(39.0*sx,26.0*sy),Vector2(87.0*sx,91.0*sy)),
-  "pause_visual":Rect2(Vector2(788.0*sx,191.0*sy),Vector2(99.0*sx,118.0*sy)),
-  "pause":Rect2(Vector2(788.0*sx,191.0*sy),Vector2(99.0*sx,118.0*sy)),
-  "bomb_visual":Rect2(Vector2(704.0*sx,324.0*sy),Vector2(186.0*sx,67.0*sy)),
-  "bomb":Rect2(Vector2(704.0*sx,324.0*sy),Vector2(186.0*sx,67.0*sy)),
-  "audio":Rect2(Vector2(44.0*sx,1692.0*sy),Vector2(73.0*sx,76.0*sy)),
-  "music":Rect2(Vector2(133.0*sx,1692.0*sy),Vector2(73.0*sx,76.0*sy)),
-  "privacy":Rect2(Vector2(226.0*sx,1698.0*sy),Vector2(110.0*sx,63.0*sy)),
+  "progress":Rect2(offset+Vector2(44.0*sx,1861.0*sy),Vector2(855.0*sx,178.0*sy)),
+  "mode_switch":Rect2(offset+Vector2(39.0*sx,26.0*sy),Vector2(87.0*sx,91.0*sy)),
+  "pause_visual":Rect2(offset+Vector2(788.0*sx,191.0*sy),Vector2(99.0*sx,118.0*sy)),
+  "pause":Rect2(offset+Vector2(788.0*sx,191.0*sy),Vector2(99.0*sx,118.0*sy)),
+  "bomb_visual":Rect2(offset+Vector2(704.0*sx,324.0*sy),Vector2(186.0*sx,67.0*sy)),
+  "bomb":Rect2(offset+Vector2(704.0*sx,324.0*sy),Vector2(186.0*sx,67.0*sy)),
+  "audio":Rect2(offset+Vector2(44.0*sx,1692.0*sy),Vector2(73.0*sx,76.0*sy)),
+  "music":Rect2(offset+Vector2(133.0*sx,1692.0*sy),Vector2(73.0*sx,76.0*sy)),
+  "privacy":Rect2(offset+Vector2(226.0*sx,1698.0*sy),Vector2(110.0*sx,63.0*sy)),
   "next":Rect2(),"hold":Rect2()
  }
 
 
 func _reference_puzzle_hud(layout:Dictionary) -> void:
  # HUD values are taken from the game engine, never baked into the artwork.
- var sx:float=float(layout["viewport"].x)/PUZZLE_CHROME_CANVAS.x
- var sy:float=float(layout["height"])/PUZZLE_CHROME_CANVAS.y
+ var frame:Rect2=_puzzle_chrome_frame(layout["viewport"],float(layout["height"]))
+ var sx:float=frame.size.x/PUZZLE_CHROME_CANVAS.x
+ var sy:float=sx
  _premium_title(str(puzzle.score),Vector2(125.0*sx,287.0*sy),26,
   252.0*sx,GLOW_GOLD)
  _premium_title(str(puzzle.best),Vector2(487.0*sx,287.0*sy),26,
@@ -356,8 +376,9 @@ func _reference_puzzle_hud(layout:Dictionary) -> void:
 
 func _draw_reference_puzzle_progress(layout:Dictionary) -> void:
  # The glossy rank dock is decorative; XP, stars and goals are always live.
- var sx:float=float(layout["viewport"].x)/PUZZLE_CHROME_CANVAS.x
- var sy:float=float(layout["height"])/PUZZLE_CHROME_CANVAS.y
+ var frame:Rect2=_puzzle_chrome_frame(layout["viewport"],float(layout["height"]))
+ var sx:float=frame.size.x/PUZZLE_CHROME_CANVAS.x
+ var sy:float=sx
  _label("LV %d · %s"%[progress.level,progress.rank_name()],
   Vector2(100.0*sx,1935.0*sy),16,Color("#eff9ff"))
  _label("★ %d  ·  %dd streak"%[progress.stars,progress.streak],
