@@ -1,7 +1,7 @@
 name: NovaGrid Godot Editor Project ZIP
 on:
   push:
-    branches: [novagrid-godot-rebuild]
+    branches: [novagrid-godot-rebuild, novagrid-open-source-rebuild]
     paths:
       - 'novagrid-godot/**'
       - '.github/workflows/novagrid-godot-source-zip.yml'
@@ -20,6 +20,9 @@ jobs:
           cd novagrid-godot
           test -s project.godot
           test -s scenes/Main.tscn
+          test -s scenes/Welcome.tscn
+          test -s third_party/poketetris/LICENSE
+          test -s third_party/poketetris/Constants.gd
           test -s scripts/Main.gd
           test -s scripts/Puzzle.gd
           test -s scripts/Falling.gd
@@ -29,7 +32,7 @@ jobs:
           test -s shaders/crystal.gdshader
           zip -q -r ../NovaGrid-Godot-Project.zip \
             project.godot export_presets.cfg \
-            scenes scripts shaders tests assets README.md OPEN-IN-GODOT.md
+            scenes scripts shaders tests assets third_party README.md OPEN-IN-GODOT.md THIRD_PARTY_NOTICES.md
           cd ..
           unzip -t NovaGrid-Godot-Project.zip
           unzip -l NovaGrid-Godot-Project.zip | tail -25
