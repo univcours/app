@@ -77,7 +77,7 @@ export function runGlassMove(state,trayIndex,row,col){
  next.bombs=Math.max(0,Math.floor(state.bombs||0));
  next.bombMilestone=Math.max(0,Math.floor(state.bombMilestone||0));
  let earnedBombs=0;
- while(next.bombMilestone<RARE_BOMB_MILESTONES.length&&next.bombs<MAX_BOMBS){
+ while(result.groups>0&&next.bombMilestone<RARE_BOMB_MILESTONES.length&&next.bombs<MAX_BOMBS){
   const milestone=RARE_BOMB_MILESTONES[next.bombMilestone];
   if(next.score<milestone.score||next.totalLinesCleared<milestone.lines)break;
   next.bombs++;next.bombMilestone++;earnedBombs++;
