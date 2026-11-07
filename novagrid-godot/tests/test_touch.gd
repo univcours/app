@@ -43,6 +43,24 @@ func _run_touch() -> void:
   app._release(play_pt)
   verify(app.puzzle.moves==1 and app.progress.total_plays==1,"tap-to-place earns real XP")
   verify(app.selected==-1,"successful placement clears selection")
+ # Real HUD button, armed state, touch-target detonation and zero-score rescue.
+ app.puzzle.reset()
+ app.puzzle.cells[4][4]=3
+ app.puzzle.cells[5][4]=2
+ app.puzzle.bombs=1
+ var score_before:int=app.puzzle.score
+ var bomb_button:Vector2=app._layout()["bomb"].get_center()
+ app._press(bomb_button)
+ app._release(bomb_button)
+ verify(app.bomb_armed and app.puzzle.bombs==1,"glass bomb HUD arms with touch")
+ var b:Rect2=app._layout()["board"]
+ var square:float=b.size.x/10.0
+ var blast_position:Vector2=b.position+Vector2(square*4.5,square*4.5)
+ app._press(blast_position)
+ app._release(blast_position)
+ verify(not app.bomb_armed and app.puzzle.bombs==0,"touch bomb is consumed once")
+ verify(app.puzzle.cells[4][4]==0 and app.puzzle.cells[5][4]==0,"bomb clears the chosen 3x3 grid zone")
+ verify(app.puzzle.score==score_before and app.puzzle.total_lines==0,"bomb never grants points or line clears")
  # Blockfall has only gestures, with a consistent snap + smooth drawn motion.
  app.mode=1
  var f_layout:Dictionary=app._layout()
