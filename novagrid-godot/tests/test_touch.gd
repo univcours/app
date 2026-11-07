@@ -64,6 +64,12 @@ func _run_touch() -> void:
  # Blockfall has only gestures, with a consistent snap + smooth drawn motion.
  app.mode=1
  var f_layout:Dictionary=app._layout()
+ verify(f_layout["next"].position.x>=f_layout["board"].end.x,
+  "NEXT reference card is physically outside the falling board")
+ verify(f_layout["hold"].position.x>=f_layout["board"].end.x,
+  "HOLD reference card is physically outside the falling board")
+ verify(f_layout["hold"].end.x<=f_layout["viewport"].x+1.0,
+  "HOLD is visible and touchable even on mobile width")
  var original_kind:int=app.falling.kind
  var hold_point:Vector2=f_layout["hold"].get_center()
  app._press(hold_point)
