@@ -12,6 +12,7 @@ func _initialize() -> void:
 func _run_touch() -> void:
  var scene=load("res://scenes/Main.tscn")
  var app=scene.instantiate()
+ app.saves_enabled=false
  root.add_child(app)
  var layout:Dictionary=app._layout()
  verify(layout["buttons"].is_empty(),"no obsolete directional or restart buttons")
@@ -93,6 +94,7 @@ func _run_touch() -> void:
  app._release(mid+Vector2(0,stride*4.1))
  verify(app.falling.drops==previous_drops+1 and app.progress.total_drops==1,"down swipe hard-drops and rewards once")
  verify(app.progress.snapshot().has("active_theme"),"cosmetic unlock state persists")
+ app.free() # Release shaders/audio/UI and never overwrite actual player data.
  if faults.is_empty():
   print("ALL NOVAGRID TOUCH CONTROLS PASSED")
   quit(0)
