@@ -1,0 +1,28 @@
+name: NovaGrid Godot 4.5.1 Offline Runtime for Visual Audit
+on:
+  push:
+    branches: [novagrid-godot-admob-test-20261107]
+    paths:
+      - ".github/workflows/novagrid-godot-runtime-for-visual-audit.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  package-linux-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Get official native Godot 4.5.1 Linux binary
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 "https://github.com/godotengine/godot-builds/releases/download/4.5.1-stable/Godot_v4.5.1-stable_linux.x86_64.zip" -o Godot_v4.5.1-stable_linux.x86_64.zip
+          sha256sum Godot_v4.5.1-stable_linux.x86_64.zip > Godot.sha256
+          unzip -l Godot_v4.5.1-stable_linux.x86_64.zip | grep Godot_v4.5.1-stable_linux.x86_64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: official-Godot-4.5.1-Linux-runtime
+          path: |
+            Godot_v4.5.1-stable_linux.x86_64.zip
+            Godot.sha256
+          if-no-files-found: error
+          retention-days: 1
