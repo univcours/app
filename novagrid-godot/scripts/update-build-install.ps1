@@ -77,7 +77,7 @@ function LocateGodot {
         }
     }
 
-    # Last resort: obtain official pinned portable Godot. Never replace another installed version.
+    # Official portable engine, isolated from any other Godot installation.
     $destination = Join-Path $configDir 'Godot-4.5.1'
     New-Item -ItemType Directory -Force -Path $destination | Out-Null
     $zip = Join-Path $destination 'Godot-4.5.1-win64.zip'
@@ -88,240 +88,9 @@ function LocateGodot {
         if ((Get-Item $zip).Length -lt 5000000) { throw 'Godot ZIP is unexpectedly small.' }
         Expand-Archive -LiteralPath $zip -DestinationPath $destination -Force -ErrorAction Stop
         $exe = Get-ChildItem -LiteralPath $destination -File -Recurse |
-            Where-Object { $_.Name -match '^Godot.*4\\.5\\.1.*\\.exe
-}
-
-$project = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-$root = (Resolve-Path (Join-Path $project '..')).Path
-$branch = 'novagrid-open-source-rebuild'
-$package = 'com.novagrid.cosmicpuzzle.godotpreview'
-if (!(Test-Path (Join-Path $project 'project.godot'))) { throw 'Godot project missing.' }
-if (!(Test-Path (Join-Path $root '.git'))) { throw 'Git repository missing.' }
-
-if (!$SkipGitPull) {
-    $active = (git -C $root branch --show-current).Trim()
-    if ($active -ne $branch) { throw "Wrong branch: $active" }
-    Write-Host 'Updating NovaGrid from GitHub...' -ForegroundColor Cyan
-    git -C $root pull --ff-only origin $branch
-    CheckExit 'Git pull'
-    # Preserve all unrelated repository files and local worktrees. Do NOT enable sparse-checkout.
-}
-
-$godot = LocateGodot
-$version = (& $godot --version | Out-String).Trim()
-if ($LASTEXITCODE -ne 0 -or $version -notmatch '^4\.5\.1\.') {
-    throw "Godot 4.5.1 required for this project. Found: $version"
-}
-
-$configDir = Join-Path $env:LOCALAPPDATA 'NovaGrid'
-New-Item -ItemType Directory -Force -Path $configDir | Out-Null
-Set-Content -LiteralPath (Join-Path $configDir 'godot-exe.txt') -Value $godot -Encoding UTF8
-
-$sdk = if ($env:ANDROID_HOME) { $env:ANDROID_HOME } elseif ($env:ANDROID_SDK_ROOT) { $env:ANDROID_SDK_ROOT } else { Join-Path $env:LOCALAPPDATA 'Android\Sdk' }
-$adb = Join-Path $sdk 'platform-tools\adb.exe'
-if (!(Test-Path $adb)) { throw "Android SDK adb.exe not found at: $adb" }
-
-$javaHomes = @()
-if ($env:JAVA_HOME) { $javaHomes += $env:JAVA_HOME }
-$javaHomes += (Join-Path $env:ProgramFiles 'Android\Android Studio\jbr')
-$javaHomes += (Join-Path $env:ProgramFiles 'Android\Android Studio\jre')
-$jdk = $null
-foreach ($dir in $javaHomes) {
-    if (Test-Path (Join-Path $dir 'bin\keytool.exe')) { $jdk = $dir; break }
-}
-if (!$jdk) { throw 'Java SDK not found. Set JAVA_HOME to JDK 17 or install Android Studio JBR.' }
-
-$keystore = Join-Path $configDir 'novagrid-native-debug.keystore'
-if (!(Test-Path $keystore)) {
-    Write-Host 'Generating a reusable local DEBUG signing key (not your Play key)...' -ForegroundColor Yellow
-    & (Join-Path $jdk 'bin\keytool.exe') -genkeypair -keystore $keystore -alias androiddebugkey -storepass android -keypass android -keyalg RSA -keysize 2048 -validity 4000 -dname 'CN=NovaGrid Preview,O=Development,C=MA' -noprompt
-    CheckExit 'Debug key generation'
-}
-
-$env:GODOT_ANDROID_KEYSTORE_DEBUG_PATH = $keystore
-$env:GODOT_ANDROID_KEYSTORE_DEBUG_USER = 'androiddebugkey'
-$env:GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD = 'android'
-$env:NOVAGRID_ANDROID_SDK = $sdk
-$env:NOVAGRID_JAVA_SDK = $jdk
-$env:ANDROID_HOME = $sdk
-$env:JAVA_HOME = $jdk
-
-Write-Host 'Importing Godot 4.5.1 source assets and verifying parsing...' -ForegroundColor Cyan
-& $godot --headless --editor --path $project --quit
-CheckExit 'Godot project import'
-
-Write-Host 'Configuring Godot Android SDK and Java SDK paths...' -ForegroundColor Cyan
-& $godot --headless --editor --path $project --script 'res://scripts/configure_android_editor.gd'
-CheckExit 'Godot editor SDK configuration'
-
-$templates = Join-Path $env:APPDATA 'Godot\export_templates\4.5.1.stable'
-if (!(Test-Path (Join-Path $templates 'android_debug.apk'))) {
-    # The official .tpz is a ZIP containing templates/android_debug.apk.
-    # Download to temp; only install matching-version templates.
-    $tplUrl = 'https://github.com/godotengine/godot-builds/releases/download/4.5.1-stable/Godot_v4.5.1-stable_export_templates.tpz'
-    $zip = Join-Path $configDir 'godot-android-templates-4.5.1.zip'
-    $extract = Join-Path $configDir 'godot-templates-unpacked'
-    Write-Host 'Downloading official Godot 4.5.1 Android export templates...' -ForegroundColor Cyan
-    try {
-        Invoke-WebRequest -Uri $tplUrl -OutFile $zip -ErrorAction Stop
-        if ((Get-Item $zip).Length -lt 10000000) { throw 'Export template archive is unexpectedly small.' }
-        if (Test-Path $extract) { Remove-Item -LiteralPath $extract -Recurse -Force }
-        Expand-Archive -LiteralPath $zip -DestinationPath $extract -Force -ErrorAction Stop
-        $src = Join-Path $extract 'templates'
-        if (!(Test-Path (Join-Path $src 'android_debug.apk'))) { throw 'Android export template missing in official archive.' }
-        New-Item -ItemType Directory -Force -Path $templates | Out-Null
-        Copy-Item -LiteralPath (Join-Path $src '*') -Destination $templates -Recurse -Force
-    } finally {
-        if (Test-Path $zip) { Remove-Item -LiteralPath $zip -Force }
-        if (Test-Path $extract) { Remove-Item -LiteralPath $extract -Recurse -Force }
-    }
-}
-if (!(Test-Path (Join-Path $templates 'android_debug.apk'))) { throw 'Godot Android export templates still missing.' }
-
-$build = Join-Path $project 'build'
-New-Item -ItemType Directory -Force -Path $build | Out-Null
-$apk = Join-Path $build 'NovaGrid-Godot-Preview.apk'
-$fresh = Join-Path $build 'NovaGrid-Godot-Preview-fresh.apk'
-if (Test-Path $fresh) { Remove-Item -LiteralPath $fresh -Force }
-
-Write-Host 'Exporting latest native Godot Android debug APK...' -ForegroundColor Cyan
-& $godot --headless --path $project --export-debug 'Android Preview' $fresh
-CheckExit 'Godot APK export'
-if (!(Test-Path $fresh) -or (Get-Item $fresh).Length -lt 100000) { throw 'Godot did not produce a valid APK.' }
-Move-Item -LiteralPath $fresh -Destination $apk -Force
-
-$devices = @(& $adb devices | ForEach-Object {
-    if ($_ -match '^(\S+)\s+device(?:\s|$)') { $Matches[1] }
-})
-if ($devices.Count -eq 0) { throw 'No authorized phone. Connect USB, enable USB debugging, accept USB authorization.' }
-$serial = $devices[0]
-if ($devices.Count -gt 1) {
-    for ($i = 0; $i -lt $devices.Count; $i++) { Write-Host "$($i+1). $($devices[$i])" }
-    $choice = Read-Host 'Select device number'
-    if ($choice -notmatch '^\d+$' -or [int]$choice -lt 1 -or [int]$choice -gt $devices.Count) {
-        throw 'Invalid device selection.'
-    }
-    $serial = $devices[[int]$choice-1]
-}
-Write-Host "Installing preview on $serial..." -ForegroundColor Cyan
-$installOutput = (& $adb -s $serial install -r $apk 2>&1 | Out-String)
-Write-Host $installOutput
-if ($LASTEXITCODE -ne 0) {
-    if ($installOutput -match 'INSTALL_FAILED_UPDATE_INCOMPATIBLE|INCONSISTENT_CERTIFICATES') {
-        throw 'Different debug signing key for an existing preview: installation stopped to PROTECT preview game data. No app was uninstalled.'
-    }
-    throw 'ADB install failed. No app was uninstalled.'
-}
-& $adb -s $serial shell monkey -p $package -c android.intent.category.LAUNCHER 1
-CheckExit 'Starting preview on phone'
-Write-Host "SUCCESS: NovaGrid preview installed and launched. APK: $apk" -ForegroundColor Green
- -and $_.Name -notmatch '_console\\.exe
-}
-
-$project = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-$root = (Resolve-Path (Join-Path $project '..')).Path
-$branch = 'novagrid-open-source-rebuild'
-$package = 'com.novagrid.cosmicpuzzle.godotpreview'
-if (!(Test-Path (Join-Path $project 'project.godot'))) { throw 'Godot project missing.' }
-if (!(Test-Path (Join-Path $root '.git'))) { throw 'Git repository missing.' }
-
-if (!$SkipGitPull) {
-    $active = (git -C $root branch --show-current).Trim()
-    if ($active -ne $branch) { throw "Wrong branch: $active" }
-    Write-Host 'Updating NovaGrid from GitHub...' -ForegroundColor Cyan
-    git -C $root pull --ff-only origin $branch
-    CheckExit 'Git pull'
-    # Preserve all unrelated repository files and local worktrees. Do NOT enable sparse-checkout.
-}
-
-$godot = LocateGodot
-$version = (& $godot --version | Out-String).Trim()
-if ($LASTEXITCODE -ne 0 -or $version -notmatch '^4\.5\.1\.') {
-    throw "Godot 4.5.1 required for this project. Found: $version"
-}
-
-$configDir = Join-Path $env:LOCALAPPDATA 'NovaGrid'
-New-Item -ItemType Directory -Force -Path $configDir | Out-Null
-Set-Content -LiteralPath (Join-Path $configDir 'godot-exe.txt') -Value $godot -Encoding UTF8
-
-$sdk = if ($env:ANDROID_HOME) { $env:ANDROID_HOME } elseif ($env:ANDROID_SDK_ROOT) { $env:ANDROID_SDK_ROOT } else { Join-Path $env:LOCALAPPDATA 'Android\Sdk' }
-$adb = Join-Path $sdk 'platform-tools\adb.exe'
-if (!(Test-Path $adb)) { throw "Android SDK adb.exe not found at: $adb" }
-
-$javaHomes = @()
-if ($env:JAVA_HOME) { $javaHomes += $env:JAVA_HOME }
-$javaHomes += (Join-Path $env:ProgramFiles 'Android\Android Studio\jbr')
-$javaHomes += (Join-Path $env:ProgramFiles 'Android\Android Studio\jre')
-$jdk = $null
-foreach ($dir in $javaHomes) {
-    if (Test-Path (Join-Path $dir 'bin\keytool.exe')) { $jdk = $dir; break }
-}
-if (!$jdk) { throw 'Java SDK not found. Set JAVA_HOME to JDK 17 or install Android Studio JBR.' }
-
-$keystore = Join-Path $configDir 'novagrid-native-debug.keystore'
-if (!(Test-Path $keystore)) {
-    Write-Host 'Generating a reusable local DEBUG signing key (not your Play key)...' -ForegroundColor Yellow
-    & (Join-Path $jdk 'bin\keytool.exe') -genkeypair -keystore $keystore -alias androiddebugkey -storepass android -keypass android -keyalg RSA -keysize 2048 -validity 4000 -dname 'CN=NovaGrid Preview,O=Development,C=MA' -noprompt
-    CheckExit 'Debug key generation'
-}
-
-$env:GODOT_ANDROID_KEYSTORE_DEBUG_PATH = $keystore
-$env:GODOT_ANDROID_KEYSTORE_DEBUG_USER = 'androiddebugkey'
-$env:GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD = 'android'
-$env:NOVAGRID_ANDROID_SDK = $sdk
-$env:NOVAGRID_JAVA_SDK = $jdk
-$env:ANDROID_HOME = $sdk
-$env:JAVA_HOME = $jdk
-
-Write-Host 'Configuring Godot Android SDK and Java SDK paths...' -ForegroundColor Cyan
-& $godot --headless --editor --path $project --script 'res://scripts/configure_android_editor.gd'
-CheckExit 'Godot editor SDK configuration'
-
-$templates = Join-Path $env:APPDATA 'Godot\export_templates\4.5.1.stable'
-if (!(Test-Path (Join-Path $templates 'android_debug.apk'))) {
-    throw 'Godot Android export templates missing. Open Godot 4.5.1 > Editor > Manage Export Templates > Download and Install, then rerun. No app was modified.'
-}
-
-$build = Join-Path $project 'build'
-New-Item -ItemType Directory -Force -Path $build | Out-Null
-$apk = Join-Path $build 'NovaGrid-Godot-Preview.apk'
-$fresh = Join-Path $build 'NovaGrid-Godot-Preview-fresh.apk'
-if (Test-Path $fresh) { Remove-Item -LiteralPath $fresh -Force }
-
-Write-Host 'Exporting latest native Godot Android debug APK...' -ForegroundColor Cyan
-& $godot --headless --path $project --export-debug 'Android Preview' $fresh
-CheckExit 'Godot APK export'
-if (!(Test-Path $fresh) -or (Get-Item $fresh).Length -lt 100000) { throw 'Godot did not produce a valid APK.' }
-Move-Item -LiteralPath $fresh -Destination $apk -Force
-
-$devices = @(& $adb devices | ForEach-Object {
-    if ($_ -match '^(\S+)\s+device(?:\s|$)') { $Matches[1] }
-})
-if ($devices.Count -eq 0) { throw 'No authorized phone. Connect USB, enable USB debugging, accept USB authorization.' }
-$serial = $devices[0]
-if ($devices.Count -gt 1) {
-    for ($i = 0; $i -lt $devices.Count; $i++) { Write-Host "$($i+1). $($devices[$i])" }
-    $choice = Read-Host 'Select device number'
-    if ($choice -notmatch '^\d+$' -or [int]$choice -lt 1 -or [int]$choice -gt $devices.Count) {
-        throw 'Invalid device selection.'
-    }
-    $serial = $devices[[int]$choice-1]
-}
-Write-Host "Installing preview on $serial..." -ForegroundColor Cyan
-$installOutput = (& $adb -s $serial install -r $apk 2>&1 | Out-String)
-Write-Host $installOutput
-if ($LASTEXITCODE -ne 0) {
-    if ($installOutput -match 'INSTALL_FAILED_UPDATE_INCOMPATIBLE|INCONSISTENT_CERTIFICATES') {
-        throw 'Different debug signing key for an existing preview: installation stopped to PROTECT preview game data. No app was uninstalled.'
-    }
-    throw 'ADB install failed. No app was uninstalled.'
-}
-& $adb -s $serial shell monkey -p $package -c android.intent.category.LAUNCHER 1
-CheckExit 'Starting preview on phone'
-Write-Host "SUCCESS: NovaGrid preview installed and launched. APK: $apk" -ForegroundColor Green
- } |
+            Where-Object { $_.Name -match '^Godot.*4\.5\.1.*\.exe$' -and $_.Name -notmatch '_console\.exe$' } |
             Select-Object -First 1
-        if (!$exe) { throw 'No Godot.exe found in official archive.' }
+        if (!$exe) { throw 'No Godot executable found in official archive.' }
         return $exe.FullName
     } finally {
         if (Test-Path $zip) { Remove-Item -LiteralPath $zip -Force }
@@ -383,14 +152,36 @@ $env:NOVAGRID_JAVA_SDK = $jdk
 $env:ANDROID_HOME = $sdk
 $env:JAVA_HOME = $jdk
 
+Write-Host 'Importing source in Godot 4.5.1...' -ForegroundColor Cyan
+& $godot --headless --editor --path $project --quit
+CheckExit 'Godot project import'
+
 Write-Host 'Configuring Godot Android SDK and Java SDK paths...' -ForegroundColor Cyan
 & $godot --headless --editor --path $project --script 'res://scripts/configure_android_editor.gd'
 CheckExit 'Godot editor SDK configuration'
 
 $templates = Join-Path $env:APPDATA 'Godot\export_templates\4.5.1.stable'
 if (!(Test-Path (Join-Path $templates 'android_debug.apk'))) {
-    throw 'Godot Android export templates missing. Open Godot 4.5.1 > Editor > Manage Export Templates > Download and Install, then rerun. No app was modified.'
+    # Godot official TPZ is a ZIP; unpack only the exact 4.5.1 templates.
+    $tplUrl = 'https://github.com/godotengine/godot-builds/releases/download/4.5.1-stable/Godot_v4.5.1-stable_export_templates.tpz'
+    $tplZip = Join-Path $configDir 'godot-android-templates-4.5.1.zip'
+    $extract = Join-Path $configDir 'godot-templates-unpacked'
+    Write-Host 'Downloading official Godot 4.5.1 Android export templates...' -ForegroundColor Cyan
+    try {
+        Invoke-WebRequest -Uri $tplUrl -OutFile $tplZip -ErrorAction Stop
+        if ((Get-Item $tplZip).Length -lt 10000000) { throw 'Export template archive is unexpectedly small.' }
+        if (Test-Path $extract) { Remove-Item -LiteralPath $extract -Recurse -Force }
+        Expand-Archive -LiteralPath $tplZip -DestinationPath $extract -Force -ErrorAction Stop
+        $src = Join-Path $extract 'templates'
+        if (!(Test-Path (Join-Path $src 'android_debug.apk'))) { throw 'Missing Android template inside official archive.' }
+        New-Item -ItemType Directory -Force -Path $templates | Out-Null
+        Copy-Item -Path (Join-Path $src '*') -Destination $templates -Recurse -Force
+    } finally {
+        if (Test-Path $tplZip) { Remove-Item -LiteralPath $tplZip -Force }
+        if (Test-Path $extract) { Remove-Item -LiteralPath $extract -Recurse -Force }
+    }
 }
+if (!(Test-Path (Join-Path $templates 'android_debug.apk'))) { throw 'Godot Android export templates still missing.' }
 
 $build = Join-Path $project 'build'
 New-Item -ItemType Directory -Force -Path $build | Out-Null
