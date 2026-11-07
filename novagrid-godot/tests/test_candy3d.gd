@@ -25,6 +25,7 @@ func _run() -> void:
  for i in 8:
   var viewport:SubViewport=studio.render_viewports[i]
   verify(not viewport.disable_3d,"candy viewport is genuinely 3D %d"%i)
+  verify(viewport.own_world_3d,"each candy uses isolated lighting / unique World3D %d"%i)
   verify(viewport.transparent_bg,"candy is composited over the live board %d"%i)
   verify(viewport.size==Vector2i(128,128),"mobile-friendly 128px candy render %d"%i)
   verify(studio.get_candy_texture(i)!=null,"each 3D candy gives a texture %d"%i)
