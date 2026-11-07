@@ -282,7 +282,7 @@ func _reference_blockfall_layout(viewport:Vector2,h:float) -> Dictionary:
   "audio":Rect2(Vector2(42.0*sx,1421.0*sy),Vector2(76.0*sx,68.0*sy)),
   "music":Rect2(Vector2(129.0*sx,1421.0*sy),Vector2(76.0*sx,68.0*sy)),
   "privacy":Rect2(Vector2(224.0*sx,1430.0*sy),Vector2(105.0*sx,52.0*sy)),
-  "bomb":Rect2.ZERO,"bomb_visual":Rect2.ZERO
+  "bomb":Rect2(),"bomb_visual":Rect2()
  }
 
 
