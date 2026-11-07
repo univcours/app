@@ -535,7 +535,7 @@ func _draw_modal(layout:Dictionary) -> void:
   _button(Rect2(modal.position+Vector2(27,148),Vector2(modal.size.x-54,27)),"↻ NEW RUN",false,true)
 
 func _origin_from_position(pos:Vector2,centered:bool,board:Rect2,shape:Array) -> Vector2i:
- var cell:float = board.size.x/10.0
+ var cell:float = board.size.x/9.0
  var local:Vector2 = (pos-board.position)/cell
  if centered:
   var bounds:Vector2i = puzzle.shape_size(shape)
@@ -707,9 +707,9 @@ func _release_puzzle(pos:Vector2,layout:Dictionary) -> void:
  var board:Rect2=layout["board"]
  if bomb_armed:
   if board.has_point(pos):
-   var cell:float=board.size.x/10.0
-   var target:=Vector2i(clampi(int((pos.x-board.position.x)/cell),0,9),
-    clampi(int((pos.y-board.position.y)/cell),0,11))
+   var cell:float=board.size.x/9.0
+   var target:=Vector2i(clampi(int((pos.x-board.position.x)/cell),0,8),
+    clampi(int((pos.y-board.position.y)/cell),0,8))
    var removed:int=puzzle.detonate_bomb(target)
    if removed>0:
     bomb_armed=false
