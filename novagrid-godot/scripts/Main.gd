@@ -229,10 +229,14 @@ func _layout() -> Dictionary:
   var size:Vector2=Vector2(cell*10.0,cell*18.0)
   board=Rect2(Vector2(gutter,header_end+minf(12.0,maxf(3.0,(available-size.y)*.10))),size)
  var next_rect:=Rect2(Vector2(board.end.x+gutter,board.position.y+37.0),Vector2(side_width,96.0))
- var hold_rect:=Rect2(Vector2(board.end.x+gutter,board.position.y+minf(187.0,board.size.y*.39)),Vector2(side_width,96.0))
+ # Reserve space after NEXT for a separate HOLD heading and hitbox.
+ var hold_y:float=maxf(board.position.y+minf(187.0,board.size.y*.39),
+  next_rect.end.y+30.0)
+ var hold_rect:=Rect2(Vector2(board.end.x+gutter,hold_y),Vector2(side_width,96.0))
  return {"viewport":viewport,"height":h,"gutter":gutter,"header_scale":header_scale,
   "tabs":[],"board":board,"tray":tray,"buttons":buttons,
-  "progress":Rect2(gutter,h-36.0,w-2.0*gutter,29.0),
+  "progress":Rect2(gutter,h-(46.0 if h<760.0 else 36.0),
+   w-2.0*gutter,42.0 if h<760.0 else 29.0),
   "mode_switch":Rect2(gutter,12.0*header_scale,43.0,43.0*header_scale),
   "bomb_visual":Rect2(w-gutter-61.0,146.0,61.0,30.0),
   "pause_visual":Rect2(w-gutter-48.0,80.0,48.0,48.0),
@@ -280,6 +284,8 @@ func _draw() -> void:
   draw_set_transform(Vector2.ZERO,0.0,Vector2.ONE)
  if mode==1 and art!=null:
   _draw_reference_progress(layout)
+  # Replace the baked noninteractive star with the real back chevron.
+  _draw_back_button(layout["mode_switch"])
   if native_ads!=null:
    var privacy_rect:Rect2=layout["privacy"]
    _label("PRIVACY",privacy_rect.position+Vector2(0,12),9,Color("#c6eeff"))
@@ -347,15 +353,22 @@ func _reference_blockpuzzle_layout(viewport:Vector2,h:float) -> Dictionary:
  }
 
 
+func _premium_numeric(message:String,at:Vector2,size:int,width:float) -> void:
+ # Numeric HUD: one tight low-contrast shadow, NOT three offset overlapping labels.
+ _label(message,at+Vector2(0,1),size,Color("#5c2865"),
+  HORIZONTAL_ALIGNMENT_CENTER,width)
+ _label(message,at,size,GLOW_GOLD,HORIZONTAL_ALIGNMENT_CENTER,width)
+
+
 func _reference_puzzle_hud(layout:Dictionary) -> void:
  # HUD values are taken from the game engine, never baked into the artwork.
  var frame:Rect2=_puzzle_chrome_frame(layout["viewport"],float(layout["height"]))
  var sx:float=frame.size.x/PUZZLE_CHROME_CANVAS.x
  var sy:float=sx
- _premium_title(str(puzzle.score),Vector2(125.0*sx,287.0*sy),26,
-  252.0*sx,GLOW_GOLD)
- _premium_title(str(puzzle.best),Vector2(487.0*sx,287.0*sy),26,
-  228.0*sx,GLOW_GOLD)
+ _premium_numeric(str(puzzle.score),Vector2(125.0*sx,287.0*sy),26,
+  252.0*sx)
+ _premium_numeric(str(puzzle.best),Vector2(487.0*sx,287.0*sy),26,
+  228.0*sx)
  var percent:float=clampf(float(puzzle.fever)/100.0,0.0,1.0)
  var meter:=Rect2(Vector2(222.0*sx,340.0*sy),
   Vector2(441.0*sx*percent,17.0*sy))
@@ -375,24 +388,28 @@ func _reference_puzzle_hud(layout:Dictionary) -> void:
 
 
 func _draw_reference_puzzle_progress(layout:Dictionary) -> void:
- # The glossy rank dock is decorative; XP, stars and goals are always live.
+ # Replace ALL illustrated static footer labels with a single live Godot HUD.
+ # Opaque glossy inner card masks the old GALAXY RANK title and progress track.
  var frame:Rect2=_puzzle_chrome_frame(layout["viewport"],float(layout["height"]))
- var sx:float=frame.size.x/PUZZLE_CHROME_CANVAS.x
- var sy:float=sx
- _label("LV %d · %s"%[progress.level,progress.rank_name()],
-  Vector2(100.0*sx,1935.0*sy),16,Color("#eff9ff"))
- _label("★ %d  ·  %dd streak"%[progress.stars,progress.streak],
-  Vector2(661.0*sx,1935.0*sy),12,GLOW_GOLD)
+ var unit:float=frame.size.x/PUZZLE_CHROME_CANVAS.x
+ var panel:=Rect2(Vector2(47.0*unit,1849.0*unit),
+  Vector2(847.0*unit,181.0*unit))
+ _glass_panel(panel,Color("#0f1544"),GLOW_PINK)
+ _label("✦  LV %d · %s"%[progress.level,progress.rank_name()],
+  Vector2(83.0*unit,1911.0*unit),14,Color("#f6faff"))
+ _label("★ %d · %dd streak"%[progress.stars,progress.streak],
+  Vector2(650.0*unit,1911.0*unit),11,GLOW_GOLD)
+ var track:=Rect2(Vector2(89.0*unit,1944.0*unit),
+  Vector2(756.0*unit,12.0*unit))
+ draw_rect(track,Color("#1b2f66"),true)
  var percent:float=clampf(progress.level_progress(),0.0,1.0)
- var fill:=Rect2(Vector2(299.0*sx,1950.0*sy),
-  Vector2(349.0*sx*percent,14.0*sy))
- if fill.size.x>1.0:
-  draw_rect(fill,GLOW_BLUE,true)
+ if percent>0:
+  draw_rect(Rect2(track.position,Vector2(track.size.x*percent,track.size.y)),
+   GLOW_BLUE,true)
  var mission:Dictionary=progress.next_mission()
- _label("%s  %d/%d  ·  %s (TAP)" %
-  [mission["label"],mission["progress"],mission["target"],progress.theme_name()],
-  Vector2(99.0*sx,2009.0*sy),10,Color("#c5eaff"))
-
+ _label("%s %d/%d · %s"%[
+  mission["label"],mission["progress"],mission["target"],progress.theme_name()],
+  Vector2(85.0*unit,2008.0*unit),10,Color("#c9e8ff"))
 
 func _reference_blockfall_layout(viewport:Vector2,h:float) -> Dictionary:
  # Touch/gameplay rectangles calibrated from the actual 941x1672 reference.
@@ -431,33 +448,41 @@ func _reference_live_hud(layout:Dictionary) -> void:
  var sy:float=float(layout["height"])/SKIN_CANVAS.y
  # The bundled clean chrome PNG has no baked-in values or candy sprites.
  # Score and level are taken directly from the running Blockfall engine.
- _premium_title(str(falling.score),Vector2(161.0*sx,252.0*sy),28,
-  184.0*sx,GLOW_GOLD)
- _premium_title(str(falling.level),Vector2(539.0*sx,252.0*sy),28,
-  164.0*sx,GLOW_GOLD)
+ _premium_numeric(str(falling.score),Vector2(161.0*sx,252.0*sy),28,
+  184.0*sx)
+ _premium_numeric(str(falling.level),Vector2(539.0*sx,252.0*sy),28,
+  164.0*sx)
  var strip:=Rect2(Vector2(83.0*sx,285.0*sy),Vector2(347.0*sx,34.0*sy))
  draw_rect(strip,Color("#100d39",.96),true)
  _label("COMBO x%d   ✦   LINES %d" % [falling.combo,falling.lines],
   Vector2(strip.position.x,310.0*sy),13,Color("#ffdcf7"))
- _premium_title("x%d" % falling.combo,Vector2(715.0*sx,1038.0*sy),27,
-  177.0*sx,GLOW_GOLD)
+ _premium_numeric("x%d" % falling.combo,Vector2(715.0*sx,1038.0*sy),27,
+  177.0*sx)
  _sparkle(Vector2(431.0*sx,294.0*sy),GLOW_BLUE,2.5)
 
 
 func _draw_reference_progress(layout:Dictionary) -> void:
- # This is live game progression; do not present baked-up illustration values.
+ # The illustrated rank area contains stale demo values. Mask the entire
+ # inner capsule so only actual player progression is rendered.
  var sx:float=float(layout["viewport"].x)/SKIN_CANVAS.x
  var sy:float=float(layout["height"])/SKIN_CANVAS.y
- var rect:=Rect2(Vector2(135.0*sx,1540.0*sy),Vector2(732.0*sx,30.0*sy))
- draw_rect(rect,Color("#0e1949",.92),true)
- _label("LV %d · %s" % [progress.level,progress.rank_name()],
-  Vector2(139.0*sx,1562.0*sy),14,Color("#effaff"))
- _label("★ %d · %dd streak" % [progress.stars,progress.streak],
-  Vector2(655.0*sx,1562.0*sy),11,GLOW_GOLD)
- var gauge:=Rect2(Vector2(290.0*sx,1548.0*sy),Vector2(320.0*sx,9.0*sy))
- draw_rect(gauge,Color("#182050"),true)
- draw_rect(Rect2(gauge.position,Vector2(gauge.size.x*progress.level_progress(),
-  gauge.size.y)),GLOW_BLUE,true)
+ var panel:=Rect2(Vector2(49.0*sx,1524.0*sy),
+  Vector2(845.0*sx,114.0*sy))
+ _glass_panel(panel,Color("#0f1946"),GLOW_PURPLE)
+ _label("✦  LV %d · %s"%[progress.level,progress.rank_name()],
+  Vector2(81.0*sx,1580.0*sy),13,Color("#f4faff"))
+ _label("★ %d · %dd streak"%[progress.stars,progress.streak],
+  Vector2(659.0*sx,1580.0*sy),10,GLOW_GOLD)
+ var track:=Rect2(Vector2(81.0*sx,1597.0*sy),
+  Vector2(783.0*sx,11.0*sy))
+ draw_rect(track,Color("#1b2b60"),true)
+ var value:float=clampf(progress.level_progress(),0.0,1.0)
+ if value>0.0:
+  draw_rect(Rect2(track.position,Vector2(track.size.x*value,track.size.y)),GLOW_BLUE,true)
+ var mission:Dictionary=progress.next_mission()
+ _label("%s  %d/%d · %s"%[mission["label"],mission["progress"],
+  mission["target"],progress.theme_name()],
+  Vector2(83.0*sx,1622.0*sy),9,Color("#c8eeff"))
 
 func _draw_sky(layout:Dictionary) -> void:
  var bounds:Vector2=layout["viewport"]
@@ -651,6 +676,23 @@ func _draw_progress_hud(layout:Dictionary) -> void:
  var rect:Rect2=layout["progress"]
  var y:float=rect.position.y
  _glass_panel(rect,Color("#0e1744"),GLOW_PURPLE)
+ if rect.size.y>35.0:
+  # Compact screens: rank, XP bar, mission are three separate rows.
+  _label("LV %d · %s"%[progress.level,progress.rank_name()],
+   rect.position+Vector2(9,14),11,Color("#f1fbff"))
+  _label("★ %d · %dd streak"%[progress.stars,progress.streak],
+   rect.position+Vector2(0,14),10,GLOW_GOLD,
+   HORIZONTAL_ALIGNMENT_RIGHT,rect.size.x-9)
+  var track:=Rect2(rect.position+Vector2(9,19),
+   Vector2(rect.size.x-18,5))
+  draw_rect(track,Color("#162a55"),true)
+  draw_rect(Rect2(track.position,Vector2(track.size.x*progress.level_progress(),
+   track.size.y)),GLOW_BLUE,true)
+  var task:Dictionary=progress.next_mission()
+  _label("%s %d/%d · %s"%[task["label"],task["progress"],
+   task["target"],progress.theme_name()],
+   rect.position+Vector2(9,35),8,Color("#c5e9ff"))
+  return
  _label("✦ LV %d · %s" % [progress.level,progress.rank_name()],
   Vector2(rect.position.x+9,y+12),11,Color("#f0f9ff"))
  _label("★ %d  ·  %dd streak" % [progress.stars,progress.streak],
@@ -668,10 +710,23 @@ func _draw_progress_hud(layout:Dictionary) -> void:
   [mission["label"],mission["progress"],mission["target"],progress.theme_name()],
   Vector2(rect.position.x+9,y+27),8,Color("#c3e9ff"))
 
+func _draw_back_button(rect:Rect2) -> void:
+ # Identical tactile blue-glass back button in both Puzzle and Blockfall.
+ draw_rect(rect.grow(-0.1),Color("#10143d"),true)
+ _glass_panel(rect,Color("#141b50"),GLOW_BLUE)
+ var center:Vector2=rect.get_center()+Vector2(0.0,1.0)
+ var arm:float=maxf(4.0,minf(rect.size.x,rect.size.y)*.19)
+ var stroke:float=maxf(2.0,minf(rect.size.x,rect.size.y)*.065)
+ var pivot:=center+Vector2(-arm*.5,0.0)
+ draw_line(pivot+Vector2(arm*.70,-arm),pivot,Color("#b6c9ff"),stroke+1.0,true)
+ draw_line(pivot,pivot+Vector2(arm*.70,arm),Color("#b6c9ff"),stroke+1.0,true)
+ draw_line(pivot+Vector2(arm*.65,-arm),pivot,Color.WHITE,stroke,true)
+ draw_line(pivot,pivot+Vector2(arm*.65,arm),Color.WHITE,stroke,true)
+
+
 func _draw_tabs(layout:Dictionary) -> void:
- # A single compact mode switch avoids breaking the hero-screen composition.
- # No directional or on-board movement arrows.
- _button(layout["mode_switch"],"▦" if mode==0 else "✦",false,true)
+ # Back chevrons return to the menu, never silently swap active game mode.
+ _draw_back_button(layout["mode_switch"])
  _button(layout["audio"],"♪" if audio.sounds_enabled else "×",false,true)
  _button(layout["music"],"♫" if audio.music_enabled else "○",false,true)
  if native_ads!=null:
@@ -797,7 +852,7 @@ func _draw_puzzle(layout:Dictionary) -> void:
   for p in shape:
    _gem(Rect2(offset+Vector2(p.x*micro,p.y*micro),
     Vector2(micro,micro)),gem_id)
- if not reference:
+ if not reference and layout["height"]>=760.0:
   _label("✦  DRAG CANDIES  ·  CLEAR LINES  ·  COMBO BLAST  ✦",
    Vector2(0,layout["height"]-117.0),10,Color("#c5f8ff"),
    HORIZONTAL_ALIGNMENT_CENTER,layout["viewport"].x)
@@ -867,9 +922,10 @@ func _draw_falling(layout:Dictionary) -> void:
   29,GLOW_GOLD,HORIZONTAL_ALIGNMENT_CENTER,combo.size.x)
  _sparkle(combo.position+Vector2(combo.size.x*.27,32),GLOW_GOLD,3.0)
  _sparkle(combo.position+Vector2(combo.size.x*.73,32),GLOW_GOLD,3.0)
- _label("SWIPE ↔ MOVE   ·   TAP ROTATE   ·   SWIPE ↓ DROP",
-  Vector2(0,layout["height"]-117.0),9,
-  Color("#fff2bd"),HORIZONTAL_ALIGNMENT_CENTER,layout["viewport"].x)
+ if layout["height"]>=760.0:
+  _label("SWIPE ↔ MOVE   ·   TAP ROTATE   ·   SWIPE ↓ DROP",
+   Vector2(0,layout["height"]-117.0),9,
+   Color("#fff2bd"),HORIZONTAL_ALIGNMENT_CENTER,layout["viewport"].x)
 
 func _draw_side_piece(panel:Rect2,kind_id:int) -> void:
  if kind_id<0 or kind_id>=falling.FORMS.size():
@@ -1051,6 +1107,14 @@ func _release(pos:Vector2) -> void:
  touching=false
  touch_at=pos
  var layout:Dictionary=_layout()
+ # The back button works during live gameplay, pause and game-over.
+ if layout["mode_switch"].has_point(pos):
+  audio.effect("tap")
+  _save_game()
+  var error:int=get_tree().change_scene_to_file("res://scenes/Welcome.tscn")
+  if error!=OK:
+   printerr("NovaGrid: cannot return to main menu: ",error)
+  return
  if paused or (mode==0 and puzzle.over) or (mode==1 and falling.over):
   var viewport:Vector2=layout["viewport"]
   var modal:=Rect2(Vector2(viewport.x*.09,float(layout["height"])*.34),Vector2(viewport.x*.82,222.0))
@@ -1104,19 +1168,7 @@ func _release(pos:Vector2) -> void:
  if native_ads!=null and layout["privacy"].has_point(pos):
   native_ads.call("show_privacy_options")
   return
- if layout["mode_switch"].has_point(pos):
-  mode=1-mode
-  bomb_armed=false
-  selected=-1
-  paused=false
-  falling_touch_valid=false
-  fall_accum=0.0
-  fall_display=Vector2(falling.active)
-  fall_drawn_drops=falling.drops
-  audio.effect("tap")
-  audio.select_music("puzzle" if mode==0 else "falling")
-  _save_game()
-  return
+
  if mode==1 and layout["hold"].has_point(pos):
   if falling.hold_piece():
    fall_display=Vector2(falling.active)
