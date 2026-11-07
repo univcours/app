@@ -57,6 +57,12 @@ func _run_tests()->void:
  verify(cards.size()==2,"new Galaxy home has two real selectable modes")
  verify(cards[0].size.y>100 and cards[1].position.y>cards[0].end.y,
   "two touch cards do not overlap")
+ verify(Welcome.FALL_PREVIEW_COLS==10 and Welcome.FALL_PREVIEW_ROWS==18,
+  "Blockfall preview reflects the real 10x18 playing field")
+ verify(Welcome.FALL_PREVIEW_T.size()==4 and Welcome.FALL_PREVIEW_NEXT.size()==4,
+  "Blockfall preview has active and upcoming four-block tetrominoes")
+ verify(Welcome.FALL_PREVIEW_T[0].y<Welcome.FALL_PREVIEW_T[3].y,
+  "Blockfall active preview is a recognizable T tetromino")
  home.queue_free()
  await process_frame
  await process_frame
