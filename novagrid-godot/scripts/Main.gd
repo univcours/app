@@ -381,7 +381,9 @@ func _reference_puzzle_hud(layout:Dictionary) -> void:
  _label(str(puzzle.total_lines),Vector2(460.0*sx,404.0*sy),15,
   Color("#a1eeff"),HORIZONTAL_ALIGNMENT_CENTER,88.0*sx)
  var count:String=str(puzzle.bombs) if puzzle.bombs>0 else "%d%%"%puzzle.bomb_charge()
- _label(count,Vector2(708.0*sx,379.0*sy),18,GLOW_GOLD,
+ # Avoid collision with the illustrated BOMB label at the top.
+ # On 432px phones, use a separate small counter below the artwork label.
+ _label(count,Vector2(708.0*sx,386.0*sy),11,GLOW_GOLD,
   HORIZONTAL_ALIGNMENT_CENTER,178.0*sx)
  if bomb_armed:
   draw_rect(layout["bomb_visual"].grow(-2.0),Color("#ff6bf1",.23),false,3.0)
