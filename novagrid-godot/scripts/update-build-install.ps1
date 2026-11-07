@@ -12,25 +12,72 @@ function CheckExit([string]$step) {
 }
 
 function LocateGodot {
-    $cache = Join-Path $env:LOCALAPPDATA 'NovaGrid\godot-exe.txt'
+    $configDir = Join-Path $env:LOCALAPPDATA 'NovaGrid'
+    $cache = Join-Path $configDir 'godot-exe.txt'
     if (Test-Path $cache) {
         $entry = (Get-Content $cache -Raw).Trim()
-        if (Test-Path $entry) { return $entry }
+        if (Test-Path $entry -PathType Leaf) { return $entry }
     }
+
     $paths = @(
-        (Join-Path $env:LOCALAPPDATA 'NovaGrid\Godot-4.5.1\Godot_v4.5.1-stable_win64.exe'),
+        (Join-Path $configDir 'Godot-4.5.1\Godot_v4.5.1-stable_win64.exe'),
+        (Join-Path $env:LOCALAPPDATA 'Programs\Godot\Godot_v4.5.1-stable_win64.exe'),
         (Join-Path $env:USERPROFILE 'Downloads\Godot_v4.5.1-stable_win64.exe'),
-        (Join-Path $env:USERPROFILE 'Desktop\Godot_v4.5.1-stable_win64.exe')
+        (Join-Path $env:USERPROFILE 'Desktop\Godot_v4.5.1-stable_win64.exe'),
+        (Join-Path $env:ProgramFiles 'Godot\Godot_v4.5.1-stable_win64.exe')
     )
-    foreach ($p in $paths) { if (Test-Path $p) { return $p } }
+    foreach ($p in $paths) {
+        if (Test-Path $p -PathType Leaf) { return $p }
+    }
+
     $command = Get-Command 'godot.exe','Godot_v4.5.1-stable_win64.exe' -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
     if ($command) { return $command.Source }
-    Add-Type -AssemblyName System.Windows.Forms
-    $dialog = New-Object System.Windows.Forms.OpenFileDialog
-    $dialog.Title = 'Select your installed Godot 4.5.1 executable'
-    $dialog.Filter = 'Executables (*.exe)|*.exe'
-    if ($dialog.ShowDialog() -ne [System.Windows.Forms.DialogResult]::OK) { throw 'Godot not selected.' }
-    return $dialog.FileName
+
+    # Godot is portable on Windows. Earlier download commands may have
+    # extracted it inside a second folder, not installed it in Program Files.
+    $roots = @(
+        $configDir,
+        (Join-Path $env:USERPROFILE 'Downloads'),
+        (Join-Path $env:USERPROFILE 'Desktop'),
+        (Join-Path $env:USERPROFILE 'Documents'),
+        (Join-Path $env:LOCALAPPDATA 'Programs'),
+        (Join-Path $env:ProgramFiles 'Godot')
+    )
+    foreach ($dir in $roots) {
+        if (!(Test-Path $dir -PathType Container)) { continue }
+        $exe = Get-ChildItem -LiteralPath $dir -File -Recurse -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -match '^Godot.*4\.5\.1.*\.exe$' -and $_.Name -notmatch '_console\.exe$' } |
+            Select-Object -First 1
+        if ($exe) {
+            Write-Host "Found existing Godot: $($exe.FullName)" -ForegroundColor Green
+            return $exe.FullName
+        }
+    }
+
+    # A downloaded ZIP is not an installed executable. Unpack one locally
+    # when already present, rather than downloading Godot a second time.
+    foreach ($dir in $roots) {
+        if (!(Test-Path $dir -PathType Container)) { continue }
+        $archives = @(Get-ChildItem -LiteralPath $dir -Recurse -File -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -match '^Godot.*4\.5\.1.*win64.*\.zip$' } |
+            Select-Object -First 1)
+        foreach ($archive in $archives) {
+            $destination = Join-Path $configDir 'Godot-4.5.1'
+            New-Item -ItemType Directory -Force -Path $destination | Out-Null
+            Write-Host "Unpacking already downloaded Godot: $($archive.FullName)" -ForegroundColor Cyan
+            try {
+                Expand-Archive -LiteralPath $archive.FullName -DestinationPath $destination -Force -ErrorAction Stop
+            } catch {
+                throw "Existing Godot ZIP cannot be extracted: $($archive.FullName). $($_.Exception.Message)"
+            }
+            $exe = Get-ChildItem -LiteralPath $destination -File -Recurse -ErrorAction SilentlyContinue |
+                Where-Object { $_.Name -match '^Godot.*4\.5\.1.*\.exe$' -and $_.Name -notmatch '_console\.exe$' } |
+                Select-Object -First 1
+            if ($exe) { return $exe.FullName }
+        }
+    }
+
+    throw 'Godot 4.5.1 executable/ZIP could not be found automatically in Downloads, Desktop, Documents, AppData or Godot program folders. No new download was attempted.'
 }
 
 $project = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
