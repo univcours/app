@@ -10,7 +10,7 @@ func _capture() -> void:
  var app = packed.instantiate()
  root.add_child(app)
  # A real run with pieces locked onto the board makes screenshots representative.
- for n in 18:
+ for n in 15:
   var played := false
   for slot in 3:
    if played:
@@ -18,15 +18,15 @@ func _capture() -> void:
    var shape: Array = app.puzzle.tray[slot]
    if shape.is_empty():
     continue
-   for y in 12:
+   for y in range(8,-1,-1):
     if played:
      break
-    for x in 10:
+    for x in 9:
      if app.puzzle.fits(shape,Vector2i(x,y)):
       app.puzzle.place(slot,Vector2i(x,y))
       app.progress.placed_piece()
       if app.puzzle.last_cleared>0:
-       app.progress.cleared_lines(maxi(1,int(app.puzzle.last_cleared/10)),app.puzzle.combo)
+       app.progress.cleared_lines(app.puzzle.last_groups,app.puzzle.combo)
       played = true
       break
   if not played or app.puzzle.over:
@@ -39,10 +39,12 @@ func _capture() -> void:
   quit(1)
   return
  app.mode = 1
- for n in 11:
+ for n in 7:
   if app.falling.over:
    break
-  app.falling.move(-1 if n%2==0 else 1)
+  var direction:int=-1 if n%2==0 else 1
+  for step in (n%3)+1:
+   app.falling.move(direction)
   app.falling.hard_drop()
   app.progress.locked_falling_piece()
   if app.falling.last_lines>0:
