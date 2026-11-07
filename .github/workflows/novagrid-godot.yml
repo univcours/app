@@ -24,9 +24,20 @@ jobs:
       - name: Parse audio, game rules and main UI directly
         run: |
           set -euo pipefail
-          for script in Audio.gd Puzzle.gd Falling.gd Progression.gd Visuals.gd Main.gd; do
+          for script in Audio.gd Puzzle.gd Falling.gd Progression.gd Visuals.gd Main.gd configure_android_editor.gd; do
             godot --headless --path novagrid-godot --check-only --script "res://scripts/$script"
           done
+      - name: Check Windows PowerShell helper syntax
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile("novagrid-godot/scripts/update-build-install.ps1", [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) {
+            $errors | ForEach-Object { Write-Error $_.Message }
+            exit 1
+          }
+          Write-Host "NOVAGRID WINDOWS HELPER SYNTAX VALID"
       - name: Import project and parse all game scripts
         run: |
           set -euo pipefail
