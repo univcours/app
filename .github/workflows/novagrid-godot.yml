@@ -1,7 +1,7 @@
 name: NovaGrid Godot Native QA
 on:
   push:
-    branches: [novagrid-godot-rebuild, novagrid-open-source-rebuild]
+    branches: [novagrid-godot-rebuild, novagrid-open-source-rebuild, novagrid-godot-hardening]
     paths:
       - 'novagrid-godot/**'
       - '.github/workflows/novagrid-godot.yml'
@@ -61,6 +61,12 @@ jobs:
           godot --headless --path novagrid-godot --script res://tests/test_progression.gd 2>&1 | tee /tmp/progression.log
           grep -F 'ALL NOVAGRID METAGAME TESTS PASSED' /tmp/progression.log
           if grep -E 'SCRIPT ERROR|Parse Error|Parser Error' /tmp/progression.log; then exit 1; fi
+      - name: Persist sound and music independently of player progress
+        run: |
+          set -euo pipefail
+          godot --headless --path novagrid-godot --script res://tests/test_settings.gd 2>&1 | tee /tmp/settings.log
+          grep -F 'ALL NOVAGRID AUDIO PERSISTENCE TESTS PASSED' /tmp/settings.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Parser Error' /tmp/settings.log; then exit 1; fi
       - name: Real touch and swipe controls QA
         run: |
           set -euo pipefail
@@ -72,7 +78,7 @@ jobs:
           set -euo pipefail
           godot --headless --path novagrid-godot --script res://tests/test_open_source.gd 2>&1 | tee /tmp/open-source.log
           grep -F 'ALL NOVAGRID OPEN SOURCE REBUILD TESTS PASSED' /tmp/open-source.log
-          if grep -E 'SCRIPT ERROR|Parse Error|Parser Error' /tmp/open-source.log; then exit 1; fi
+          if grep -E 'SCRIPT ERROR|Parse Error|Parser Error|Condition "!is_inside_tree' /tmp/open-source.log; then exit 1; fi
       - name: Launch actual main scene headlessly
         run: |
           set -euo pipefail
@@ -170,6 +176,7 @@ jobs:
             /tmp/progression.log
             /tmp/touch.log
             /tmp/open-source.log
+            /tmp/settings.log
             /tmp/candy3d.log
             /tmp/candy-gallery.log
             /tmp/welcome.log
