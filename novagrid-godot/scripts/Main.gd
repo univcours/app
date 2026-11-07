@@ -397,12 +397,12 @@ func _draw_puzzle(layout:Dictionary) -> void:
   if board.has_point(near):
    var origin:Vector2i=_origin_from_position(near,dragging,board,puzzle.tray[selected])
    if puzzle.fits(puzzle.tray[selected],origin):
-    var preview_color:int=[7,1,5][selected]
+    var preview_color:int=int(puzzle.tray_colors[selected])
     for p in puzzle.tray[selected]:
      var q:Vector2i=origin+p
      _gem(Rect2(board.position+Vector2(q.x*cell,q.y*cell),Vector2(cell,cell)),preview_color,true)
  # Three freestanding, very glossy and vividly colored crystals as the collage.
- var colors:Array=[7,1,5]
+ var colors:Array=puzzle.tray_colors
  for i in 3:
   var tray_rect:Rect2=layout["tray"][i]
   var highlight:Color=GEM_COLORS[colors[i]]
