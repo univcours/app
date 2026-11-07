@@ -8,8 +8,8 @@ const VisualsScript = preload("res://scripts/Visuals.gd")
 const ProgressionScript = preload("res://scripts/Progression.gd")
 
 const GEM_COLORS = [
- Color("#192850"), Color("#ff46af"), Color("#ffcc3b"), Color("#31d9fa"),
- Color("#a866ff"), Color("#21eda3"), Color("#ff9147"), Color("#4fa5ff")
+ Color("#192850"), Color("#ff287f"), Color("#ffbe17"), Color("#13c7fa"),
+ Color("#963aff"), Color("#11db60"), Color("#ff751c"), Color("#127bff")
 ]
 const SKY = Color("#070923")
 var puzzle
@@ -279,7 +279,7 @@ func _draw_header(layout:Dictionary) -> void:
  var mode_name:String="Classic Puzzle" if mode==0 else "Blockfall"
  # Match the reference hierarchy: enormous luminous mode title, two score
  # capsules and a single sapphire glass pause button at the right.
- _label(mode_name.to_upper(),Vector2(1.2,42.0),29,Color(.12,.46,1.0,.56),HORIZONTAL_ALIGNMENT_CENTER,w)
+ _label(mode_name,Vector2(1.2,42.0),29,Color(.12,.46,1.0,.56),HORIZONTAL_ALIGNMENT_CENTER,w)
  _label(mode_name,Vector2(0.0,40.0),29,Color("#f5fbff"),HORIZONTAL_ALIGNMENT_CENTER,w)
  _label("✦ NOVAGRID ✦",Vector2(0,59),10,Color("#c4a2fa"),HORIZONTAL_ALIGNMENT_CENTER,w)
  var score:int=puzzle.score if mode==0 else falling.score
