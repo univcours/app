@@ -92,5 +92,26 @@ static func candy_badge(canvas:CanvasItem,box:Rect2,title:String,font:Font,
  candy_text(canvas,font,title,Vector2(box.position.x,box.position.y+box.size.y*.67),
   12,CREAM,HORIZONTAL_ALIGNMENT_CENTER,box.size.x)
 
+static func candy_meter(canvas:CanvasItem,rect:Rect2,value:float,
+ accent:Color=PINK,clock:float=0.0) -> void:
+ if rect.size.x<3.0 or rect.size.y<3.0:
+  return
+ var amount:float=clampf(value,0.0,1.0)
+ var track:Color=Color("#2e174d")
+ canvas.draw_rect(rect,track,true)
+ canvas.draw_rect(rect,Color("#e7c9ff"),false,1.0)
+ var inner:Rect2=rect.grow(-1.6)
+ inner.size.x*=amount
+ if inner.size.x<=0.0:
+  return
+ canvas.draw_rect(inner,accent,true)
+ canvas.draw_line(inner.position+Vector2(0,1),
+  Vector2(inner.end.x,inner.position.y+1),Color(1,1,1,.77),1.2,true)
+ canvas.draw_line(Vector2(inner.position.x,inner.end.y-1),
+  inner.end-Vector2(0,1),Color("#492269"),1.1,true)
+ if inner.size.x>16.0:
+  var shimmer_x:float=inner.position.x+fposmod(clock*18.0,inner.size.x)
+  canvas.draw_circle(Vector2(shimmer_x,inner.get_center().y),1.6,Color(1,1,1,.6))
+
 static func reset_style_cache() -> void:
  _cached_styles.clear()
