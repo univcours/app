@@ -3,6 +3,8 @@ extends RefCounted
 ## Replayable sessions stay free; achievements and daily rewards pay only once.
 const RANKS = ["ROOKIE","BRONZE","SILVER","GOLD","EMERALD","SAPPHIRE","DIAMOND","MASTER","NOVA LEGEND"]
 const RANK_LEVELS = [1,3,7,12,20,31,45,62,82]
+const THEMES = ["NEON","OCEAN","VIOLET","EMERALD","GOLD"]
+const THEME_LEVELS = [1,4,9,16,28]
 const MISSIONS = [
  {"id":"puzzle_plays","label":"PLACE 12 CRYSTALS","target":12,"xp":90,"stars":12},
  {"id":"line_clears","label":"CLEAR 6 LINES","target":6,"xp":120,"stars":18},
@@ -11,6 +13,7 @@ const MISSIONS = [
 var xp := 0
 var level := 1
 var stars := 0
+var active_theme := 0
 var total_plays := 0
 var total_clears := 0
 var total_drops := 0
@@ -47,6 +50,20 @@ func rank_name() -> String:
   if level>=RANK_LEVELS[i]:
    result=RANKS[i]
  return result
+
+func unlocked_themes() -> int:
+ var count:=0
+ for minimum_level in THEME_LEVELS:
+  if level>=int(minimum_level):
+   count+=1
+ return maxi(1,count)
+
+func cycle_theme() -> String:
+ active_theme=(active_theme+1)%unlocked_themes()
+ return String(THEMES[active_theme])
+
+func theme_name() -> String:
+ return String(THEMES[clampi(active_theme,0,THEMES.size()-1)])
 
 func _grant_xp(amount:int) -> void:
  xp += maxi(0,amount)
@@ -147,7 +164,7 @@ func next_mission() -> Dictionary:
  return {"label":"ALL DAILY MISSIONS COMPLETE","progress":3,"target":3}
 
 func snapshot() -> Dictionary:
- return {"version":1,"xp":xp,"level":level,"stars":stars,
+ return {"version":1,"xp":xp,"level":level,"stars":stars,"active_theme":active_theme,
   "total_plays":total_plays,"total_clears":total_clears,
   "total_drops":total_drops,"highest_combo":highest_combo,
   "achievements":achievements.duplicate(true),
@@ -166,6 +183,7 @@ func restore(raw:Dictionary) -> bool:
  while level<200 and xp>=xp_to_level_start(level+1):
   level+=1
  stars=clampi(int(raw.get("stars",0)),0,100000000)
+ active_theme=clampi(int(raw.get("active_theme",0)),0,unlocked_themes()-1)
  total_plays=maxi(0,int(raw.get("total_plays",0)))
  total_clears=maxi(0,int(raw.get("total_clears",0)))
  total_drops=maxi(0,int(raw.get("total_drops",0)))
