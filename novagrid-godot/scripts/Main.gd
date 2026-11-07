@@ -138,39 +138,42 @@ func _exit_tree() -> void:
  _save_game()
 
 func _layout() -> Dictionary:
- var viewport:Vector2 = get_viewport_rect().size
- var w:float = viewport.x
- var h:float = viewport.y-banner_height
- var gutter:float = clampf(w*0.027,7.0,16.0)
- var half:float = (w-3.0*gutter)/2.0
- var tabs := [Rect2(gutter,61,half,39),Rect2(gutter*2.0+half,61,half,39)]
- var header_end:float = 177.0
+ var viewport:Vector2=get_viewport_rect().size
+ var w:float=viewport.x
+ var h:float=viewport.y-banner_height
+ var gutter:float=clampf(w*.031,9.0,18.0)
+ var header_end:float=177.0
  var board:Rect2
- var tray:Array = []
- var buttons:Array = []
+ var tray:Array=[]
+ var buttons:Array=[]
+ var side_width:float=clampf(w*.194,65.0,85.0)
  if mode==0:
-  var tray_height:float = clampf(h*0.083,58,76)
-  var playable_height:float = maxf(150,h-header_end-tray_height-84)
-  var cell:float = maxf(2.0,minf((w-2*gutter-9.0)/10.0,playable_height/12.0))
-  var board_size := Vector2(cell*10.0,cell*12.0)
-  var surplus:float = maxf(0.0,playable_height-board_size.y)
-  board = Rect2(Vector2((w-board_size.x)/2.0,header_end+surplus*0.34),board_size)
-  var tray_y:float = board.end.y+12.0
-  var tray_w:float = (w-2*gutter-12)/3.0
+  # A real 9x9 glass grid and three unframed glowing crystal tray shapes.
+  var tray_height:float=clampf(h*.082,60.0,81.0)
+  var available:float=maxf(130.0,h-header_end-tray_height-126.0)
+  var cell:float=maxf(2.0,minf((w-2.0*gutter-10.0)/9.0,available/9.0))
+  var size:Vector2=Vector2(cell*9.0,cell*9.0)
+  board=Rect2(Vector2((w-size.x)*.5,header_end+maxf(8.0,(available-size.y)*.34)),size)
+  var tray_y:float=board.end.y+22.0
+  var tray_w:float=(w-2.0*gutter-18.0)/3.0
   for i in 3:
-   tray.append(Rect2(Vector2(gutter+i*(tray_w+6),tray_y),Vector2(tray_w,tray_height)))
+   tray.append(Rect2(Vector2(gutter+i*(tray_w+9.0),tray_y),Vector2(tray_w,tray_height)))
  else:
-  # Falling-block play uses direct gestures only; no directional controls.
-  var available:float = maxf(170,h-header_end-73)
-  var cell:float = maxf(2.0,minf((w-2*gutter-10)/10.0,available/18.0))
-  var board_size := Vector2(cell*10,cell*18)
-  board = Rect2(Vector2((w-board_size.x)*.5,header_end+maxf(0,available-board_size.y)*.28),board_size)
-
+  # Leave the real 10x18 board big, with playable NEXT and HOLD at right.
+  var available:float=maxf(260.0,h-header_end-112.0)
+  var cell:float=maxf(2.0,minf((w-3.0*gutter-side_width)/10.0,available/18.0))
+  var size:Vector2=Vector2(cell*10.0,cell*18.0)
+  board=Rect2(Vector2(gutter,header_end+maxf(4.0,(available-size.y)*.20)),size)
+ var next_rect:=Rect2(Vector2(board.end.x+gutter,board.position.y+37.0),Vector2(side_width,96.0))
+ var hold_rect:=Rect2(Vector2(board.end.x+gutter,board.position.y+187.0),Vector2(side_width,96.0))
  return {"viewport":viewport,"height":h,"gutter":gutter,
-  "tabs":tabs,"board":board,"tray":tray,"buttons":buttons,
-  "bomb":Rect2(w-gutter-(w-2*gutter-18.0)/4.0,106,(w-2*gutter-18.0)/4.0,44.0),
-  "pause":Rect2(w-45,10,34,35),"audio":Rect2(10,10,34,35),
-  "music":Rect2(49,10,34,35)}
+  "tabs":[],"board":board,"tray":tray,"buttons":buttons,
+  "mode_switch":Rect2(gutter,12.0,43.0,43.0),
+  "bomb":Rect2(w-gutter-61.0,146.0,61.0,30.0),
+  "pause":Rect2(w-gutter-48.0,80.0,48.0,48.0),
+  "audio":Rect2(gutter,round(h-101.0),36.0,34.0),
+  "music":Rect2(gutter+42.0,round(h-101.0),36.0,34.0),
+  "next":next_rect,"hold":hold_rect}
 
 func _draw() -> void:
  var layout:Dictionary = _layout()
@@ -244,40 +247,37 @@ func _button(rect:Rect2,title:String,active:bool=false,small:bool=false) -> void
 func _draw_header(layout:Dictionary) -> void:
  var w:float=layout["viewport"].x
  var g:float=layout["gutter"]
- var cw:float=(w-2.0*g-18.0)/4.0
- _label("N O V A G R I D",Vector2(0,39),25,Color(.14,.74,1.0,.57),HORIZONTAL_ALIGNMENT_CENTER,w)
- _label("N O V A G R I D",Vector2(0,37),25,Color("#f1f6ff"),HORIZONTAL_ALIGNMENT_CENTER,w)
- _button(layout["pause"],"▶" if paused else "Ⅱ",false,true)
- _button(layout["audio"],"♪" if audio.sounds_enabled else "×",false,true)
- _button(layout["music"],"♫" if audio.music_enabled else "○",false,true)
- var best:int=puzzle.best if mode==0 else falling.best
- _label("COSMIC GLASS ARCADE  •  BEST %d" % best,Vector2(0,54),9,Color("#a4bfee"),HORIZONTAL_ALIGNMENT_CENTER,w)
+ var mode_name:String="Classic Puzzle" if mode==0 else "Blockfall"
+ # Match the reference hierarchy: enormous luminous mode title, two score
+ # capsules and a single sapphire glass pause button at the right.
+ _label(mode_name.to_upper(),Vector2(1.2,42.0),29,Color(.12,.46,1.0,.56),HORIZONTAL_ALIGNMENT_CENTER,w)
+ _label(mode_name,Vector2(0.0,40.0),29,Color("#f5fbff"),HORIZONTAL_ALIGNMENT_CENTER,w)
+ _label("✦ NOVAGRID ✦",Vector2(0,59),10,Color("#c4a2fa"),HORIZONTAL_ALIGNMENT_CENTER,w)
  var score:int=puzzle.score if mode==0 else falling.score
- var line_count:int=puzzle.total_lines if mode==0 else falling.lines
- var combo:int=puzzle.combo if mode==0 else falling.combo
- var fourth:String=str(falling.level)
+ var best:int=puzzle.best if mode==0 else falling.best
+ var other:String="BEST" if mode==0 else "LEVEL"
+ var other_value:String=str(best) if mode==0 else str(falling.level)
+ var left_card:=Rect2(Vector2(g,77),Vector2((w-3.0*g-55.0)*.51,57))
+ var right_card:=Rect2(Vector2(left_card.end.x+g,77),Vector2((w-3.0*g-55.0)*.49,57))
+ _glass_panel(left_card,Color(.042,.038,.20,.92),Color(.36,.37,.68,.62))
+ _glass_panel(right_card,Color(.042,.038,.20,.92),Color(.57,.42,.74,.69))
+ _label("SCORE",Vector2(left_card.position.x,left_card.position.y+17),11,Color("#f1e9ff"),HORIZONTAL_ALIGNMENT_CENTER,left_card.size.x)
+ _label("%s" % score,Vector2(left_card.position.x,left_card.position.y+44),24,Color("#ffe7a4"),HORIZONTAL_ALIGNMENT_CENTER,left_card.size.x)
+ _label(other,Vector2(right_card.position.x,right_card.position.y+17),11,Color("#ffe0a9"),HORIZONTAL_ALIGNMENT_CENTER,right_card.size.x)
+ _label(other_value,Vector2(right_card.position.x,right_card.position.y+44),24,Color("#fff1c2"),HORIZONTAL_ALIGNMENT_CENTER,right_card.size.x)
+ _button(layout["pause"],"▶" if paused else "Ⅱ",true,false)
  if mode==0:
-  fourth="x%d" % puzzle.bombs if puzzle.bombs>0 else "%d%%" % puzzle.bomb_charge()
- var headings:Array=["SCORE","LINES","COMBO","BOMB" if mode==0 else "LEVEL"]
- var values:Array=[str(score),str(line_count),"x%d" % combo,fourth]
- var colors:Array=[Color("#9df9ff"),Color("#c9a4ff"),Color("#ffb6eb"),Color("#ffe28a")]
- for i in 4:
-  var rect:=Rect2(Vector2(g+i*(cw+6.0),106),Vector2(cw,44.0))
-  var bomb_selected:bool=i==3 and mode==0 and bomb_armed
-  _glass_panel(rect,Color(.29,.11,.40,.81) if bomb_selected else Color(.08,.16,.37,.75),
-   Color("#ff87e7") if bomb_selected else Color("#75dfff"))
-  _label(String(headings[i]),Vector2(rect.position.x,rect.position.y+14),10,Color("#dbe9ff"),HORIZONTAL_ALIGNMENT_CENTER,rect.size.x)
-  _label(String(values[i]),Vector2(rect.position.x,rect.position.y+36),18,colors[i],HORIZONTAL_ALIGNMENT_CENTER,rect.size.x)
- if mode==0:
-  var filled:float=float(puzzle.fever)/100.0
-  var bar:=Rect2(Vector2(g+48,158),Vector2(w-2.0*g-60,6))
-  draw_rect(bar,Color("#1f1b56"),true)
-  draw_rect(Rect2(bar.position,Vector2(bar.size.x*filled,bar.size.y)),Color("#fd73eb"),true)
-  _label("FEVER",Vector2(g+1,165),9,Color("#f6b8ec"))
-  if puzzle.bombs>0 and bomb_armed:
-   _label("TOUCH A CROWDED 3×3 AREA",Vector2(0,173),8,Color("#ffbaf4"),HORIZONTAL_ALIGNMENT_CENTER,w)
+  var progress_bar:=Rect2(Vector2(g,147),Vector2(w-2.0*g-73.0,9))
+  draw_rect(progress_bar,Color("#24113d"),true)
+  draw_rect(Rect2(progress_bar.position,Vector2(progress_bar.size.x*float(puzzle.fever)/100.0,progress_bar.size.y)),Color("#e953ff"),true)
+  _label("FEVER  %d%%" % puzzle.fever,Vector2(g,171),9,Color("#f1b3ff"))
+  var bomb:Rect2=layout["bomb"]
+  _glass_panel(bomb,Color(.33,.07,.33,.85) if bomb_armed else Color(.15,.09,.40,.85),Color("#ff84de") if bomb_armed else Color("#b466ed"))
+  _label("●  %s" % (str(puzzle.bombs) if puzzle.bombs>0 else "%d%%" % puzzle.bomb_charge()),
+   Vector2(bomb.position.x,bomb.position.y+21),14,Color("#ffe6ad"),HORIZONTAL_ALIGNMENT_CENTER,bomb.size.x)
+  _label("COMBO x%d  •  LINES %d" % [puzzle.combo,puzzle.total_lines],Vector2(g+75,171),10,Color("#fff1a2"))
  else:
-  _label("SWIPE MOVE • TAP ROTATE • HOLD DROP",Vector2(0,165),8,Color("#a4ceff"),HORIZONTAL_ALIGNMENT_CENTER,w)
+  _label("COMBO x%d  •  LINES %d" % [falling.combo,falling.lines],Vector2(g,170),12,Color("#ff9dff"))
 
 func _draw_progress_hud(layout:Dictionary) -> void:
  var w:float=layout["viewport"].x
@@ -295,9 +295,12 @@ func _draw_progress_hud(layout:Dictionary) -> void:
  _label("%s  %d/%d   ·   %s GALAXY (TAP)" % [mission["label"],mission["progress"],mission["target"],progress.theme_name()],Vector2(rect.position.x+12,y+41),9,Color("#b7daff"))
 
 func _draw_tabs(layout:Dictionary) -> void:
- var titles := ["✦  BLOCK PUZZLE","▦  BLOCKFALL"]
- for i in 2:
-  _button(layout["tabs"][i],titles[i],i==mode,true)
+ # A single compact mode switch avoids breaking the hero-screen composition.
+ # No directional or on-board movement arrows.
+ _button(layout["mode_switch"],"▦" if mode==0 else "✦",false,true)
+ _button(layout["audio"],"♪" if audio.sounds_enabled else "×",false,true)
+ _button(layout["music"],"♫" if audio.music_enabled else "○",false,true)
+
 
 func _gem(rect:Rect2,color_id:int,ghost:bool=false) -> void:
  if color_id<=0:
