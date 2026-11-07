@@ -23,6 +23,7 @@ var panel_styles: Dictionary = {}
 var mode := 0
 var paused := false
 var selected := -1
+var bomb_armed := false
 var touching := false
 var dragging := false
 var pressed_at := Vector2.ZERO
@@ -143,7 +144,7 @@ func _layout() -> Dictionary:
  var gutter:float = clampf(w*0.027,7.0,16.0)
  var half:float = (w-3.0*gutter)/2.0
  var tabs := [Rect2(gutter,61,half,39),Rect2(gutter*2.0+half,61,half,39)]
- var header_end:float = 151.0
+ var header_end:float = 177.0
  var board:Rect2
  var tray:Array = []
  var buttons:Array = []
@@ -167,6 +168,7 @@ func _layout() -> Dictionary:
 
  return {"viewport":viewport,"height":h,"gutter":gutter,
   "tabs":tabs,"board":board,"tray":tray,"buttons":buttons,
+  "bomb":Rect2(w-gutter-(w-2*gutter-18.0)/4.0,106,(w-2*gutter-18.0)/4.0,44.0),
   "pause":Rect2(w-45,10,34,35),"audio":Rect2(10,10,34,35),
   "music":Rect2(49,10,34,35)}
 
@@ -240,27 +242,42 @@ func _button(rect:Rect2,title:String,active:bool=false,small:bool=false) -> void
   Color.WHITE,HORIZONTAL_ALIGNMENT_CENTER,rect.size.x)
 
 func _draw_header(layout:Dictionary) -> void:
- var w:float = layout["viewport"].x
- _label("N O V A G R I D",Vector2(0,39),25,Color(.12,.72,1.0,.52),HORIZONTAL_ALIGNMENT_CENTER,w)
+ var w:float=layout["viewport"].x
+ var g:float=layout["gutter"]
+ var cw:float=(w-2.0*g-18.0)/4.0
+ _label("N O V A G R I D",Vector2(0,39),25,Color(.14,.74,1.0,.57),HORIZONTAL_ALIGNMENT_CENTER,w)
  _label("N O V A G R I D",Vector2(0,37),25,Color("#f1f6ff"),HORIZONTAL_ALIGNMENT_CENTER,w)
  _button(layout["pause"],"▶" if paused else "Ⅱ",false,true)
  _button(layout["audio"],"♪" if audio.sounds_enabled else "×",false,true)
  _button(layout["music"],"♫" if audio.music_enabled else "○",false,true)
- _label("COSMIC GLASS ARCADE",Vector2(0,55),9,Color("#9eaeeb"),HORIZONTAL_ALIGNMENT_CENTER,w)
- var label:String = "SCORE"
- var value:int = puzzle.score if mode==0 else falling.score
- var combo:int = puzzle.combo if mode==0 else falling.combo
- var best:int = puzzle.best if mode==0 else falling.best
- _label("%s  %d" % [label,value],Vector2(15,122),17,Color("#ecfbff"))
- _label("BEST %d" % best,Vector2(w*.48,122),11,Color("#b5cdfd"))
- _label("COMBO x%d" % combo,Vector2(w-111,140),11,Color("#ffe3ff"))
+ var best:int=puzzle.best if mode==0 else falling.best
+ _label("COSMIC GLASS ARCADE  •  BEST %d" % best,Vector2(0,54),9,Color("#a4bfee"),HORIZONTAL_ALIGNMENT_CENTER,w)
+ var score:int=puzzle.score if mode==0 else falling.score
+ var line_count:int=puzzle.total_lines if mode==0 else falling.lines
+ var combo:int=puzzle.combo if mode==0 else falling.combo
+ var fourth:String=str(falling.level)
  if mode==0:
-  var progress:float = float(puzzle.fever)/100.0
-  draw_rect(Rect2(Vector2(13,132),Vector2(w*.37,4)),Color("#192654"),true)
-  draw_rect(Rect2(Vector2(13,132),Vector2(w*.37*progress,4)),Color("#fc78dc"),true)
-  _label("FEVER",Vector2(13,146),8,Color("#eed6ff"))
+  fourth="x%d" % puzzle.bombs if puzzle.bombs>0 else "%d%%" % puzzle.bomb_charge()
+ var headings:Array=["SCORE","LINES","COMBO","BOMB" if mode==0 else "LEVEL"]
+ var values:Array=[str(score),str(line_count),"x%d" % combo,fourth]
+ var colors:Array=[Color("#9df9ff"),Color("#c9a4ff"),Color("#ffb6eb"),Color("#ffe28a")]
+ for i in 4:
+  var rect:=Rect2(Vector2(g+i*(cw+6.0),106),Vector2(cw,44.0))
+  var bomb_selected:bool=i==3 and mode==0 and bomb_armed
+  _glass_panel(rect,Color(.29,.11,.40,.81) if bomb_selected else Color(.08,.16,.37,.75),
+   Color("#ff87e7") if bomb_selected else Color("#75dfff"))
+  _label(String(headings[i]),Vector2(rect.position.x,rect.position.y+14),10,Color("#dbe9ff"),HORIZONTAL_ALIGNMENT_CENTER,rect.size.x)
+  _label(String(values[i]),Vector2(rect.position.x,rect.position.y+36),18,colors[i],HORIZONTAL_ALIGNMENT_CENTER,rect.size.x)
+ if mode==0:
+  var filled:float=float(puzzle.fever)/100.0
+  var bar:=Rect2(Vector2(g+48,158),Vector2(w-2.0*g-60,6))
+  draw_rect(bar,Color("#1f1b56"),true)
+  draw_rect(Rect2(bar.position,Vector2(bar.size.x*filled,bar.size.y)),Color("#fd73eb"),true)
+  _label("FEVER",Vector2(g+1,165),9,Color("#f6b8ec"))
+  if puzzle.bombs>0 and bomb_armed:
+   _label("TOUCH A CROWDED 3×3 AREA",Vector2(0,173),8,Color("#ffbaf4"),HORIZONTAL_ALIGNMENT_CENTER,w)
  else:
-  _label("LINES %d   LV %d" % [falling.lines,falling.level],Vector2(13,143),11,Color("#b7d8fb"))
+  _label("SWIPE MOVE • TAP ROTATE • HOLD DROP",Vector2(0,165),8,Color("#a4ceff"),HORIZONTAL_ALIGNMENT_CENTER,w)
 
 func _draw_progress_hud(layout:Dictionary) -> void:
  var w:float=layout["viewport"].x
@@ -324,6 +341,14 @@ func _draw_puzzle(layout:Dictionary) -> void:
    var id:int = int(puzzle.cells[y][x])
    if id>0:
     _gem(Rect2(board.position+Vector2(x*cell,y*cell),Vector2(cell,cell)),id)
+ if bomb_armed and board.has_point(touch_at):
+  var target:=Vector2i(clampi(int((touch_at.x-board.position.x)/cell),0,9),
+   clampi(int((touch_at.y-board.position.y)/cell),0,11))
+  for yy in range(maxi(0,target.y-1),mini(12,target.y+2)):
+   for xx in range(maxi(0,target.x-1),mini(10,target.x+2)):
+    var preview:=Rect2(board.position+Vector2(xx*cell,yy*cell),Vector2(cell,cell))
+    draw_rect(preview.grow(-1.0),Color(.99,.17,.72,.32 if puzzle.cells[yy][xx]>0 else .13),true)
+    draw_rect(preview.grow(-1.0),Color("#ff9eec"),false,1.25)
  if selected>=0 and selected<puzzle.tray.size() and not puzzle.tray[selected].is_empty():
   var near:Vector2 = touch_at-Vector2(0,52) if dragging else touch_at
   if board.has_point(near):
@@ -347,7 +372,7 @@ func _draw_puzzle(layout:Dictionary) -> void:
   var gem_color:int = 1+(puzzle.moves+i*2)%6
   for p in shape:
    _gem(Rect2(offset+Vector2(p.x*micro,p.y*micro),Vector2(micro,micro)),gem_color)
- _label("DRAG OR TAP A CRYSTAL INTO THE GRID",Vector2(0,layout["height"]-67.0),10,Color("#c6dbfa"),HORIZONTAL_ALIGNMENT_CENTER,layout["viewport"].x)
+ _label("CLEAR LINES TO SCORE  •  MULTI-CLEAR = COMBO",Vector2(0,layout["height"]-67.0),10,Color("#c6dbfa"),HORIZONTAL_ALIGNMENT_CENTER,layout["viewport"].x)
  if dragging and selected>=0 and not puzzle.tray[selected].is_empty():
   var s:Array = puzzle.tray[selected]
   var shape_size:Vector2i = puzzle.shape_size(s)
@@ -493,6 +518,7 @@ func _press(pos:Vector2) -> void:
  if mode==0:
   for i in layout["tray"].size():
    if layout["tray"][i].has_point(pos) and not puzzle.tray[i].is_empty():
+    bomb_armed=false
     selected = i
     audio.effect("pick")
     return
@@ -548,6 +574,14 @@ func _release(pos:Vector2) -> void:
   else:
    _announce("NEXT GALAXY AT LEVEL 4",Vector2(layout["viewport"].x*.5,layout["height"]*.5),Color("#bdeaff"))
   return
+ if mode==0 and layout["bomb"].has_point(pos):
+  if puzzle.bombs>0:
+   bomb_armed=not bomb_armed
+   selected=-1
+   audio.effect("tap")
+  else:
+   _announce("BOMB: 5000 SCORE + 18 LINES",layout["board"].get_center(),Color("#ffe0a7"))
+  return
  if layout["pause"].has_point(pos):
   paused=true
   audio.effect("tap")
@@ -562,6 +596,7 @@ func _release(pos:Vector2) -> void:
   if layout["tabs"][i].has_point(pos):
    if mode!=i:
     mode=i
+    bomb_armed=false
     fall_display=Vector2(falling.active)
     fall_drawn_drops=falling.drops
     selected=-1
@@ -581,6 +616,7 @@ func _restart_mode() -> void:
  if mode==0:
   puzzle.reset()
   selected=-1
+  bomb_armed=false
  else:
   falling.reset()
   fall_display=Vector2(falling.active)
@@ -589,7 +625,26 @@ func _restart_mode() -> void:
  _save_game()
 
 func _release_puzzle(pos:Vector2,layout:Dictionary) -> void:
- var board:Rect2 = layout["board"]
+ var board:Rect2=layout["board"]
+ if bomb_armed:
+  if board.has_point(pos):
+   var cell:float=board.size.x/10.0
+   var target:=Vector2i(clampi(int((pos.x-board.position.x)/cell),0,9),
+    clampi(int((pos.y-board.position.y)/cell),0,11))
+   var removed:int=puzzle.detonate_bomb(target)
+   if removed>0:
+    bomb_armed=false
+    selected=-1
+    var impact:Vector2=board.position+Vector2((target.x+.5)*cell,(target.y+.5)*cell)
+    audio.effect_for("puzzle","big_shatter")
+    _burst(impact,55+removed*5,Color("#ff62db"))
+    _announce("GLASS BOMB!  %d CRYSTALS" % removed,impact-Vector2(0,45),Color("#ffe7ff"))
+    flash=.78
+    shake=.46
+    _save_game()
+   else:
+    _announce("SELECT AN OCCUPIED AREA",board.get_center(),Color("#ffb6d8"))
+  return
  var drop:Vector2 = pos-Vector2(0,52) if dragging else pos
  if selected>=0 and selected<puzzle.tray.size() and board.has_point(drop):
   var shape:Array = puzzle.tray[selected]
@@ -599,15 +654,18 @@ func _release_puzzle(pos:Vector2,layout:Dictionary) -> void:
     var count:int = puzzle.last_cleared
     audio.effect_for("puzzle","big_shatter" if count>10 else "shatter" if count>0 else "place")
     progress.placed_piece()
-    if count>0:
-     var cleared_groups:int=maxi(1,int(count/10))
-     progress.cleared_lines(cleared_groups,puzzle.combo)
+    if puzzle.last_groups>0:
+     progress.cleared_lines(puzzle.last_groups,puzzle.combo)
+    if puzzle.last_bomb_award>0:
+     _announce("RARE BOMB EARNED!",board.get_center()-Vector2(0,75),Color("#ffe27d"))
+     audio.effect("fever")
     _reward_feedback(board.get_center())
     if count>0:
      flash=.28 if count<20 else .7
      shake=.25
      _burst(board.get_center(),18+count,Color("#7ceaff"))
-     _announce("CRYSTAL COMBO x%d" % puzzle.combo,board.get_center()+Vector2(0,-12),Color("#91f7ff"))
+     var combo_message:String="GLASS COMBO x%d  +%d" % [puzzle.last_groups,puzzle.last_gained] if puzzle.last_groups>1 else "CRYSTAL CLEAR  +%d" % puzzle.last_gained
+     _announce(combo_message,board.get_center()+Vector2(0,-12),Color("#91f7ff"))
     if puzzle.fever_moves==5:
      audio.effect("fever")
      _burst(board.get_center(),33,Color("#ff7aff"))
@@ -654,7 +712,8 @@ func _fall_locked() -> void:
   flash=.54
   shake=.31
   _burst(_layout()["board"].get_center(),20+falling.last_lines*9,Color("#86e8ff"))
-  _announce("QUANTUM CLEAR!",_layout()["board"].get_center(),Color("#b2f9ff"))
+  var falling_message:String="BLOCKFALL COMBO x%d  +%d" % [falling.last_lines,falling.last_gained] if falling.last_lines>1 else "QUANTUM CLEAR  +%d" % falling.last_gained
+  _announce(falling_message,_layout()["board"].get_center(),Color("#b2f9ff"))
   audio.effect_for("falling","big_shatter" if falling.last_lines>=3 else "shatter")
  else:
   audio.effect_for("falling","lock")
