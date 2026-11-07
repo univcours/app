@@ -898,7 +898,12 @@ func _burst(center:Vector2,count:int,color:Color) -> void:
 func _read_snapshot(path:String) -> Dictionary:
  if not FileAccess.file_exists(path):
   return {}
- var data:Variant=JSON.parse_string(FileAccess.get_file_as_string(path))
+ # JSON.parse_string prints an engine ERROR on truncated files; use the
+ # result-code parser so a recoverable save never produces a fatal-looking log.
+ var decoder:=JSON.new()
+ if decoder.parse(FileAccess.get_file_as_string(path))!=OK:
+  return {}
+ var data:Variant=decoder.data
  if data is Dictionary and data.has("puzzle") and data.has("falling"):
   return data
  return {}
