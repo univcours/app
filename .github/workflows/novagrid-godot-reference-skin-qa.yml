@@ -1,0 +1,58 @@
+name: NovaGrid Exact Image Skin QA (Godot Native)
+on:
+  push:
+    branches: [novagrid-godot-admob-test-20261107]
+    paths:
+      - 'novagrid-godot/scripts/Main.gd'
+      - 'novagrid-godot/tests/test_reference_skin.gd'
+      - '.github/workflows/novagrid-godot-reference-skin-qa.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  texture-backed-playfield:
+    runs-on: ubuntu-latest
+    timeout-minutes: 13
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Godot 4.5.1
+        run: |
+          set -euo pipefail
+          curl --retry 3 -fL https://github.com/godotengine/godot-builds/releases/download/4.5.1-stable/Godot_v4.5.1-stable_linux.x86_64.zip -o /tmp/godot.zip
+          unzip -q /tmp/godot.zip -d /tmp
+          sudo install -m 755 /tmp/Godot_v4.5.1-stable_linux.x86_64 /usr/local/bin/godot
+      - name: Inject SYNTHETIC test textures (not the user's proprietary original artwork)
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import struct, zlib
+          w,h=941,1672
+          a=bytes([0])+bytes([9,11,43,255])*w
+          data=zlib.compress(a*h,9)
+          def chunk(t,b):
+           return struct.pack('!I',len(b))+t+b+struct.pack('!I',zlib.crc32(t+b)&0xffffffff)
+          blob=b'\x89PNG\r\n\x1a\n'+chunk(b'IHDR',struct.pack('!2I5B',w,h,8,6,0,0,0))+chunk(b'IDAT',data)+chunk(b'IEND',b'')
+          p=Path('novagrid-godot/assets/skins')
+          p.mkdir(parents=True,exist_ok=True)
+          for name in ('blockfall_exact_reference.png','blockpuzzle_cosmic_backdrop.png'):
+           (p/name).write_bytes(blob)
+          print('Injected 941x1672 QA fixtures, no source gameplay assets replaced')
+          PY
+      - name: Import test textures and parse Godot game
+        run: |
+          set -euo pipefail
+          godot --headless --editor --path novagrid-godot --quit 2>&1 | tee /tmp/skin-import.log
+          godot --headless --path novagrid-godot --check-only --script res://scripts/Main.gd 2>&1 | tee /tmp/skin-parse.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Parser Error' /tmp/skin-import.log /tmp/skin-parse.log; then exit 1; fi
+      - name: Play and validate real Blockfall/Puzzle with loaded texture
+        run: |
+          set -euo pipefail
+          godot --headless --audio-driver Dummy --path novagrid-godot --script res://tests/test_reference_skin.gd 2>&1 | tee /tmp/skin-qa.log
+          grep -F 'ALL NOVAGRID EXACT REFERENCE ART GAMEPLAY TESTS PASSED' /tmp/skin-qa.log
+      - name: Retain failure diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaGrid-Exact-Reference-Engine-Test-Logs
+          path: /tmp/skin-*.log
+          if-no-files-found: ignore
