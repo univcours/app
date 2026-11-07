@@ -1,7 +1,7 @@
 name: NovaGrid Godot Editor Project ZIP
 on:
   push:
-    branches: [novagrid-godot-rebuild, novagrid-open-source-rebuild, novagrid-godot-hardening]
+    branches: [novagrid-godot-rebuild, novagrid-open-source-rebuild, novagrid-godot-hardening, novagrid-candy-ui]
     paths:
       - 'novagrid-godot/**'
       - '.github/workflows/novagrid-godot-source-zip.yml'
