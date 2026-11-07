@@ -39,6 +39,7 @@ var fall_drawn_drops := -1
 var fall_accum := 0.0
 var save_clock := 0.0
 var saves_enabled:bool=true # QA scenes disable persistence to protect actual player saves.
+var save_path:String="user://novagrid-godot-save.json"
 var clock := 0.0
 var banner_height := 0.0 # Reserved only after native ad renderer reports success.
 var stars: Array = []
@@ -894,20 +895,26 @@ func _burst(center:Vector2,count:int,color:Color) -> void:
  if fragments.size()>230:
   fragments=fragments.slice(fragments.size()-230)
 
+func _read_snapshot(path:String) -> Dictionary:
+ if not FileAccess.file_exists(path):
+  return {}
+ var data:Variant=JSON.parse_string(FileAccess.get_file_as_string(path))
+ if data is Dictionary and data.has("puzzle") and data.has("falling"):
+  return data
+ return {}
+
 func _load_game() -> void:
  if not saves_enabled:
   return
- if not FileAccess.file_exists("user://novagrid-godot-save.json"):
+ var data:Dictionary=_read_snapshot(save_path)
+ if data.is_empty():
+  # A truncated last write must not destroy the previous good snapshot.
+  data=_read_snapshot(save_path+".bak")
+ if data.is_empty():
   return
- var f := FileAccess.open("user://novagrid-godot-save.json",FileAccess.READ)
- if f==null:
-  return
- var data:Variant = JSON.parse_string(f.get_as_text())
- if not data is Dictionary:
-  return
- if data.has("puzzle"):
+ if data.has("puzzle") and data["puzzle"] is Dictionary:
   puzzle.load_state(data["puzzle"])
- if data.has("falling"):
+ if data.has("falling") and data["falling"] is Dictionary:
   falling.restore(data["falling"])
  if data.has("progression") and data["progression"] is Dictionary:
   progress.restore(data["progression"])
@@ -918,8 +925,30 @@ func _save_audio_settings() -> void:
   session.call("update_audio_settings",audio.sounds_enabled,audio.music_enabled)
 
 func _save_game() -> void:
- if not saves_enabled or puzzle==null or falling==null:
+ if not saves_enabled or puzzle==null or falling==null or progress==null:
   return
- var f := FileAccess.open("user://novagrid-godot-save.json",FileAccess.WRITE)
- if f:
-  f.store_string(JSON.stringify({"puzzle":puzzle.save_state(),"falling":falling.snapshot(),"progression":progress.snapshot()}))
+ var payload:String=JSON.stringify({
+  "puzzle":puzzle.save_state(),
+  "falling":falling.snapshot(),
+  "progression":progress.snapshot()
+ })
+ var temporary_path:String=save_path+".tmp"
+ var tmp:FileAccess=FileAccess.open(temporary_path,FileAccess.WRITE)
+ if tmp==null:
+  push_warning("NovaGrid could not open temporary save file.")
+  return
+ tmp.store_string(payload)
+ tmp.flush()
+ tmp=null # Close before moving the file, including on Windows.
+ var primary_absolute:String=ProjectSettings.globalize_path(save_path)
+ var temporary_absolute:String=ProjectSettings.globalize_path(temporary_path)
+ if not _read_snapshot(save_path).is_empty():
+  var backup_error:int=DirAccess.copy_absolute(
+   primary_absolute,ProjectSettings.globalize_path(save_path+".bak"))
+  if backup_error!=OK:
+   push_warning("NovaGrid could not refresh backup: %d" % backup_error)
+ var move_error:int=DirAccess.rename_absolute(temporary_absolute,primary_absolute)
+ if move_error!=OK:
+  # Never delete the previous save to force an overwrite. The existing
+  # primary/backup remains usable and the .tmp is available for recovery.
+  push_warning("NovaGrid could not finalize save: %d" % move_error)
