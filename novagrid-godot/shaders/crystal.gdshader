@@ -31,14 +31,16 @@ void fragment() {
  float edge=smoothstep(.06,.0,abs(p.x)-.83)+smoothstep(.06,.0,abs(p.y)-.83);
  float glint=pow(max(0.0,sin((uv.x*9.1-uv.y*12.0)+TIME*1.1)),12.0)*.05;
  vec3 base=gem_color.rgb;
- vec3 core=mix(base*.72,base*1.18,top*.55);
- core=mix(core,vec3(1.0),broad_highlight*.52*shine);
- core+=vec3(1.0)*rim*(.26+.36*(top+bottom+left+right));
- core+=vec3(1.0)*(top_v*.19+bottom_v*.21+spine*.025);
- core+=base*(glint*.25+bottom*.16);
- core+=vec3(.89,.96,1.0)*edge*.09;
- // Bright neon hot cores, restrained to avoid washed-out whites.
- core=clamp(core,vec3(0.0),vec3(1.3));
+ // Preserve vivid fully saturated gem cores. White light is confined to
+ // thin glints rather than bleaching the entire block into a pastel tile.
+ vec3 core=base*(.77+top*.24+bottom*.11);
+ core+=base*rim*.23;
+ core+=vec3(.93,.98,1.0)*broad_highlight*.10*shine;
+ core+=vec3(.98,.99,1.0)*rim*(.07+.065*top);
+ core+=vec3(.95,.99,1.0)*(top_v*.075+bottom_v*.068+spine*.012);
+ core+=base*glint*.14;
+ core+=vec3(.92,.98,1.0)*edge*.035;
+ core=clamp(core,vec3(0.0),vec3(1.0));
  float transparency=mask*(.96-.065*(1.0-rim));
  COLOR=vec4(core,transparency);
 }
