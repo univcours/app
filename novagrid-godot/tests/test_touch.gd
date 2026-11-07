@@ -14,6 +14,9 @@ func _run_touch() -> void:
  var app=scene.instantiate()
  app.saves_enabled=false
  root.add_child(app)
+ var session:Node=root.get_node_or_null("Session")
+ verify(session!=null and app.audio==session.get("audio"),
+  "same procedural audio player is reused between Galaxy home and gameplay")
  var layout:Dictionary=app._layout()
  verify(layout["buttons"].is_empty(),"no obsolete directional or restart buttons")
  var found:=false
