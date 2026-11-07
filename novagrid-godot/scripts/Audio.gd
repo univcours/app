@@ -33,6 +33,15 @@ func _ready() -> void:
   "fever": _make_effect(1250.0,.61,.70,1.7,.26),
   "lose": _make_effect(240.0,.48,.46,.49,.18)
  }
+ # Two intentionally distinct modes: delicate crystal chimes vs hard arcade impacts.
+ sounds["puzzle_shatter"]=_shatter(985.0,.36,.62,false)
+ sounds["puzzle_big_shatter"]=_shatter(1290.0,.52,.74,false)
+ sounds["falling_move"]=_make_effect(325.0,.035,.20,.95,.025)
+ sounds["falling_rotate"]=_make_effect(790.0,.075,.28,.82,.12)
+ sounds["falling_soft"]=_make_effect(205.0,.05,.19,.75,.11)
+ sounds["falling_lock"]=_make_effect(135.0,.19,.62,.68,.37)
+ sounds["falling_shatter"]=_shatter(445.0,.43,.90,true)
+ sounds["falling_big_shatter"]=_shatter(610.0,.60,.95,true)
  music_tracks["puzzle"] = _compose(false)
  music_tracks["falling"] = _compose(true)
 
@@ -58,6 +67,48 @@ func _make_effect(hz:float,duration:float,gain:float,glide:float,noise:float) ->
  wav.stereo=false
  wav.data=buffer
  return wav
+
+func _shatter(hz:float,length:float,power:float,heavy:bool) -> AudioStreamWAV:
+ # Layered original impact transient, broadband brittle crack, dozens of
+ # randomized high-pitch shard resonances and decaying cosmic glass debris.
+ var count:int=int(float(RATE)*length)
+ var pcm:=PackedByteArray()
+ pcm.resize(count*2)
+ var gen:=RandomNumberGenerator.new()
+ gen.seed=7331 if heavy else 2998
+ var shard_rates: Array=[]
+ var shard_offsets: Array=[]
+ for i in 15:
+  shard_rates.append(hz*gen.randf_range(.74,3.6))
+  shard_offsets.append(gen.randf_range(0.0,.12))
+ for i in count:
+  var t:float=float(i)/float(RATE)
+  var p:float=t/length
+  var initial_impact:float=sin(TAU*(78.0 if heavy else 192.0)*t)*exp(-t*(22.0 if heavy else 39.0))
+  var breaking:float=sin(t*23971.0+sin(t*36203.0)*2.3)*exp(-t*10.0)
+  var shards:float=0.0
+  for j in shard_rates.size():
+   var local_t:float=t-float(shard_offsets[j])
+   if local_t>=0.0:
+    var note:float=float(shard_rates[j])
+    var phase:float=TAU*note*local_t
+    shards+=sin(phase)*exp(-local_t*(17.0+float(j%7)*3.0))
+  var grit:float=sin(t*11887.0)*sin(t*6743.0)*pow(1.0-p,3.0)
+  var sample_value:float=(initial_impact*.49+breaking*.20+shards*.072+grit*.10)*power
+  sample_value=sample_value/(1.0+absf(sample_value)*.38)
+  pcm.encode_s16(i*2,int(clampf(sample_value,-1.0,1.0)*32760.0))
+ var wav:=AudioStreamWAV.new()
+ wav.format=AudioStreamWAV.FORMAT_16_BITS
+ wav.mix_rate=RATE
+ wav.stereo=false
+ wav.data=pcm
+ return wav
+
+func effect_for(mode:String,kind:String) -> void:
+ var key:String=mode+"_"+kind
+ if not sounds.has(key):
+  key=kind
+ effect(key)
 
 func _compose(fast:bool) -> AudioStreamWAV:
  # Composed from original minor-key progression, electronic arpeggiated
