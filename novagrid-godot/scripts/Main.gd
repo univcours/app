@@ -14,7 +14,7 @@ const GEM_COLORS = [
 const SKY = Color("#070923")
 # User-approved 941x1672 reference art is an optional real Godot texture.
 # The original procedural shader remains the safe fallback in source-only clones.
-const EXACT_FALL_SKIN = "res://assets/skins/blockfall_exact_reference.png"
+const EXACT_FALL_SKIN = "res://assets/skins/blockfall_playable_chrome.png"
 const PUZZLE_COSMIC_SKIN = "res://assets/skins/blockpuzzle_cosmic_backdrop.png"
 const SKIN_CANVAS = Vector2(941.0,1672.0)
 # Exact seven candy faces cut from the approved AI-generated reference.
@@ -239,7 +239,11 @@ func _draw() -> void:
  var layout:Dictionary = _layout()
  var h:float=float(layout["height"])
  var w:float=float(layout["viewport"].x)
- var art:Texture2D=skin_fall if mode==1 else skin_puzzle
+ var art:Texture2D=null
+ if mode==1 and skin_fall!=null and h>=760.0:
+  art=skin_fall
+ elif mode==0:
+  art=skin_puzzle
  if art!=null:
   # Scale actual user-approved artwork as part of the game, not as a mockup.
   draw_texture_rect(art,Rect2(Vector2.ZERO,Vector2(w,h)),false)
@@ -254,8 +258,14 @@ func _draw() -> void:
   draw_set_transform(Vector2.ZERO,0.0,Vector2(1.0,float(layout["header_scale"])))
   _draw_header(layout)
   draw_set_transform(Vector2.ZERO,0.0,Vector2.ONE)
- _draw_tabs(layout)
- _draw_progress_hud(layout)
+ if mode==1 and art!=null:
+  _draw_reference_progress(layout)
+  if native_ads!=null:
+   var privacy_rect:Rect2=layout["privacy"]
+   _label("PRIVACY",privacy_rect.position+Vector2(0,12),9,Color("#c6eeff"))
+ else:
+  _draw_tabs(layout)
+  _draw_progress_hud(layout)
  var impact := Vector2(sin(clock*67.0),cos(clock*79.0))*shake*9.0
  draw_set_transform(impact)
  if mode==0:
@@ -309,26 +319,35 @@ func _reference_live_hud(layout:Dictionary) -> void:
  # value windows are replaced by live gameplay data on every redraw.
  var sx:float=float(layout["viewport"].x)/SKIN_CANVAS.x
  var sy:float=float(layout["height"])/SKIN_CANVAS.y
- var score_box:=Rect2(Vector2(188.0*sx,204.0*sy),
-  Vector2(124.0*sx,62.0*sy))
- var level_box:=Rect2(Vector2(563.0*sx,203.0*sy),
-  Vector2(110.0*sx,62.0*sy))
- # Dark tint matches the inner-glass panel, masking static screenshot digits.
- draw_rect(score_box,Color("#261044",.985),true)
- draw_rect(level_box,Color("#09265a",.985),true)
- _premium_title(str(falling.score),Vector2(157.0*sx,253.0*sy),28,
+ # The bundled clean chrome PNG has no baked-in values or candy sprites.
+ # Score and level are taken directly from the running Blockfall engine.
+ _premium_title(str(falling.score),Vector2(161.0*sx,252.0*sy),28,
   184.0*sx,GLOW_GOLD)
- _premium_title(str(falling.level),Vector2(541.0*sx,252.0*sy),28,
+ _premium_title(str(falling.level),Vector2(539.0*sx,252.0*sy),28,
   164.0*sx,GLOW_GOLD)
- var combo_strip:=Rect2(Vector2(83.0*sx,286.0*sy),
-  Vector2(337.0*sx,35.0*sy))
- draw_rect(combo_strip,Color("#100a35",.96),true)
- _label("COMBO x%d   ✦  LINES %d" % [falling.combo,falling.lines],
-  Vector2(combo_strip.position.x,311.0*sy),13,
-  Color("#ffd0ff"))
- # Never rely on fake numbers baked in the art's progression footer.
- _sparkle(Vector2(434.0*sx,295.0*sy),GLOW_BLUE,3.0)
+ var strip:=Rect2(Vector2(83.0*sx,285.0*sy),Vector2(347.0*sx,34.0*sy))
+ draw_rect(strip,Color("#100d39",.96),true)
+ _label("COMBO x%d   ✦   LINES %d" % [falling.combo,falling.lines],
+  Vector2(strip.position.x,310.0*sy),13,Color("#ffdcf7"))
+ _premium_title("x%d" % falling.combo,Vector2(715.0*sx,1038.0*sy),27,
+  177.0*sx,GLOW_GOLD)
+ _sparkle(Vector2(431.0*sx,294.0*sy),GLOW_BLUE,2.5)
 
+
+func _draw_reference_progress(layout:Dictionary) -> void:
+ # This is live game progression; do not present baked-up illustration values.
+ var sx:float=float(layout["viewport"].x)/SKIN_CANVAS.x
+ var sy:float=float(layout["height"])/SKIN_CANVAS.y
+ var rect:=Rect2(Vector2(135.0*sx,1540.0*sy),Vector2(732.0*sx,30.0*sy))
+ draw_rect(rect,Color("#0e1949",.92),true)
+ _label("LV %d · %s" % [progress.level,progress.rank_name()],
+  Vector2(139.0*sx,1562.0*sy),14,Color("#effaff"))
+ _label("★ %d · %dd streak" % [progress.stars,progress.streak],
+  Vector2(655.0*sx,1562.0*sy),11,GLOW_GOLD)
+ var gauge:=Rect2(Vector2(290.0*sx,1548.0*sy),Vector2(320.0*sx,9.0*sy))
+ draw_rect(gauge,Color("#182050"),true)
+ draw_rect(Rect2(gauge.position,Vector2(gauge.size.x*progress.level_progress(),
+  gauge.size.y)),GLOW_BLUE,true)
 
 func _draw_sky(layout:Dictionary) -> void:
  var bounds:Vector2=layout["viewport"]
@@ -678,7 +697,8 @@ func _draw_puzzle(layout:Dictionary) -> void:
 
 func _draw_falling(layout:Dictionary) -> void:
  var board:Rect2=layout["board"]
- var cell:float=_board_back(board,10,18)
+ var reference:bool=skin_fall!=null and float(layout["height"])>=760.0
+ var cell:float=board.size.x/10.0 if reference else _board_back(board,10,18)
  var cell_h:float=board.size.y/18.0
  var ghost:Vector2i=Vector2i(falling.active.x,falling.ghost_row())
  for y in 18:
@@ -700,6 +720,14 @@ func _draw_falling(layout:Dictionary) -> void:
     Vector2(cell,cell_h)),falling.kind+1)
  var next_rect:Rect2=layout["next"]
  var hold_rect:Rect2=layout["hold"]
+ if reference:
+  # Frames are painted in the actual reference artwork. Draw only live sprites.
+  _draw_side_piece(next_rect,falling.next_kind)
+  if falling.hold_kind>=0:
+   _draw_side_piece(hold_rect,falling.hold_kind)
+  if falling.hold_used:
+   draw_rect(hold_rect.grow(-6.0),Color(.02,.03,.10,.42),true)
+  return
  _label("✦ NEXT",Vector2(next_rect.position.x,next_rect.position.y-10),14,
   Color("#ffd3ff"),HORIZONTAL_ALIGNMENT_CENTER,next_rect.size.x)
  _glass_panel(next_rect,Color("#090f39"),GLOW_PINK)
