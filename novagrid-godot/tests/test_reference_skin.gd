@@ -17,6 +17,7 @@ func _run() -> void:
  await process_frame
  check(app.skin_fall!=null,"Blockfall reference texture loads")
  check(app.skin_puzzle!=null,"Puzzle cosmic backdrop texture loads")
+ check(app.skin_puzzle_chrome!=null,"Real Block Puzzle luxury 9x9 chrome texture loads")
  for size in [Vector2i(360,640),Vector2i(393,852),Vector2i(432,960)]:
   root.content_scale_size=size
   root.size=size
@@ -43,6 +44,16 @@ func _run() -> void:
     "Block Puzzle board remains large "+str(size))
    check((p["tray"] as Array).size()==3,
     "Three draggable live Puzzle shapes available "+str(size))
+   var puzzle_board:Rect2=p["board"]
+   check(puzzle_board.position.y>=0 and puzzle_board.end.y<float(p["height"])-110.0,
+    "Exact Puzzle 9x9 leaves space for real trays "+str(size))
+   if float(p["height"])>=760.0:
+    check(absf(puzzle_board.size.y-puzzle_board.size.x)<puzzle_board.size.x*.08,
+     "Exact Puzzle reference grid stays approximately square "+str(size))
+    for slot in p["tray"]:
+     var well:Rect2=slot
+     check(well.position.y>puzzle_board.end.y and well.end.y<float(p["height"])-100.0,
+      "All 3 live premium candy wells below 9x9 field "+str(size))
  app.mode=1
  app.set_native_banner_height(0.0)
  var old_drops:int=app.falling.drops
