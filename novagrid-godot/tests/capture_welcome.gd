@@ -31,5 +31,7 @@ func _capture()->void:
  welcome.queue_free()
  await process_frame
  await process_frame
+ root.remove_child(welcome)
+ welcome.free()
  print("REAL NOVAGRID OPEN SOURCE HOME SCREENSHOT SAVED")
  quit(0)
