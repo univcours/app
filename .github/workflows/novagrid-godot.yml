@@ -30,12 +30,14 @@ jobs:
       - name: Check Windows PowerShell helper syntax
         shell: pwsh
         run: |
-          $tokens = $null
-          $errors = $null
-          [System.Management.Automation.Language.Parser]::ParseFile("novagrid-godot/scripts/update-build-install.ps1", [ref]$tokens, [ref]$errors) | Out-Null
-          if ($errors.Count -gt 0) {
-            $errors | ForEach-Object { Write-Error $_.Message }
-            exit 1
+          foreach ($script in @("novagrid-godot/scripts/update-build-install.ps1","novagrid-godot/scripts/open-in-godot.ps1")) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($script, [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors.Count -gt 0) {
+              $errors | ForEach-Object { Write-Error "$script : $($_.Message)" }
+              exit 1
+            }
           }
           Write-Host "NOVAGRID WINDOWS HELPER SYNTAX VALID"
       - name: Import project and parse all game scripts
