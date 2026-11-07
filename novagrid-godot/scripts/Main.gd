@@ -294,8 +294,7 @@ func _draw_header(layout:Dictionary) -> void:
  _button(layout["pause"],"▶" if paused else "Ⅱ",true,false)
  if mode==0:
   var progress_bar:=Rect2(Vector2(g,147),Vector2(w-2.0*g-73.0,9))
-  draw_rect(progress_bar,Color("#24113d"),true)
-  draw_rect(Rect2(progress_bar.position,Vector2(progress_bar.size.x*float(puzzle.fever)/100.0,progress_bar.size.y)),Color("#e953ff"),true)
+  CandyUIScript.candy_meter(self,progress_bar,float(puzzle.fever)/100.0,Color("#ff68ca"),clock)
   _label("FEVER  %d%%" % puzzle.fever,Vector2(g,171),9,Color("#f1b3ff"))
   var bomb:Rect2=layout["bomb"]
   _glass_panel(bomb,Color(.33,.07,.33,.85) if bomb_armed else Color(.15,.09,.40,.85),Color("#ff84de") if bomb_armed else Color("#b466ed"))
@@ -315,8 +314,7 @@ func _draw_progress_hud(layout:Dictionary) -> void:
  _label("LV %d • %s" % [progress.level,rank],Vector2(rect.position.x+12,y+17),12,Color("#dcfaff"))
  _label("★ %d  |  STREAK %d" % [progress.stars,progress.streak],Vector2(rect.position.x, y+17),10,Color("#ffdc87"),HORIZONTAL_ALIGNMENT_RIGHT,rect.size.x-12)
  var track:=Rect2(rect.position+Vector2(12,23),Vector2(rect.size.x-24,5))
- draw_rect(track,Color("#273366"),true)
- draw_rect(Rect2(track.position,Vector2(track.size.x*progress.level_progress(),track.size.y)),Color("#64f1ff"),true)
+ CandyUIScript.candy_meter(self,track,progress.level_progress(),Color("#7cf8dc"),clock)
  var mission:Dictionary=progress.next_mission()
  _label("%s  %d/%d   ·   %s GALAXY (TAP)" % [mission["label"],mission["progress"],mission["target"],progress.theme_name()],Vector2(rect.position.x+12,y+41),9,Color("#b7daff"))
 
@@ -405,6 +403,8 @@ func _draw_puzzle(layout:Dictionary) -> void:
  for i in 3:
   var tray_rect:Rect2=layout["tray"][i]
   var highlight:Color=GEM_COLORS[colors[i]]
+  CandyUIScript.candy_panel(self,tray_rect,Color(.20,.11,.36,.67),
+   Color(highlight.r,highlight.g,highlight.b,.72),false,clock)
   if i==selected:
    draw_rect(tray_rect.grow(1.0),Color(highlight.r,highlight.g,highlight.b,.17),true)
    draw_rect(tray_rect,Color(highlight.r,highlight.g,highlight.b,.85),false,1.7)
