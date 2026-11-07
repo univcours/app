@@ -39,7 +39,12 @@ var fall_drawn_drops := -1
 var fall_accum := 0.0
 var save_clock := 0.0
 var clock := 0.0
-var banner_height := 0.0 # Reserved only after native ad renderer reports success.
+var banner_height := 0.0 # Reserved only after an actual native banner reports its measured height.
+
+func set_native_banner_height(px:float) -> void:
+ # Reserved for the native AdMob bridge: do not simulate real ad filling here.
+ banner_height=clampf(px,0.0,130.0)
+ queue_redraw()
 var stars: Array = []
 var fragments: Array = []
 var shockwaves: Array = []
@@ -148,35 +153,38 @@ func _layout() -> Dictionary:
  var w:float=viewport.x
  var h:float=viewport.y-banner_height
  var gutter:float=clampf(w*.031,9.0,18.0)
- var header_end:float=177.0
+ var header_scale:float=clampf(h/840.0,.72,1.0)
+ var header_end:float=177.0*header_scale
  var board:Rect2
  var tray:Array=[]
  var buttons:Array=[]
  var side_width:float=clampf(w*.194,65.0,85.0)
  if mode==0:
   # A real 9x9 glass grid and three unframed glowing crystal tray shapes.
-  var tray_height:float=clampf(h*.082,60.0,81.0)
-  var available:float=maxf(130.0,h-header_end-tray_height-126.0)
+  var tray_height:float=clampf(h*.078,48.0,75.0)
+  var available:float=maxf(80.0,h-header_end-tray_height-133.0)
   var cell:float=maxf(2.0,minf((w-2.0*gutter-10.0)/9.0,available/9.0))
   var size:Vector2=Vector2(cell*9.0,cell*9.0)
-  board=Rect2(Vector2((w-size.x)*.5,header_end+maxf(8.0,(available-size.y)*.34)),size)
-  var tray_y:float=board.end.y+22.0
+  board=Rect2(Vector2((w-size.x)*.5,header_end+minf(20.0,maxf(3.0,(available-size.y)*.10))),size)
+  var tray_y:float=board.end.y+11.0
   var tray_w:float=(w-2.0*gutter-18.0)/3.0
   for i in 3:
    tray.append(Rect2(Vector2(gutter+i*(tray_w+9.0),tray_y),Vector2(tray_w,tray_height)))
  else:
   # Leave the real 10x18 board big, with playable NEXT and HOLD at right.
-  var available:float=maxf(260.0,h-header_end-112.0)
+  var available:float=maxf(180.0,h-header_end-121.0)
   var cell:float=maxf(2.0,minf((w-3.0*gutter-side_width)/10.0,available/18.0))
   var size:Vector2=Vector2(cell*10.0,cell*18.0)
-  board=Rect2(Vector2(gutter,header_end+maxf(4.0,(available-size.y)*.20)),size)
+  board=Rect2(Vector2(gutter,header_end+minf(12.0,maxf(3.0,(available-size.y)*.10))),size)
  var next_rect:=Rect2(Vector2(board.end.x+gutter,board.position.y+37.0),Vector2(side_width,96.0))
- var hold_rect:=Rect2(Vector2(board.end.x+gutter,board.position.y+187.0),Vector2(side_width,96.0))
- return {"viewport":viewport,"height":h,"gutter":gutter,
+ var hold_rect:=Rect2(Vector2(board.end.x+gutter,board.position.y+minf(187.0,board.size.y*.39)),Vector2(side_width,96.0))
+ return {"viewport":viewport,"height":h,"gutter":gutter,"header_scale":header_scale,
   "tabs":[],"board":board,"tray":tray,"buttons":buttons,
-  "mode_switch":Rect2(gutter,12.0,43.0,43.0),
-  "bomb":Rect2(w-gutter-61.0,146.0,61.0,30.0),
-  "pause":Rect2(w-gutter-48.0,80.0,48.0,48.0),
+  "mode_switch":Rect2(gutter,12.0*header_scale,43.0,43.0*header_scale),
+  "bomb_visual":Rect2(w-gutter-61.0,146.0,61.0,30.0),
+  "pause_visual":Rect2(w-gutter-48.0,80.0,48.0,48.0),
+  "bomb":Rect2(w-gutter-61.0,146.0*header_scale,61.0,30.0*header_scale),
+  "pause":Rect2(w-gutter-48.0,80.0*header_scale,48.0,48.0*header_scale),
   "audio":Rect2(gutter,round(h-101.0),36.0,34.0),
   "music":Rect2(gutter+42.0,round(h-101.0),36.0,34.0),
   "next":next_rect,"hold":hold_rect}
@@ -184,7 +192,9 @@ func _layout() -> Dictionary:
 func _draw() -> void:
  var layout:Dictionary = _layout()
  _draw_sky(layout)
+ draw_set_transform(Vector2.ZERO,0.0,Vector2(1.0,float(layout["header_scale"])))
  _draw_header(layout)
+ draw_set_transform(Vector2.ZERO)
  _draw_tabs(layout)
  _draw_progress_hud(layout)
  var impact := Vector2(sin(clock*67.0),cos(clock*79.0))*shake*9.0
@@ -300,13 +310,13 @@ func _draw_header(layout:Dictionary) -> void:
  _label("%s" % score,Vector2(left_card.position.x,left_card.position.y+44),24,Color("#ffe7a4"),HORIZONTAL_ALIGNMENT_CENTER,left_card.size.x)
  _label(other,Vector2(right_card.position.x,right_card.position.y+17),11,Color("#ffe0a9"),HORIZONTAL_ALIGNMENT_CENTER,right_card.size.x)
  _label(other_value,Vector2(right_card.position.x,right_card.position.y+44),24,Color("#fff1c2"),HORIZONTAL_ALIGNMENT_CENTER,right_card.size.x)
- _button(layout["pause"],"▶" if paused else "Ⅱ",true,false)
+ _button(layout["pause_visual"],"▶" if paused else "Ⅱ",true,false)
  if mode==0:
   var progress_bar:=Rect2(Vector2(g,147),Vector2(w-2.0*g-73.0,9))
   draw_rect(progress_bar,Color("#24113d"),true)
   draw_rect(Rect2(progress_bar.position,Vector2(progress_bar.size.x*float(puzzle.fever)/100.0,progress_bar.size.y)),Color("#e953ff"),true)
   _label("FEVER  %d%%" % puzzle.fever,Vector2(g,171),9,Color("#f1b3ff"))
-  var bomb:Rect2=layout["bomb"]
+  var bomb:Rect2=layout["bomb_visual"]
   _glass_panel(bomb,Color(.33,.07,.33,.85) if bomb_armed else Color(.15,.09,.40,.85),Color("#ff84de") if bomb_armed else Color("#b466ed"))
   _label("●  %s" % (str(puzzle.bombs) if puzzle.bombs>0 else "%d%%" % puzzle.bomb_charge()),
    Vector2(bomb.position.x,bomb.position.y+21),14,Color("#ffe6ad"),HORIZONTAL_ALIGNMENT_CENTER,bomb.size.x)
@@ -463,7 +473,8 @@ func _draw_falling(layout:Dictionary) -> void:
   _draw_side_piece(hold_rect,falling.hold_kind)
  if falling.hold_used:
   draw_rect(hold_rect.grow(-2),Color(.06,.09,.20,.47),true)
- var combo_rect:=Rect2(Vector2(next_rect.position.x,hold_rect.end.y+39.0),Vector2(next_rect.size.x,85.0))
+ var combo_gap:float=minf(39.0,maxf(8.0,board.end.y-hold_rect.end.y-85.0))
+ var combo_rect:=Rect2(Vector2(next_rect.position.x,hold_rect.end.y+combo_gap),Vector2(next_rect.size.x,85.0))
  _glass_panel(combo_rect,Color(.27,.04,.32,.74),Color("#f34ce1"))
  _label("COMBO",Vector2(combo_rect.position.x,combo_rect.position.y+28),14,Color("#ffbbfb"),HORIZONTAL_ALIGNMENT_CENTER,combo_rect.size.x)
  _label("x%d" % falling.combo,Vector2(combo_rect.position.x,combo_rect.position.y+68),30,Color("#fff4ba"),HORIZONTAL_ALIGNMENT_CENTER,combo_rect.size.x)
@@ -548,8 +559,9 @@ func _draw_fragments() -> void:
 
 func _draw_modal(layout:Dictionary) -> void:
  var viewport:Vector2 = layout["viewport"]
- draw_rect(Rect2(Vector2.ZERO,viewport),Color(.01,.015,.08,.75),true)
- var modal := Rect2(Vector2(viewport.x*.09,viewport.y*.34),
+ var game_height:float=float(layout["height"])
+ draw_rect(Rect2(Vector2.ZERO,Vector2(viewport.x,game_height)),Color(.01,.015,.08,.75),true)
+ var modal := Rect2(Vector2(viewport.x*.09,game_height*.34),
   Vector2(viewport.x*.82,222))
  _glass_panel(modal,Color("#222c79"),Color("#90f6ff"))
  var title := "PAUSED" if paused else "GAME OVER"
@@ -650,7 +662,7 @@ func _release(pos:Vector2) -> void:
  var layout:Dictionary=_layout()
  if paused or (mode==0 and puzzle.over) or (mode==1 and falling.over):
   var viewport:Vector2=layout["viewport"]
-  var modal:=Rect2(Vector2(viewport.x*.09,viewport.y*.34),Vector2(viewport.x*.82,222.0))
+  var modal:=Rect2(Vector2(viewport.x*.09,float(layout["height"])*.34),Vector2(viewport.x*.82,222.0))
   var primary:=Rect2(modal.position+Vector2(27,107),Vector2(modal.size.x-54,36))
   var restart:=Rect2(modal.position+Vector2(27,148),Vector2(modal.size.x-54,27))
   var home:=Rect2(modal.position+Vector2(27,184),Vector2(modal.size.x-54,28))
