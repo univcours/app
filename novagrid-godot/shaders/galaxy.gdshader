@@ -3,10 +3,10 @@ render_mode unshaded;
 
 // Lightweight, original cosmic scene: deep-space nebulae, wispy dust,
 // twinkling pinprick stars and a soft animated aurora. No downloaded assets.
-uniform vec4 void_color : source_color = vec4(0.018,0.024,0.095,1.0);
-uniform vec4 blue_nebula : source_color = vec4(0.08,0.39,0.93,1.0);
-uniform vec4 magenta_nebula : source_color = vec4(0.60,0.15,0.95,1.0);
-uniform float activity : hint_range(0.0,1.0) = 0.90;
+uniform vec4 void_color : source_color = vec4(0.028,0.014,0.105,1.0);
+uniform vec4 blue_nebula : source_color = vec4(0.09,0.59,1.0,1.0);
+uniform vec4 magenta_nebula : source_color = vec4(0.81,0.16,1.0,1.0);
+uniform float activity : hint_range(0.0,1.0) = 1.0;
 uniform float motion_speed : hint_range(0.0,1.0) = 0.13;
 
 float random21(vec2 p) {
@@ -31,13 +31,13 @@ float fbm(vec2 p) {
 }
 void fragment() {
  vec2 uv=UV;
- vec2 x=vec2(uv.x*1.5,uv.y*2.05);
+ vec2 x=vec2(uv.x*1.35,uv.y*1.77);
  float t=TIME*motion_speed;
  float cloudy=fbm(x*2.4+vec2(t,-t*0.32));
  float wisps=fbm(x*4.4-vec2(t*0.4,t*0.25));
  float whirl=sin(uv.y*10.0+uv.x*7.0+cloudy*8.0+t)*0.5+0.5;
- float left=exp(-distance(uv,vec2(0.11+sin(t)*0.07,0.28))*3.55);
- float right=exp(-distance(uv,vec2(0.94,0.72+cos(t*.72)*0.055))*3.3);
+ float left=exp(-distance(uv,vec2(0.05+sin(t)*0.07,0.30))*2.15);
+ float right=exp(-distance(uv,vec2(0.97,0.72+cos(t*.72)*0.055))*2.10);
  float mag=clamp((cloudy-0.34)*2.35+whirl*.18,0.0,1.0)*left;
  float cyan=clamp((wisps-.31)*2.4+whirl*.12,0.0,1.0)*right;
  vec3 col=void_color.rgb;
@@ -46,9 +46,11 @@ void fragment() {
  float band=exp(-pow(ribbon/.24,2.0));
  float band_noise=fbm(uv*vec2(6.7,9.5)+vec2(t*.32,-t*.2));
  vec3 stream_colors=mix(vec3(.29,.10,.62),vec3(.08,.45,.73),clamp(uv.x*.91,0.0,1.0));
- col += band*stream_colors*(.25+band_noise*.85)*activity;
- col += magenta_nebula.rgb*mag*activity*.59;
- col += blue_nebula.rgb*cyan*activity*.75;
+ col += band*stream_colors*(.45+band_noise*1.15)*activity;
+ col += magenta_nebula.rgb*mag*activity*.90;
+ col += blue_nebula.rgb*cyan*activity*.91;
+ float cosmic_swirl=exp(-pow((uv.y-.30+.16*sin(uv.x*8.0+t*.8))/.19,2.0));
+ col+=vec3(.20,.05,.43)*cosmic_swirl*.22*(.3+cloudy);
  col += vec3(.14,.14,.42)*max(0.0,cloudy-.38)*.31;
  float dust=fbm(uv*vec2(21.0,33.0)+t*.03);
  col += vec3(.08,.15,.27)*pow(dust,4.0)*.17;
@@ -61,7 +63,10 @@ void fragment() {
  float star=1.0-smoothstep(.024,.10,dist);
  float appear=step(.991,random_star);
  float twinkle=.75+.25*sin(TIME*(1.5+random_star*3.0)+random_star*61.0);
- col += vec3(.67,.86,1.0)*star*appear*twinkle*.60;
- col *= 1.0-.25*pow(distance(uv,vec2(.5,.5))*1.14,1.3);
+ col += vec3(.88,.94,1.0)*star*appear*twinkle*.85;
+ col *= 1.0-.16*pow(distance(uv,vec2(.5,.5))*1.14,1.3);
+ // Keep the actual puzzle grid legible in the middle.
+ float center_fade=1.0-.15*exp(-pow((uv.x-.5)/.39,2.0));
+ col*=center_fade;
  COLOR=vec4(col,1.0);
 }
