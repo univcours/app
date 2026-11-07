@@ -113,7 +113,7 @@ export function createBlockfallUI({onFinish,onExit,getLanguage,onSound,onAdBreak
     const board=get('fallBoard');board.classList.remove('fall-line-burst');
     void board.offsetWidth;board.classList.add('fall-line-burst');
     arcadeEffect(get('fallGlassFx'),{kind:'combo',groups:game.lastClear,
-     combo:Math.max(game.lastClear,game.combo),bonus:game.score-prior.score,center:[4,4]});
+     combo:Math.max(game.lastClear,game.combo),bonus:game.score-prior.score,center:[15,4],rows:FALL_HEIGHT,cols:FALL_WIDTH});
    }
   }
  }
@@ -174,7 +174,7 @@ export function createBlockfallUI({onFinish,onExit,getLanguage,onSound,onAdBreak
   if(game.drops!==before.drops){
    onSound?.(game.lastClear?(game.lastClear>=2?'fallCombo':'fallShatter'):'fallLock');
    if(game.lastClear>0)arcadeEffect(get('fallGlassFx'),{kind:'combo',groups:game.lastClear,
-    combo:Math.max(game.lastClear,game.combo),bonus:game.score-before.score,center:[4,4]});
+    combo:Math.max(game.lastClear,game.combo),bonus:game.score-before.score,center:[15,4],rows:FALL_HEIGHT,cols:FALL_WIDTH});
   }else if(horizontal&&Date.now()-gesture.lastAudio>110){
    onSound?.('fallMove');gesture.lastAudio=Date.now();
   }
