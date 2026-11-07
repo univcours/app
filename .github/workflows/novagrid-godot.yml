@@ -44,6 +44,12 @@ jobs:
           godot --headless --path novagrid-godot --script res://tests/test_progression.gd 2>&1 | tee /tmp/progression.log
           grep -F 'ALL NOVAGRID METAGAME TESTS PASSED' /tmp/progression.log
           if grep -E 'SCRIPT ERROR|Parse Error|Parser Error' /tmp/progression.log; then exit 1; fi
+      - name: Real touch and swipe controls QA
+        run: |
+          set -euo pipefail
+          godot --headless --path novagrid-godot --script res://tests/test_touch.gd 2>&1 | tee /tmp/touch.log
+          grep -F 'ALL NOVAGRID TOUCH CONTROLS PASSED' /tmp/touch.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Parser Error' /tmp/touch.log; then exit 1; fi
       - name: Launch actual main scene headlessly
         run: |
           set -euo pipefail
@@ -121,4 +127,5 @@ jobs:
             /tmp/test.log
             /tmp/runtime.log
             /tmp/progression.log
+            /tmp/touch.log
           if-no-files-found: ignore
