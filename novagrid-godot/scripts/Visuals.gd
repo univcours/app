@@ -3,8 +3,10 @@ extends Node2D
 ## into 80x80 subviewport textures and reused for all board/tray cubes.
 const GALAXY = preload("res://shaders/galaxy.gdshader")
 const CRYSTAL = preload("res://shaders/crystal.gdshader")
+const CANDY3D = preload("res://scripts/Candy3D.gd")
 var background: ColorRect
 var sky_material: ShaderMaterial
+var candy_renderer: Node
 var tile_textures: Array[Texture2D] = []
 var tile_viewports: Array[SubViewport] = []
 const TILE_SIZE := 80
@@ -22,13 +24,20 @@ func configure(palette: Array) -> void:
  background.material = sky_material
  add_child(background)
 
+ # Bake ACTUAL 3D jelly/candy models with PBR materials into shared textures.
+ # The 9x9 and 10x18 boards reuse these textures for mobile performance.
+ candy_renderer=CANDY3D.new()
+ candy_renderer.name="Candy3D_Studio"
+ add_child(candy_renderer)
+ candy_renderer.build_candies(palette)
+
  for gem in palette:
   var viewport := SubViewport.new()
   viewport.name = "CrystalShaderSource"
   viewport.size = Vector2i(TILE_SIZE,TILE_SIZE)
   viewport.transparent_bg = true
   viewport.disable_3d = true
-  viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+  viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
   add_child(viewport)
   var crystal := ColorRect.new()
   crystal.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -48,10 +57,17 @@ func resize_background() -> void:
   background.size = get_viewport_rect().size
 
 func get_gem_texture(color_id: int) -> Texture2D:
- var index := clampi(color_id,0,tile_textures.size()-1)
+ if candy_renderer!=null:
+  var candy:Texture2D=candy_renderer.get_candy_texture(color_id)
+  if candy!=null:
+   return candy
  if tile_textures.is_empty():
   return null
+ var index:int=clampi(color_id,0,tile_textures.size()-1)
  return tile_textures[index]
+
+func uses_real_candy_3d() -> bool:
+ return candy_renderer!=null and candy_renderer.candy_count()>=7
 
 func set_theme(index:int) -> void:
  if sky_material==null:
