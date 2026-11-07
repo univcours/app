@@ -1,3 +1,28 @@
+# NovaGrid: Open-Source Reborn (Godot 4.5.1)
+
+## New professionally structured launch and gameplay foundation — 7 November 2026
+
+This branch **`novagrid-open-source-rebuild`** is a separate, importable, native Godot game. The previous playable branch **`novagrid-godot-rebuild`** is preserved.
+
+- `scenes/Welcome.tscn` is now the native start scene: two large animated, translucent game cards with **real procedural crystal mini-board previews**, animated nebulae, stars and orbital planets. Touch the **BLOCK PUZZLE** or **BLOCK FALL** card to enter the corresponding live game.
+- `scenes/Main.tscn` remains the real gameplay scene (not embedded HTML). On pause/game-over, a **GALAXY HOME** button returns to the animated launcher.
+- **Blockfall modern movement**: authentic MIT-licensed PokeTetris rotation/kick candidate source is preserved at `third_party/poketetris/Constants.gd` and adapted in `scripts/WallKicks.gd`. This adds clockwise/anticlockwise rotation, kick trials near walls/floor and a **0.42-second lock-delay grace period**. It retains fair 7-bag, Hold, ghost piece and line-only scoring.
+- **Block Puzzle**: 9×9 row/column/sector clears, simultaneous multi-line combos, scarce earnable bombs. Dropping a piece without clearing a group never awards score.
+- Both modes preserve existing original **Glass Galaxy shader blocks**, animated background, independent electronic sound, original layered glass-break effects, daily mission rewards, ranks, and persistent local saves.
+- **Copyright:** only the MIT gameplay source tables are reused from PokeTetris, with complete license and acknowledgement in `THIRD_PARTY_NOTICES.md`. **No Pokémon visuals or audio** have been imported. See that document before distribution.
+
+To test both the open-source rebuild and the real 2D renders:
+
+```bash
+godot --headless --path novagrid-godot --script res://tests/test_open_source.gd
+godot --headless --path novagrid-godot --script res://tests/test_game.gd
+godot --path novagrid-godot
+```
+
+Exporting with Godot remains independent of the existing Google Play package; use the separate debug APK for mobile QA.
+
+---
+
 # NovaGrid — Native Godot Rebuild (experimental)
 
 ## Visual reference fidelity — Glass Galaxy
