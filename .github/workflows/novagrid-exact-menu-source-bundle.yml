@@ -1,0 +1,38 @@
+name: NovaGrid Godot Current Native Source Archive
+on:
+  push:
+    branches: [novagrid-godot-admob-test-20261107]
+    paths: ['.github/workflows/novagrid-exact-menu-source-bundle.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-archive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify the exact reference integration exists in the current Godot source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f novagrid-godot/project.godot
+          test -f novagrid-godot/scripts/Welcome.gd
+          grep -F 'EXACT_MENU_ART' novagrid-godot/scripts/Welcome.gd
+          grep -F 'EXACT_PUZZLE_HIT' novagrid-godot/scripts/Welcome.gd
+          grep -F 'EXACT_FALL_HIT' novagrid-godot/scripts/Welcome.gd
+          echo 'Exact user-approved menu integration verified'
+      - name: Package current Godot SOURCE (user artwork is distributed separately)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cd novagrid-godot
+          zip -q -r ../dist/NovaGrid-Godot-Current-Source.zip . -x '.godot/*' 'build/*' '.git/*'
+          unzip -l ../dist/NovaGrid-Godot-Current-Source.zip | grep -F 'scripts/Welcome.gd'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: NovaGrid-Godot-Current-Source
+          path: dist/NovaGrid-Godot-Current-Source.zip
+          if-no-files-found: error
+          retention-days: 14
