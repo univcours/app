@@ -54,6 +54,17 @@ func _run() -> void:
      var well:Rect2=slot
      check(well.position.y>puzzle_board.end.y and well.end.y<float(p["height"])-100.0,
       "All 3 live premium candy wells below 9x9 field "+str(size))
+    # Verify HUD text art geometry, not only board dimensions.
+    var premium_frame:Rect2=app._puzzle_chrome_frame(p["viewport"],float(p["height"]))
+    var unit:float=premium_frame.size.x/941.0
+    check(386.0*unit-11.0 > 350.0*unit,
+     "BOMB percentage must sit BELOW illustrated BOMB heading "+str(size))
+    check(not (p["bomb"] as Rect2).intersects(puzzle_board),
+     "BOMB touch region overlays actual puzzle grid "+str(size))
+    check(not (p["audio"] as Rect2).intersects(p["music"] as Rect2),
+     "Audio and music controls overlap "+str(size))
+    check((p["progress"] as Rect2).end.y <= float(p["height"])+0.75,
+     "Rank footer enters AdMob dock "+str(size))
  app.mode=1
  app.set_native_banner_height(0.0)
  var old_drops:int=app.falling.drops
