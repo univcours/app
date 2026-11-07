@@ -33,6 +33,8 @@ var horizontal_anchor := 0.0
 var soft_clock := 0.0
 var touch_moved := false
 var falling_touch_valid := false
+var fall_display := Vector2(3,0)
+var fall_drawn_drops := -1
 var fall_accum := 0.0
 var save_clock := 0.0
 var clock := 0.0
@@ -78,6 +80,13 @@ func _ready() -> void:
 
 func _process(delta:float) -> void:
  clock += delta
+ if falling!=null:
+  var target:Vector2=Vector2(falling.active)
+  if falling.drops!=fall_drawn_drops or mode!=1:
+   fall_display=target
+   fall_drawn_drops=falling.drops
+  else:
+   fall_display=fall_display.lerp(target,clampf(delta*20.0,0.0,1.0))
  visual_pointer=visual_pointer.lerp(touch_at,clampf(delta*19.0,0.0,1.0))
  if mode==1 and touching and falling_touch_valid and not paused and not falling.over:
   if clock-press_clock>.24 and not touch_moved:
@@ -360,7 +369,7 @@ func _draw_falling(layout:Dictionary) -> void:
   if pos.y>=0 and pos.y<18 and falling.board[pos.y][pos.x]==0:
    _gem(Rect2(board.position+Vector2(pos.x*cell,pos.y*cell),Vector2(cell,cell)),falling.kind+1,true)
  for p in falling.piece:
-  var pos:Vector2i = falling.active+p
+  var pos:Vector2 = fall_display+Vector2(p)
   if pos.y>=0 and pos.y<18:
    _gem(Rect2(board.position+Vector2(pos.x*cell,pos.y*cell),Vector2(cell,cell)),falling.kind+1)
  # Compact next-piece preview sits BESIDE the small HUD, outside the board.
@@ -553,6 +562,8 @@ func _release(pos:Vector2) -> void:
   if layout["tabs"][i].has_point(pos):
    if mode!=i:
     mode=i
+    fall_display=Vector2(falling.active)
+    fall_drawn_drops=falling.drops
     selected=-1
     paused=false
     fall_accum=0
@@ -572,6 +583,8 @@ func _restart_mode() -> void:
   selected=-1
  else:
   falling.reset()
+  fall_display=Vector2(falling.active)
+  fall_drawn_drops=falling.drops
   fall_accum=0
  _save_game()
 
