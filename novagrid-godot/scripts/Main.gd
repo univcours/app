@@ -724,19 +724,21 @@ func _board_back(board_rect:Rect2,cols:int,rows:int) -> float:
 
 func _draw_puzzle(layout:Dictionary) -> void:
  var board:Rect2=layout["board"]
- var cell:float=_board_back(board,9,9)
+ var reference:bool=skin_puzzle_chrome!=null and float(layout["height"])>=760.0
+ var cell:float=board.size.x/9.0 if reference else _board_back(board,9,9)
+ var cell_y:float=board.size.y/9.0
  for y in 9:
   for x in 9:
    var id:int=int(puzzle.cells[y][x])
    if id>0:
-    _gem(Rect2(board.position+Vector2(x*cell,y*cell),Vector2(cell,cell)),id)
+    _gem(Rect2(board.position+Vector2(x*cell,y*cell_y),Vector2(cell,cell_y)),id)
  if bomb_armed and board.has_point(touch_at):
   var target:=Vector2i(clampi(int((touch_at.x-board.position.x)/cell),0,8),
-   clampi(int((touch_at.y-board.position.y)/cell),0,8))
+   clampi(int((touch_at.y-board.position.y)/cell_y),0,8))
   for yy in range(maxi(0,target.y-1),mini(9,target.y+2)):
    for xx in range(maxi(0,target.x-1),mini(9,target.x+2)):
-    var tile:=Rect2(board.position+Vector2(xx*cell,yy*cell),
-     Vector2(cell,cell))
+    var tile:=Rect2(board.position+Vector2(xx*cell,yy*cell_y),
+     Vector2(cell,cell_y))
     draw_rect(tile.grow(-1),
      Color(.99,.26,.79,.40 if puzzle.cells[yy][xx]>0 else .16),true)
     draw_rect(tile.grow(-1),GLOW_PINK,false,1.4)
@@ -748,8 +750,8 @@ func _draw_puzzle(layout:Dictionary) -> void:
     var preview_color:int=int(puzzle.tray_colors[selected])
     for p in puzzle.tray[selected]:
      var q:Vector2i=origin+p
-     _gem(Rect2(board.position+Vector2(q.x*cell,q.y*cell),
-      Vector2(cell,cell)),preview_color,true)
+     _gem(Rect2(board.position+Vector2(q.x*cell,q.y*cell_y),
+      Vector2(cell,cell_y)),preview_color,true)
  # Full-width play area: 3 touchable glass trays, not small inert artwork.
  var colors:Array=puzzle.tray_colors
  for i in 3:
@@ -757,8 +759,9 @@ func _draw_puzzle(layout:Dictionary) -> void:
   var gem_id:int=int(colors[i])
   var highlight:Color=GEM_COLORS[gem_id]
   var active:bool=i==selected
-  _glass_panel(tray_rect,Color("#142151") if active else Color("#10183f"),
-   GLOW_PINK if active else Color("#417bc7"))
+  if not reference:
+   _glass_panel(tray_rect,Color("#142151") if active else Color("#10183f"),
+    GLOW_PINK if active else Color("#417bc7"))
   if active:
    draw_rect(tray_rect.grow(3.0),Color(highlight.r,highlight.g,highlight.b,.20),false,3.0)
   var shape:Array=puzzle.tray[i]
@@ -773,16 +776,17 @@ func _draw_puzzle(layout:Dictionary) -> void:
   for p in shape:
    _gem(Rect2(offset+Vector2(p.x*micro,p.y*micro),
     Vector2(micro,micro)),gem_id)
- _label("✦  DRAG CANDIES  ·  CLEAR LINES  ·  COMBO BLAST  ✦",
-  Vector2(0,layout["height"]-117.0),10,Color("#c5f8ff"),
-  HORIZONTAL_ALIGNMENT_CENTER,layout["viewport"].x)
+ if not reference:
+  _label("✦  DRAG CANDIES  ·  CLEAR LINES  ·  COMBO BLAST  ✦",
+   Vector2(0,layout["height"]-117.0),10,Color("#c5f8ff"),
+   HORIZONTAL_ALIGNMENT_CENTER,layout["viewport"].x)
  if dragging and selected>=0 and not puzzle.tray[selected].is_empty():
   var s:Array=puzzle.tray[selected]
   var shape_size:Vector2i=puzzle.shape_size(s)
-  var left:Vector2=visual_pointer-Vector2(shape_size.x*cell*.5,shape_size.y*cell*.5+54)
+  var left:Vector2=visual_pointer-Vector2(shape_size.x*cell*.5,shape_size.y*cell_y*.5+54)
   for p in s:
-   _gem(Rect2(left+Vector2(p.x*cell,p.y*cell),
-    Vector2(cell,cell)),int(colors[selected]),true)
+   _gem(Rect2(left+Vector2(p.x*cell,p.y*cell_y),
+    Vector2(cell,cell_y)),int(colors[selected]),true)
 
 func _draw_falling(layout:Dictionary) -> void:
  var board:Rect2=layout["board"]
@@ -943,8 +947,8 @@ func _draw_modal(layout:Dictionary) -> void:
  _button(Rect2(modal.position+Vector2(27,184),Vector2(modal.size.x-54,28)),"⌂  GALAXY HOME",false,true)
 
 func _origin_from_position(pos:Vector2,centered:bool,board:Rect2,shape:Array) -> Vector2i:
- var cell:float = board.size.x/9.0
- var local:Vector2 = (pos-board.position)/cell
+ var cell:Vector2=Vector2(board.size.x/9.0,board.size.y/9.0)
+ var local:Vector2=(pos-board.position)/cell
  if centered:
   var bounds:Vector2i = puzzle.shape_size(shape)
   return Vector2i(int(round(local.x-float(bounds.x)*.5)),
@@ -1128,13 +1132,14 @@ func _release_puzzle(pos:Vector2,layout:Dictionary) -> void:
  if bomb_armed:
   if board.has_point(pos):
    var cell:float=board.size.x/9.0
+   var cell_y:float=board.size.y/9.0
    var target:=Vector2i(clampi(int((pos.x-board.position.x)/cell),0,8),
-    clampi(int((pos.y-board.position.y)/cell),0,8))
+    clampi(int((pos.y-board.position.y)/cell_y),0,8))
    var removed:int=puzzle.detonate_bomb(target)
    if removed>0:
     bomb_armed=false
     selected=-1
-    var impact:Vector2=board.position+Vector2((target.x+.5)*cell,(target.y+.5)*cell)
+    var impact:Vector2=board.position+Vector2((target.x+.5)*cell,(target.y+.5)*cell_y)
     audio.effect_for("puzzle","big_shatter")
     _burst(impact,55+removed*5,Color("#ff62db"))
     _announce("CANDY BOMB!  %d SWEETS" % removed,impact-Vector2(0,45),Color("#ffe7ff"))
