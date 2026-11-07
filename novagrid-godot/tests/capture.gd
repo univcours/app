@@ -91,10 +91,9 @@ func _capture() -> void:
   printerr("Unable to capture live particle effects: ",err)
   quit(1)
   return
- app.queue_free()
- await process_frame
- await process_frame
+ # A single explicit detach/free avoids invalid-object crashes at teardown.
  root.remove_child(app)
  app.free()
+ await process_frame
  print("REAL GODOT SCREENSHOTS SAVED")
  quit(0)
