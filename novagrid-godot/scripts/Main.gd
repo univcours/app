@@ -177,7 +177,7 @@ func _layout() -> Dictionary:
  var w:float=viewport.x
  var h:float=viewport.y-banner_height
  var gutter:float=clampf(w*.031,9.0,18.0)
- if mode==1 and skin_fall!=null:
+ if mode==1 and skin_fall!=null and h>=760.0:
   return _reference_blockfall_layout(viewport,h)
  var header_scale:float=clampf(h/840.0,.72,1.0)
  var header_end:float=177.0*header_scale
