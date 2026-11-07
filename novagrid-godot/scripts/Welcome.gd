@@ -3,11 +3,20 @@ extends Node2D
 ## The animated nebula and crystal textures are shared by both live game modes.
 const VisualsScript = preload("res://scripts/Visuals.gd")
 const AudioScript = preload("res://scripts/Audio.gd")
+# Original AI-designed 941x1672 image is the EXACT full-screen source of truth.
+# Shipped as res://assets/menu/novagrid_cosmic_candy_arcade.png inside the
+# playable editor-ready ZIP. If absent, the previous Godot-rendered fallback
+# remains operational rather than showing a broken texture.
+const EXACT_MENU_ART = "res://assets/menu/novagrid_cosmic_candy_arcade.png"
+const EXACT_MENU_CANVAS = Vector2(941.0,1672.0)
+const EXACT_PUZZLE_HIT = Rect2(65.0,374.0,813.0,414.0)
+const EXACT_FALL_HIT = Rect2(64.0,814.0,814.0,440.0)
 const GEMS = [
  Color("#132255"),Color("#ff287f"),Color("#ffc323"),Color("#13e5ff"),
  Color("#a65cff"),Color("#17e888"),Color("#ff812b"),Color("#3688ff")]
 var visuals
 var audio
+var exact_menu_texture:Texture2D = null
 var font:Font
 var clock:float=0.0
 var touch_position:Vector2=Vector2(-1000,-1000)
@@ -27,6 +36,10 @@ const FALL_PREVIEW_NEXT = [
 ]
 
 func _ready() -> void:
+ # Always render the ACTUAL reference artwork if its PNG is shipped with the
+ # Godot project. Keep the procedural fallback for source-only installations.
+ if ResourceLoader.exists(EXACT_MENU_ART):
+  exact_menu_texture=load(EXACT_MENU_ART) as Texture2D
  font=ThemeDB.fallback_font
  visuals=VisualsScript.new()
  add_child(visuals)
@@ -58,6 +71,14 @@ func _process(delta:float) -> void:
 
 func _rectangles() -> Array[Rect2]:
  var size:Vector2=get_viewport_rect().size if is_inside_tree() else Vector2(432.0,960.0)
+ # For the reference image, the WHOLE card is touchable despite being a
+ # flattened, pixel-identical artwork. No transparent dead PLAY buttons.
+ if exact_menu_texture != null:
+  var ratio:=Vector2(size.x/EXACT_MENU_CANVAS.x,size.y/EXACT_MENU_CANVAS.y)
+  return [
+   Rect2(EXACT_PUZZLE_HIT.position*ratio,EXACT_PUZZLE_HIT.size*ratio),
+   Rect2(EXACT_FALL_HIT.position*ratio,EXACT_FALL_HIT.size*ratio)
+  ]
  var margin:float=clampf(size.x*.052,14.0,28.0)
  var card_height:float=clampf(size.y*.235,146.0,226.0)
  var gap:float=clampf(size.y*.018,11.0,19.0)
@@ -294,6 +315,14 @@ func _card(rect:Rect2,index:int) -> void:
 
 func _draw() -> void:
  var view:Vector2=get_viewport_rect().size
+ if exact_menu_texture != null:
+  # Render the supplied image itself, no approximation via procedural panels.
+  # Stretch to the viewport so all CTA/buttons remain present on narrow phones.
+  draw_texture_rect(exact_menu_texture,Rect2(Vector2.ZERO,view),false)
+  if chosen>=0:
+   draw_rect(Rect2(Vector2.ZERO,view),
+    Color(.01,.02,.08,clampf(transition_elapsed/.28,0.0,1.0)),true)
+  return
  var cards:Array[Rect2]=_rectangles()
  var compact:bool=view.y<730.0
  # Dark atmospheric veil behind the brand prevents the nebula from
