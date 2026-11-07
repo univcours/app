@@ -54,6 +54,23 @@ jobs:
           chmod +x android/gradlew
           cd android
           ./gradlew :app:assembleDebug --no-daemon
+      - name: Package a ready-to-open Android Studio project
+        run: |
+          set -euo pipefail
+          mkdir -p android-studio-export/node_modules/@capacitor/android
+          rsync -a --exclude='build' --exclude='.gradle' --exclude='local.properties' android/ android-studio-export/android/
+          rsync -a node_modules/@capacitor/android/ android-studio-export/node_modules/@capacitor/android/
+          cp package.json capacitor.config.json android-studio-export/
+          cp -r web android-studio-export/
+          test -f android-studio-export/android/settings.gradle
+          test -f android-studio-export/node_modules/@capacitor/android/capacitor/build.gradle
+      - name: Upload Android Studio project for direct device Run
+        uses: actions/upload-artifact@v4
+        with:
+          name: novagrid-cosmic-glass-android-studio
+          path: novagrid/android-studio-export/
+          retention-days: 14
+          if-no-files-found: error
       - name: Confirm app ID is not the Play Store package
         run: |
           set -euo pipefail
