@@ -287,15 +287,15 @@ func _draw_header(layout:Dictionary) -> void:
  # capsules and a single sapphire glass pause button at the right.
  _label(mode_name,Vector2(1.2,42.0),29,Color(.12,.46,1.0,.56),HORIZONTAL_ALIGNMENT_CENTER,w)
  _label(mode_name,Vector2(0.0,40.0),29,Color("#f5fbff"),HORIZONTAL_ALIGNMENT_CENTER,w)
- _label("✦ NOVAGRID ✦",Vector2(0,59),10,Color("#c4a2fa"),HORIZONTAL_ALIGNMENT_CENTER,w)
+ _label("✦ 3D CANDY GALAXY ✦",Vector2(0,59),10,Color("#ffd3f1"),HORIZONTAL_ALIGNMENT_CENTER,w)
  var score:int=puzzle.score if mode==0 else falling.score
  var best:int=puzzle.best if mode==0 else falling.best
  var other:String="BEST" if mode==0 else "LEVEL"
  var other_value:String=str(best) if mode==0 else str(falling.level)
  var left_card:=Rect2(Vector2(g,77),Vector2((w-3.0*g-55.0)*.51,57))
  var right_card:=Rect2(Vector2(left_card.end.x+g,77),Vector2((w-3.0*g-55.0)*.49,57))
- _glass_panel(left_card,Color(.042,.038,.20,.92),Color(.36,.37,.68,.62))
- _glass_panel(right_card,Color(.042,.038,.20,.92),Color(.57,.42,.74,.69))
+ _glass_panel(left_card,Color(.14,.075,.29,.94),Color(.84,.48,.92,.82))
+ _glass_panel(right_card,Color(.075,.15,.34,.92),Color(.39,.81,1.0,.88))
  _label("SCORE",Vector2(left_card.position.x,left_card.position.y+17),11,Color("#f1e9ff"),HORIZONTAL_ALIGNMENT_CENTER,left_card.size.x)
  _label("%s" % score,Vector2(left_card.position.x,left_card.position.y+44),24,Color("#ffe7a4"),HORIZONTAL_ALIGNMENT_CENTER,left_card.size.x)
  _label(other,Vector2(right_card.position.x,right_card.position.y+17),11,Color("#ffe0a9"),HORIZONTAL_ALIGNMENT_CENTER,right_card.size.x)
@@ -369,7 +369,7 @@ func _board_back(board_rect:Rect2,cols:int,rows:int) -> float:
  # Multi-layer neon glass frame with blue-white corner lighting.
  draw_rect(outer.grow(5.0),Color(.08,.46,1.0,.12),false,5.0)
  draw_rect(outer.grow(2.5),Color(.12,.58,1.0,.21),false,3.0)
- _glass_panel(outer,Color(.016,.025,.11,.84),Color("#4adfff"))
+ _glass_panel(outer,Color(.056,.031,.14,.85),Color("#ba93ff"))
  draw_rect(board_rect,Color(.014,.017,.070,.48),true)
  var cell:float=board_rect.size.x/float(cols)
  for y in rows:
