@@ -96,6 +96,8 @@ func _run_touch() -> void:
  app.queue_free()
  await process_frame
  await process_frame
+ root.remove_child(app)
+ app.free()
  if faults.is_empty():
   print("ALL NOVAGRID TOUCH CONTROLS PASSED")
   quit(0)
