@@ -28,7 +28,8 @@ jobs:
           BASE=https://ribhlab.wordpress.com/wp-content/uploads/2026/11
           mkdir -p novagrid-godot/assets/skins/neon_exact
           curl -fL --retry 3 "$BASE/novagrid_exact_neon_board_asset.png" -o novagrid-godot/assets/skins/neon_exact/neon_block_puzzle_empty_941x1672.png
-          curl -fL --retry 3 "$BASE/novagrid_exact_neon_gem_atlas.png" -o /tmp/neon_atlas.png
+          curl -fL --retry 3 "$BASE/novagrid_clean_7_gems_atlas_20261108.png" -o /tmp/neon_atlas.png
+          curl -fL --retry 3 "$BASE/novagrid_blockfall_clean_combo_background_20261108.png" -o novagrid-godot/assets/skins/blockfall_playable_chrome.png
           python3 -m pip install --quiet pillow
           python3 - <<'PY'
           from PIL import Image
@@ -37,9 +38,11 @@ jobs:
           board=Image.open(p/"neon_block_puzzle_empty_941x1672.png")
           atlas=Image.open("/tmp/neon_atlas.png").convert("RGBA")
           assert board.size == (941,1672), board.size
-          assert atlas.size == (700,100), atlas.size
+          assert atlas.size == (1792,256), atlas.size
           for i in range(7):
-            atlas.crop((i*100,0,(i+1)*100,100)).save(p/f"gem_{i+1}.png")
+            gem=atlas.crop((i*256,0,(i+1)*256,256))
+            assert gem.getpixel((0,0))[3]==0, "gem art must have transparent outer margin"
+            gem.save(p/f"gem_{i+1}.png")
           print("LIVE NEON ASSETS DOWNLOADED AND VALIDATED",board.size,atlas.size)
           PY
       - name: Import and parse real Godot game
