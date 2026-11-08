@@ -155,9 +155,9 @@ func _cosmic_backdrop(size:Vector2) -> void:
   var center:Vector2=Vector2(band["center"])*size
   var radius:float=size.x*float(band["radius"])
   var shade:Color=band["color"]
-  for ring in range(9,0,-1):
-   var t:float=float(ring)/9.0
-   draw_circle(center,radius*t,Color(shade.r,shade.g,shade.b,.012))
+  for ring in range(15,0,-1):
+   var t:float=float(ring)/15.0
+   draw_circle(center,radius*t,Color(shade.r,shade.g,shade.b,.017))
  # Thin intertwined galaxy trails frame the two functional game choices.
  for arc_index in 3:
   var radius:float=size.x*(.60+float(arc_index)*.13)
@@ -411,6 +411,32 @@ func _reference_hero() -> void:
   draw_line(spark-Vector2(0,radius),spark+Vector2(0,radius),
    Color("#fbd2ff",.75),1.5,true)
 
+# Drawn below the crystal constellation and above the first live CTA.
+# A native layered neon mountain horizon replaces the former empty space.
+func _cosmic_horizon() -> void:
+ for band in 6:
+  var strength:float=.12-float(band)*.016
+  draw_line(Vector2(37,513+band*3),Vector2(395,513+band*3),
+   Color(.36,.18,.95,strength),2.0,true)
+ var far:=PackedVector2Array([
+  Vector2(0,538),Vector2(0,515),Vector2(43,482),Vector2(84,516),
+  Vector2(138,492),Vector2(180,518),Vector2(237,481),
+  Vector2(293,519),Vector2(364,473),Vector2(432,516),Vector2(432,538)])
+ draw_colored_polygon(far,Color("#141042"))
+ draw_line(Vector2(0,516),Vector2(43,482),Color("#a252ff",.30),1.5,true)
+ draw_line(Vector2(294,518),Vector2(364,473),Color("#38cfff",.32),1.5,true)
+ var near:=PackedVector2Array([
+  Vector2(0,545),Vector2(0,533),Vector2(66,509),Vector2(96,537),
+  Vector2(155,528),Vector2(231,541),Vector2(295,523),
+  Vector2(344,537),Vector2(401,510),Vector2(432,523),Vector2(432,545)])
+ draw_colored_polygon(near,Color("#070a2b"))
+ draw_line(Vector2(65,511),Vector2(96,537),Color("#a66bff",.42),1.6,true)
+ draw_line(Vector2(344,537),Vector2(401,510),Color("#26b8ff",.48),1.6,true)
+ for n in 7:
+  var x:float=52.0+float(n)*51.0
+  var y:float=508.0+sin(float(n)*2.3)*12.0
+  draw_circle(Vector2(x,y),2.1,Color("#ad95ff",.34))
+
 func _menu_row(y:float,title:String,subtitle:String,accent:Color,
  enabled:bool,number:int) -> void:
  var rect:=Rect2(20,y,392,81)
@@ -463,6 +489,7 @@ func _draw() -> void:
  _label("Cosmic Block Puzzle",Vector2(0,169),15,Color("#a5eaff"),
   HORIZONTAL_ALIGNMENT_CENTER,432)
  _reference_hero()
+ _cosmic_horizon()
  _menu_row(548,"Classic","9 X 9 Puzzle",Color("#39e6ff"),true,0)
  _menu_row(633,"Daily Challenge","Coming soon",Color("#ffc15b"),false,1)
  _menu_row(718,"Blockfall","Endless block action",Color("#df6dff"),true,2)
