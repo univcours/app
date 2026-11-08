@@ -1,0 +1,77 @@
+name: NovaGrid Exact Approved Neon Block Puzzle (Godot 4.5.1)
+on:
+  push:
+    branches: [novagrid-godot-admob-test-20261107]
+    paths:
+      - 'novagrid-godot/scripts/Main.gd'
+      - 'novagrid-godot/scripts/download-complete-godot.ps1'
+      - 'novagrid-godot/tests/test_neon_reference.gd'
+      - '.github/workflows/novagrid-exact-neon-reference-qa.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  actual-art-touch-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install official Godot 4.5.1
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 https://github.com/godotengine/godot-builds/releases/download/4.5.1-stable/Godot_v4.5.1-stable_linux.x86_64.zip -o /tmp/godot.zip
+          unzip -q /tmp/godot.zip -d /tmp
+          sudo install -m 755 /tmp/Godot_v4.5.1-stable_linux.x86_64 /usr/local/bin/godot
+      - name: Download REAL approved user artwork and gemstone atlas (not synthetic)
+        run: |
+          set -euo pipefail
+          BASE=https://ribhlab.wordpress.com/wp-content/uploads/2026/11
+          mkdir -p novagrid-godot/assets/skins/neon_exact
+          curl -fL --retry 3 "$BASE/novagrid_exact_neon_board_asset.png" -o novagrid-godot/assets/skins/neon_exact/neon_block_puzzle_empty_941x1672.png
+          curl -fL --retry 3 "$BASE/novagrid_exact_neon_gem_atlas.png" -o /tmp/neon_atlas.png
+          python3 -m pip install --quiet pillow
+          python3 - <<'PY'
+          from PIL import Image
+          from pathlib import Path
+          p=Path("novagrid-godot/assets/skins/neon_exact")
+          board=Image.open(p/"neon_block_puzzle_empty_941x1672.png")
+          atlas=Image.open("/tmp/neon_atlas.png").convert("RGBA")
+          assert board.size == (941,1672), board.size
+          assert atlas.size == (700,100), atlas.size
+          for i in range(7):
+            atlas.crop((i*100,0,(i+1)*100,100)).save(p/f"gem_{i+1}.png")
+          print("LIVE NEON ASSETS DOWNLOADED AND VALIDATED",board.size,atlas.size)
+          PY
+      - name: Import and parse real Godot game
+        run: |
+          set -euo pipefail
+          godot --headless --editor --path novagrid-godot --quit 2>&1 | tee /tmp/neon-import.log
+          godot --headless --path novagrid-godot --check-only --script res://scripts/Main.gd 2>&1 | tee /tmp/neon-parse.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Parser Error' /tmp/neon-import.log /tmp/neon-parse.log; then exit 1; fi
+      - name: Exercise real 9x9 game, selection, drag, sound and phone layout
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/novagrid-qa-user
+          XDG_DATA_HOME=/tmp/novagrid-qa-user godot --headless --audio-driver Dummy --path novagrid-godot --script res://tests/test_neon_reference.gd 2>&1 | tee /tmp/neon-qa.log
+          grep -F 'ALL EXACT NEON REFERENCE GAMEPLAY, TOUCH, UI AND RESPONSIVE TESTS PASSED' /tmp/neon-qa.log
+      - name: Attach actual test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaGrid-Exact-Neon-Approved-Image-and-Godot-QA
+          path: /tmp/neon-*.log
+          if-no-files-found: ignore
+  windows-installer-parser:
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify the one-command complete Godot installer parses
+        shell: pwsh
+        run: |
+          $path = "novagrid-godot/scripts/download-complete-godot.ps1"
+          $tokens=$null
+          $errors=$null
+          [System.Management.Automation.Language.Parser]::ParseFile($path,[ref]$tokens,[ref]$errors) | Out-Null
+          if($errors.Count -gt 0){$errors | Out-String | Write-Host; throw "PowerShell installer syntax failure"}
+          Write-Host "ONE-COMMAND COMPLETE GODOT INSTALLER PARSES"
