@@ -6,6 +6,8 @@ const FallingScript = preload("res://scripts/Falling.gd")
 const AudioScript = preload("res://scripts/Audio.gd")
 const VisualsScript = preload("res://scripts/Visuals.gd")
 const ProgressionScript = preload("res://scripts/Progression.gd")
+const DISPLAY_FONT:Font = preload("res://assets/fonts/Orbitron.ttf")
+const UI_FONT:Font = preload("res://assets/fonts/Oxanium.ttf")
 
 const GEM_COLORS = [
  Color("#192850"), Color("#ff287f"), Color("#ffbe17"), Color("#13c7fa"),
@@ -656,7 +658,23 @@ func _draw_cosmic_planet(center:Vector2,radius:float,base:Color,light:Color) -> 
 
 func _label(text:String,pos:Vector2,size:int=16,color:Color=Color.WHITE,
  alignment:HorizontalAlignment=HORIZONTAL_ALIGNMENT_LEFT,width:float=-1.0) -> void:
- draw_string(font,pos,text,alignment,width,size,color)
+ # Native outlined text: matching sci-fi typography in actual gameplay, not
+ # just the welcome page. Keep glow restrained for score legibility.
+ var face:Font=DISPLAY_FONT if size>=22 else UI_FONT
+ for i in text.length():
+  if not face.has_char(text.unicode_at(i)):
+   face=font
+   break
+ var glow:Color=GLOW_PURPLE if size>=22 else color
+ if size>=22:
+  draw_string_outline(face,pos,text,alignment,width,size,5,
+   Color(glow.r,glow.g,glow.b,.18))
+  draw_string_outline(face,pos,text,alignment,width,size,2,
+   Color(glow.r,glow.g,glow.b,.35))
+ else:
+  draw_string_outline(face,pos,text,alignment,width,size,2,
+   Color(glow.r,glow.g,glow.b,.18))
+ draw_string(face,pos,text,alignment,width,size,color)
 
 func _sparkle(pos:Vector2,tint:Color,extent:float=5.0) -> void:
  draw_circle(pos,extent*1.8,Color(tint.r,tint.g,tint.b,.11))
