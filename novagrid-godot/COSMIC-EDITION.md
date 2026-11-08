@@ -109,3 +109,18 @@ if a later plugin/build step fails.
 - The artwork is procedural and substantially closer in structure/color/material
   to the new concept, but is not a pixel-identical reproduction of its illustrated
   planets, landscapes and hero art.
+
+## Updating an older Windows checkout
+
+Godot may have generated untracked `.uid` files on an older branch. Git correctly
+refuses to overwrite them with Cosmic Edition's tracked UIDs.
+`scripts/switch-cosmic.ps1 -Root <repository>` fetches the target branch, moves
+only conflicting untracked UID files into a unique sibling backup (including
+ignored UID files), then switches without overwriting ignored unrelated files.
+Unrelated files, tracked edits, saves and local commits are never reset. If Git
+refuses the switch, missing original UID paths are restored and the backup is
+retained. Close Godot before running it to prevent concurrent UID regeneration.
+After a successful switch, the existing updater runs its tests/build/install.
+The bootstrap can be extracted with `git show` before checkout, so an older
+branch does not need the script already present. `-SkipBuild` is for isolated
+Git fixture tests only.

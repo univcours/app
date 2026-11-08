@@ -57,11 +57,16 @@ jobs:
       - name: Parse Windows installers
         shell: pwsh
         run: |
-          foreach ($path in @('novagrid-godot/scripts/update-build-install.ps1','novagrid-godot/scripts/install-admob.ps1')) {
+          foreach ($path in @('novagrid-godot/scripts/update-build-install.ps1','novagrid-godot/scripts/install-admob.ps1','novagrid-godot/scripts/switch-cosmic.ps1','novagrid-godot/tests/test_switch_cosmic.ps1')) {
             $tokens=$null; $errors=$null
             [System.Management.Automation.Language.Parser]::ParseFile($path,[ref]$tokens,[ref]$errors) | Out-Null
             if ($errors.Count) { $errors | ForEach-Object { Write-Error "$path : $($_.Message)" }; exit 1 }
           }
+      - name: Verify safe branch switching and UID backups
+        shell: pwsh
+        run: |
+          $env:NOVAGRID_SWITCH_TEST_ROOT = Join-Path $env:RUNNER_TEMP 'novagrid-switch-qa'
+          & ./novagrid-godot/tests/test_switch_cosmic.ps1
       - name: Import and static validation
         run: |
           set -euo pipefail
