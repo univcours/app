@@ -55,24 +55,24 @@ func _initialize() -> void:
  expect(p.last_groups==1 and p.last_cleared==9 and p.score>0,
   "9x9 Classic awards score for a fully cleared 3x3 sector")
  p.reset()
- p.score=4990
- p.total_lines=17
+ p.score=0
+ p.total_lines=3
  for x in 8:
   p.cells[1][x]=1
  p.tray[0]=[Vector2i(0,0)]
  expect(p.place(0,Vector2i(8,1)) and p.bombs==1 and p.last_bomb_award==1,
-  "rare bomb requires genuine final line clear and threshold score")
+  "real fourth completed line grants first earned emergency blast")
  var before_bomb_score:int=p.score
  p.cells[5][5]=3
  p.cells[4][4]=2
  expect(p.detonate_bomb(Vector2i(5,5))==2,"rare glass bomb clears up to 3x3 occupied area")
- expect(p.score==before_bomb_score and p.bombs==0 and p.total_lines==18,
+ expect(p.score==before_bomb_score and p.bombs==0 and p.total_lines==4,
   "bomb is a tactical rescue and never creates fake points or lines")
  expect(p.detonate_bomb(Vector2i(5,5))==0,"empty bomb inventory cannot activate twice")
  var saved_bomb:Dictionary=p.save_state()
  var copy_bomb=Puzzle.new()
  expect(copy_bomb.load_state(saved_bomb) and copy_bomb.bomb_milestone==1 and copy_bomb.bombs==0,
-  "rare bomb milestone survives game save and restore")
+  "earned blast milestone survives save/restore without resetting charge")
  var f = Falling.new()
  expect(f.board.size()==18 and f.board[0].size()==10,"falling board is 10x18")
  expect(f.piece.size()==4 and not f.over,"falling first piece spawns")
