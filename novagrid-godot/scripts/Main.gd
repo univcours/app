@@ -11,6 +11,7 @@ const SaveStore = preload("res://scripts/SaveStore.gd")
 const SafeArea = preload("res://scripts/SafeArea.gd")
 const Campaign = preload("res://scripts/Campaign.gd")
 const Typography = preload("res://scripts/Typography.gd")
+const NeonSkin = preload("res://scripts/NeonSkin.gd")
 
 const GEM_COLORS = [
  Color("#192850"), Color("#ff287f"), Color("#ffbe17"), Color("#13c7fa"),
@@ -592,49 +593,15 @@ func _premium_title(message:String,at:Vector2,large:int,width:float,accent:Color
   HORIZONTAL_ALIGNMENT_CENTER,width)
 
 
-func _glass_panel(rect:Rect2,fill:Color=Color("#17225b"),outline:Color=Color("#7deaff")) -> void:
- # Cached rounded style; real-time glows remain lightweight on midrange phones.
- var key:String=fill.to_html(true)+":"+outline.to_html(true)
- if not panel_styles.has(key):
-  var panel:=StyleBoxFlat.new()
-  panel.bg_color=fill
-  panel.border_color=outline
-  panel.set_corner_radius_all(14)
-  panel.set_border_width_all(2)
-  panel.shadow_color=Color(outline.r,outline.g,outline.b,.28)
-  panel.shadow_size=9
-  panel.shadow_offset=Vector2.ZERO
-  panel_styles[key]=panel
- draw_rect(rect.grow(4.0),Color(outline.r,outline.g,outline.b,.07),false,3.0)
- draw_style_box(panel_styles[key],rect)
- var pad:float=minf(17.0,rect.size.x*.15)
- if rect.size.x>30.0 and rect.size.y>15.0:
-  draw_line(rect.position+Vector2(pad,2.4),
-   Vector2(rect.end.x-pad,rect.position.y+2.4),
-   Color(1,1,1,.74),1.7,true)
-  draw_line(rect.position+Vector2(pad,5.0),
-   Vector2(rect.end.x-pad,rect.position.y+5.0),
-   Color(outline.r,outline.g,outline.b,.31),1.2,true)
-  draw_line(Vector2(rect.position.x+pad,rect.end.y-2.5),
-   Vector2(rect.end.x-pad,rect.end.y-2.5),
-   Color(outline.r,outline.g,outline.b,.48),1.6,true)
-  draw_circle(rect.position+Vector2(10,10),2.1,Color.WHITE)
+func _glass_panel(rect:Rect2,fill:Color=Color("#081337"),outline:Color=Color("#00ddff")) -> void:
+ NeonSkin.panel(self,rect,outline,fill,18,Time.get_ticks_msec()*.001)
 
 func _button(rect:Rect2,title:String,active:bool=false,small:bool=false) -> void:
- var hue:Color=GLOW_BLUE if active else GLOW_PURPLE
- var fill:Color=Color("#0953a0") if active else Color("#1b235d")
- _glass_panel(rect,fill,hue)
- if rect.size.x>22.0 and rect.size.y>24.0:
-  # Crisp diagonal gloss in the upper third, independent of input hitboxes.
-  draw_line(rect.position+Vector2(9,rect.size.y*.33),
-   rect.position+Vector2(rect.size.x-9,rect.size.y*.33),
-   Color("#e6ffff",.28),1.1,true)
- var fontsize:int=12 if small else 16
- _label(title,Vector2(rect.position.x,rect.position.y+rect.size.y*.66+1),
-  fontsize,Color(hue.r,hue.g,hue.b,.52),
-  HORIZONTAL_ALIGNMENT_CENTER,rect.size.x)
- _label(title,Vector2(rect.position.x,rect.position.y+rect.size.y*.66),
-  fontsize,Color.WHITE,HORIZONTAL_ALIGNMENT_CENTER,rect.size.x)
+ var hue:Color=GLOW_BLUE if active else GLOW_PINK
+ NeonSkin.panel(self,rect,hue,Color("#081737"),15,Time.get_ticks_msec()*.001,active)
+ var fontsize:int=12 if small else 17
+ _label(title,Vector2(rect.position.x,rect.position.y+rect.size.y*.65),
+  fontsize,Color("#f7fbff"),HORIZONTAL_ALIGNMENT_CENTER,rect.size.x)
 
 func _draw_header(layout:Dictionary) -> void:
  var w:float=layout["viewport"].x
@@ -679,7 +646,7 @@ func _draw_header(layout:Dictionary) -> void:
    draw_line(gauge.position,Vector2(gauge.end.x,gauge.position.y),Color("#ffffff",.67),1.2,true)
   _label("FEVER  %d%%" % puzzle.fever,Vector2(g,172),10,GLOW_PINK)
   var bomb:Rect2=layout["bomb_visual"]
-  _glass_panel(bomb,Color("#501157") if bomb_armed else Color("#19134a"),
+  _glass_panel(bomb,Color("#32104c") if bomb_armed else Color("#081337"),
    GLOW_PINK)
   _label("✦  %s" % (str(puzzle.bombs) if puzzle.bombs>0 else "%d%%" % puzzle.bomb_charge()),
    Vector2(bomb.position.x,bomb.position.y+21),13,
@@ -694,7 +661,7 @@ func _draw_progress_hud(layout:Dictionary) -> void:
  # Premium rank ribbon anchored outside the playable cells and native ad dock.
  var rect:Rect2=layout["progress"]
  var y:float=rect.position.y
- _glass_panel(rect,Color("#0e1744"),GLOW_PURPLE)
+ _glass_panel(rect,Color("#081337"),GLOW_PINK)
  if rect.size.y>35.0:
   # Compact screens: rank, XP bar, mission are three separate rows.
   _label("LV %d · %s"%[progress.level,progress.rank_name()],
@@ -731,8 +698,7 @@ func _draw_progress_hud(layout:Dictionary) -> void:
 
 func _draw_back_button(rect:Rect2) -> void:
  # Identical tactile blue-glass back button in both Puzzle and Blockfall.
- draw_rect(rect.grow(-0.1),Color("#10143d"),true)
- _glass_panel(rect,Color("#141b50"),GLOW_BLUE)
+ _glass_panel(rect,Color("#081737"),GLOW_BLUE)
  var center:Vector2=rect.get_center()+Vector2(0.0,1.0)
  var arm:float=maxf(4.0,minf(rect.size.x,rect.size.y)*.19)
  var stroke:float=maxf(2.0,minf(rect.size.x,rect.size.y)*.065)
@@ -1036,7 +1002,7 @@ func _draw_modal(layout:Dictionary) -> void:
  draw_rect(Rect2(Vector2.ZERO,Vector2(viewport.x,game_height)),Color(.01,.015,.08,.75),true)
  var modal := Rect2(Vector2(viewport.x*.09,game_height*.34),
   Vector2(viewport.x*.82,222))
- _glass_panel(modal,Color("#222c79"),Color("#90f6ff"))
+ _glass_panel(modal,Color("#061335"),GLOW_PINK)
  var title := "PAUSED" if paused else "GAME OVER"
  _label(title,Vector2(modal.position.x,modal.position.y+56),26,
   Color("#fff2ff"),HORIZONTAL_ALIGNMENT_CENTER,modal.size.x)
@@ -1480,9 +1446,10 @@ func _draw_cosmic() -> void:
  var safe:Rect2=layout["safe"]
  var w:float=safe.size.x
  _draw_sky(layout)
- draw_rect(Rect2(Vector2.ZERO,layout["viewport"]),Color("#03051d",.36),true)
+ draw_rect(Rect2(Vector2.ZERO,layout["viewport"]),Color("#03051d",.53),true)
  _draw_back_button(layout["mode_switch"])
- _button(layout["pause"],"Ⅱ",true)
+ _button(layout["pause"],"",true)
+ NeonSkin.icon(self,"pause",layout["pause"].get_center(),16,GLOW_BLUE)
  var title:String="Classic" if mode==0 else "Blockfall"
  if entry=="daily":title="Daily Challenge"
  if entry=="stage":title="Stage %d"%stage
@@ -1495,7 +1462,7 @@ func _draw_cosmic() -> void:
  var card_h:float=maxf(38,minf(72,layout["board"].position.y-card_y-20))
  for i in 2:
   var card:=Rect2(safe.position.x+34+i*(w*.5-22),card_y,w*.5-46,card_h)
-  _glass_panel(card,Color("#10143b") if i==0 else Color("#251044"),GLOW_BLUE if i==0 else GLOW_PURPLE)
+  _glass_panel(card,Color("#071737") if i==0 else Color("#160b36"),GLOW_BLUE if i==0 else GLOW_PINK)
   _label("Score" if i==0 else ("Best" if mode==0 else "Level"),card.position+Vector2(0,17),12,Color("#d9deff"),HORIZONTAL_ALIGNMENT_CENTER,card.size.x)
   var value:int=(puzzle.score if mode==0 else falling.score) if i==0 else (puzzle.best if mode==0 else falling.level)
   _label(str(value),card.position+Vector2(0,card_h-10),clampi(int(card_h*.41),16,28),Color.WHITE,HORIZONTAL_ALIGNMENT_CENTER,card.size.x)
