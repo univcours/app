@@ -4,11 +4,8 @@ extends RefCounted
 const COLS := 9
 const ROWS := 9
 const SECTOR_SIZE := 3
-const BOMB_MILESTONES = [
- {"score":5000,"lines":18},{"score":14500,"lines":45},
- {"score":32000,"lines":95},{"score":56000,"lines":155},
- {"score":90000,"lines":240}
-]
+# Genuine line clears, not score thresholds, charge emergency area blasts.
+const BOMB_EVERY_LINES := 4
 const MAX_BOMBS := 2
 const SHAPES = [
  [[0,0]], [[0,0],[1,0]], [[0,0],[1,0],[2,0]],
@@ -143,6 +140,28 @@ func any_move() -> bool:
    return true
  return false
 
+func can_rescue() -> bool:
+ if bombs<=0:return false
+ for row in cells:
+  for value in row:
+   if int(value)>0:return true
+ return false
+
+func needs_rescue() -> bool:
+ return not any_move() and can_rescue() and not over
+
+func _check_game_over() -> void:
+ over=not any_move() and not can_rescue()
+
+func _award_bombs() -> void:
+ # Advance milestone even when inventory is full; no double awards after
+ # spending a saved charge.
+ while total_lines >= (bomb_milestone+1)*BOMB_EVERY_LINES:
+  bomb_milestone+=1
+  if bombs<MAX_BOMBS:
+   bombs+=1
+   last_bomb_award+=1
+
 func _snapshot() -> Dictionary:
  return {"cells": cells.duplicate(true), "tray": tray.duplicate(true),
   "score": score, "best": best, "combo": combo, "moves": moves,
@@ -238,15 +257,9 @@ func place(slot: int, origin: Vector2i) -> bool:
  last_gained=points
  score+=points
  best=maxi(best,score)
- # Both a genuine high score and a sustained clear count are required.
- # Milestones never pay twice, even across sessions or undo restores.
- while last_groups>0 and bomb_milestone<BOMB_MILESTONES.size() and bombs<MAX_BOMBS:
-  var target:Dictionary=BOMB_MILESTONES[bomb_milestone]
-  if score<int(target["score"]) or total_lines<int(target["lines"]):
-   break
-  bombs+=1
-  last_bomb_award+=1
-  bomb_milestone+=1
+ # Every four actually completed groups earns one emergency 3x3 blast.
+ if last_groups>0:
+  _award_bombs()
  tray[slot] = []
  var need_more := true
  for piece in tray:
@@ -255,16 +268,12 @@ func place(slot: int, origin: Vector2i) -> bool:
    break
  if need_more:
   _new_tray()
- over = not any_move()
+ _check_game_over()
  return true
 
 func bomb_charge() -> int:
- if bomb_milestone>=BOMB_MILESTONES.size():
-  return 100
- var target:Dictionary=BOMB_MILESTONES[bomb_milestone]
- var score_ratio:float=float(score)/float(target["score"])
- var line_ratio:float=float(total_lines)/float(target["lines"])
- return clampi(int(round(100.0*minf(score_ratio,line_ratio))),0,100)
+ if bombs>=MAX_BOMBS:return 100
+ return clampi(int(round(100.0*float(total_lines%BOMB_EVERY_LINES)/float(BOMB_EVERY_LINES))),0,100)
 
 func detonate_bomb(center:Vector2i) -> int:
  if bombs<=0 or over or center.x<0 or center.x>=COLS or center.y<0 or center.y>=ROWS:
@@ -287,7 +296,7 @@ func detonate_bomb(center:Vector2i) -> int:
  last_bomb_award=0
  # Rescue action: no points, XP, lines, or free recharge.
  previous.clear()
- over=not any_move()
+ _check_game_over()
  return removed
 
 func save_state() -> Dictionary:
@@ -366,7 +375,7 @@ func load_state(raw: Dictionary) -> bool:
   if not _saved_integer(color,1,7):return false
  for key in ["score","best","combo","moves","total_lines"]:
   if not _saved_integer(raw.get(key,0),0,2147483647):return false
- var maxima:Dictionary={"fever":100,"fever_moves":5,"bombs":MAX_BOMBS,"bomb_milestone":BOMB_MILESTONES.size()}
+ var maxima:Dictionary={"fever":100,"fever_moves":5,"bombs":MAX_BOMBS,"bomb_milestone":2147483647}
  for key in maxima:
   if not _saved_integer(raw.get(key,0),0,int(maxima[key])):return false
  if not raw.get("over",false) is bool:return false
@@ -391,6 +400,7 @@ func load_state(raw: Dictionary) -> bool:
  last_gained=0
  last_groups=0
  last_bomb_award=0
- over=false if legacy else bool(raw.get("over",false))
+ # Migrate unfair loss from older builds if a rescue is still earned.
+ _check_game_over()
  previous.clear()
  return true
