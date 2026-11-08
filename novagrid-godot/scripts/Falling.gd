@@ -4,6 +4,8 @@ extends RefCounted
 const WallKicks = preload("res://scripts/WallKicks.gd")
 const COLS := 10
 const ROWS := 18
+const RESCUE_EVERY_LINES := 4
+const MAX_RESCUES := 2
 const FORMS = [
  [[0,1],[1,1],[2,1],[3,1]], # I
  [[0,0],[1,0],[0,1],[1,1]], # O
@@ -36,6 +38,10 @@ var drops := 0
 var over := false
 var last_lines := 0
 var last_gained := 0
+var rescues := 0
+var rescue_milestone := 0
+var rescue_pending := false
+var last_rescue_award := 0
 
 func _init() -> void:
  rng.randomize()
@@ -66,6 +72,10 @@ func reset() -> void:
  over = false
  last_lines = 0
  last_gained = 0
+ rescues = 0
+ rescue_milestone = 0
+ rescue_pending = false
+ last_rescue_award = 0
  hold_kind = -1
  hold_used = false
  rotation_state = 0
@@ -93,11 +103,47 @@ func _spawn() -> void:
  rotation_state = 0
  lock_delay_elapsed = 0.0
  lock_resets = 0
- if not fits(piece,active):
-  over = true
+ _validate_spawn_or_offer_rescue()
+
+func _validate_spawn_or_offer_rescue() -> void:
+ if fits(piece,active):
+  rescue_pending=false
+  over=false
+ else:
+  rescue_pending=rescues>0
+  over=not rescue_pending
+
+func can_rescue() -> bool:
+ return rescues>0 and not over
+
+func _award_rescues() -> void:
+ last_rescue_award=0
+ while lines >= (rescue_milestone+1)*RESCUE_EVERY_LINES:
+  rescue_milestone+=1
+  if rescues<MAX_RESCUES:
+   rescues+=1
+   last_rescue_award+=1
+
+func detonate_rescue(center:Vector2i) -> int:
+ if not can_rescue() or center.x<0 or center.x>=COLS or center.y<0 or center.y>=ROWS:
+  return 0
+ var removed:int=0
+ for y in range(maxi(0,center.y-1),mini(ROWS,center.y+2)):
+  for x in range(maxi(0,center.x-1),mini(COLS,center.x+2)):
+   if int(board[y][x])>0:removed+=1
+ if removed==0:return 0
+ for y in range(maxi(0,center.y-1),mini(ROWS,center.y+2)):
+  for x in range(maxi(0,center.x-1),mini(COLS,center.x+2)):
+   board[y][x]=0
+ rescues-=1
+ last_lines=0
+ last_gained=0
+ combo=0
+ _validate_spawn_or_offer_rescue()
+ return removed
 
 func hold_piece() -> bool:
- if over or hold_used:
+ if over or rescue_pending or hold_used:
   return false
  var outgoing:int=kind
  if hold_kind<0:
@@ -111,8 +157,7 @@ func hold_piece() -> bool:
   rotation_state=0
   lock_delay_elapsed=0.0
   lock_resets=0
-  if not fits(piece,active):
-   over=true
+  _validate_spawn_or_offer_rescue()
  hold_used=true
  return true
 
@@ -126,7 +171,7 @@ func fits(shape: Array, at: Vector2i) -> bool:
  return true
 
 func move(dx: int) -> bool:
- if over or not fits(piece,active+Vector2i(dx,0)):
+ if over or rescue_pending or not fits(piece,active+Vector2i(dx,0)):
   return false
  var grounded:bool=not fits(piece,active+Vector2i(0,1))
  active.x += dx
@@ -134,7 +179,7 @@ func move(dx: int) -> bool:
  return true
 
 func rotate(direction:int=1) -> bool:
- if over or kind==1:
+ if over or rescue_pending or kind==1:
   return false
  var grounded:bool=not fits(piece,active+Vector2i(0,1))
  # Use permissive rotational tests adapted from the MIT-licensed
@@ -170,7 +215,7 @@ func _reset_lock_after_input(grounded:bool) -> void:
 func advance_lock(delta:float) -> bool:
  # Standard mobile-friendly lock delay: movement and rotations reset it.
  # Sliding a piece onto the floor is responsive instead of locking instantly.
- if over:
+ if over or rescue_pending:
   return false
  if fits(piece,active+Vector2i(0,1)):
   lock_delay_elapsed=0.0
@@ -188,7 +233,7 @@ func ghost_row() -> int:
  return y
 
 func tick() -> bool:
- if over:
+ if over or rescue_pending:
   return false
  if fits(piece,active+Vector2i(0,1)):
   active.y += 1
@@ -198,13 +243,13 @@ func tick() -> bool:
  return false
 
 func soft_drop() -> bool:
- if over:
+ if over or rescue_pending:
   return false
  # Soft dropping changes position but does not grant points.
  return tick()
 
 func hard_drop() -> int:
- if over:
+ if over or rescue_pending:
   return 0
  var distance := ghost_row()-active.y
  active.y += distance
@@ -217,7 +262,8 @@ func _lock() -> void:
  for p in piece:
   var c: Vector2i = active+p
   if c.y < 0:
-   over = true
+   rescue_pending=rescues>0
+   over=not rescue_pending
    return
   board[c.y][c.x] = kind+1
  var y := ROWS-1
@@ -242,6 +288,7 @@ func _lock() -> void:
  score += bonus
  best = maxi(best,score)
  lines += last_lines
+ _award_rescues()
  level = 1 + int(lines/10)
  drops += 1
  hold_used=false
@@ -261,7 +308,9 @@ func snapshot() -> Dictionary:
   "rotation_state":rotation_state,"lock_delay_elapsed":lock_delay_elapsed,"lock_resets":lock_resets,
   "piece":piece.map(func(p):return [p.x,p.y]),"active":[active.x,active.y],
   "score":score,"best":best,"lines":lines,"level":level,"combo":combo,
-  "drops":drops,"over":over}
+  "drops":drops,"over":over,
+  "rescues":rescues,"rescue_milestone":rescue_milestone,
+  "rescue_pending":rescue_pending}
 
 func _saved_integer(value:Variant,minimum:int,maximum:int) -> bool:
  if not (value is int or value is float):
@@ -342,18 +391,22 @@ func restore(raw: Dictionary) -> bool:
  if not _valid_shape(decoded,candidate_kind):
   return false
  var candidate_active:=Vector2i(int(next_position[0]),int(next_position[1]))
- if not raw.get("over",false) is bool or not raw.get("hold_used",false) is bool:
+ if not raw.get("over",false) is bool or not raw.get("hold_used",false) is bool or not raw.get("rescue_pending",false) is bool:
   return false
  var candidate_over:bool=raw.get("over",false)
  for cell in decoded:
   var at:Vector2i=candidate_active+cell
   if at.x<0 or at.x>=COLS or at.y>=ROWS:
    return false
-  if not candidate_over and at.y>=0 and int(source[at.y][at.x])!=0:
+  if not candidate_over and not bool(raw.get("rescue_pending",false)) and at.y>=0 and int(source[at.y][at.x])!=0:
    return false
  for key in ["score","best","lines","combo","drops"]:
   if not _saved_integer(raw.get(key,0),0,2147483647):
    return false
+ if not _saved_integer(raw.get("rescues",0),0,MAX_RESCUES) or not _saved_integer(raw.get("rescue_milestone",0),0,2147483647):
+  return false
+ if bool(raw.get("rescue_pending",false)) and (candidate_over or int(raw.get("rescues",0))<=0):
+  return false
  if not _saved_integer(raw.get("level",1),1,2147483647):
   return false
  if not _saved_integer(raw.get("rotation_state",0),0,3) or not _saved_integer(raw.get("lock_resets",0),0,MAX_LOCK_RESETS):
@@ -379,6 +432,10 @@ func restore(raw: Dictionary) -> bool:
  combo=int(raw.get("combo",0))
  drops=int(raw.get("drops",0))
  over=candidate_over
+ rescues=int(raw.get("rescues",0))
+ rescue_milestone=int(raw.get("rescue_milestone",0))
+ rescue_pending=bool(raw.get("rescue_pending",false))
+ last_rescue_award=0
  last_lines=0
  last_gained=0
  return true
