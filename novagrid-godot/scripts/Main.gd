@@ -543,9 +543,10 @@ func _draw_puzzle(layout:Dictionary) -> void:
   micro=minf(micro,42.0)
   var offset:Vector2=tray_rect.position+(tray_rect.size-
    Vector2(micro*bounds.x,micro*bounds.y))*.5
+  var lift:float=-1.5-1.5*sin(clock*6.0+float(i)) if active else 0.0
   for p in shape:
-   _gem(Rect2(offset+Vector2(p.x*micro,p.y*micro),
-    Vector2(micro,micro)),gem_id)
+   _gem(Rect2(offset+Vector2(p.x*micro,p.y*micro+lift),
+    Vector2(micro,micro)),gem_id,false,active)
  if not reference and layout["height"]>=760.0:
   _label("✦  DRAG CRYSTALS  ·  CLEAR LINES  ·  COMBO BLAST  ✦",
    Vector2(0,layout["height"]-117.0),10,Color("#c5f8ff"),
@@ -556,7 +557,7 @@ func _draw_puzzle(layout:Dictionary) -> void:
   var left:Vector2=visual_pointer-Vector2(shape_size.x*cell*.5,shape_size.y*cell_y*.5+54)
   for p in s:
    _gem(Rect2(left+Vector2(p.x*cell,p.y*cell_y),
-    Vector2(cell,cell_y)),int(colors[selected]),true)
+    Vector2(cell,cell_y)),int(colors[selected]),false,true)
 
 func _draw_falling(layout:Dictionary) -> void:
  var board:Rect2=layout["board"]
