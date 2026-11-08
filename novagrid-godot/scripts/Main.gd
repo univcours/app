@@ -556,10 +556,9 @@ func _reference_live_hud(layout:Dictionary) -> void:
   184.0*sx)
  _premium_numeric(str(falling.level),Vector2(539.0*sx,252.0*sy),28,
   164.0*sx)
- var strip:=Rect2(Vector2(83.0*sx,285.0*sy),Vector2(347.0*sx,34.0*sy))
- draw_rect(strip,Color("#100d39",.96),true)
- _label("COMBO x%d   ✦   LINES %d" % [falling.combo,falling.lines],
-  Vector2(strip.position.x,310.0*sy),13,Color("#ffdcf7"))
+ # The original reference is its own chrome; don't paint a dark bar over it.
+ _label("COMBO x%d  ✦  LINES %d" % [falling.combo,falling.lines],
+  Vector2(88.0*sx,309.0*sy),13,Color("#fff1ff"))
  # Original painted Combo frame, golden laurels and COMBO title remain as art.
  # This updated texture has the baked x0 erased. Draw only the live counter.
  # Never overlay a solid rectangle or a second UI panel over the art.
@@ -569,27 +568,25 @@ func _reference_live_hud(layout:Dictionary) -> void:
 
 
 func _draw_reference_progress(layout:Dictionary) -> void:
- # The illustrated rank area contains stale demo values. Mask the entire
- # inner capsule so only actual player progression is rendered.
+ # One original neon rank capsule only; no new rounded Godot panel.
+ # Baked numbers in the source art have been replaced by a clean inset.
  var sx:float=float(layout["viewport"].x)/SKIN_CANVAS.x
  var sy:float=float(layout["height"])/SKIN_CANVAS.y
- var panel:=Rect2(Vector2(49.0*sx,1524.0*sy),
-  Vector2(845.0*sx,114.0*sy))
- _glass_panel(panel,Color("#0f1946"),GLOW_PURPLE)
- _label("✦  LV %d · %s"%[progress.level,progress.rank_name()],
-  Vector2(81.0*sx,1580.0*sy),13,Color("#f4faff"))
+ _label("LV %d · %s"%[progress.level,progress.rank_name()],
+  Vector2(145.0*sx,1563.0*sy),13,Color("#f1f7ff"))
  _label("★ %d · %dd streak"%[progress.stars,progress.streak],
-  Vector2(659.0*sx,1580.0*sy),10,GLOW_GOLD)
- var track:=Rect2(Vector2(81.0*sx,1597.0*sy),
-  Vector2(783.0*sx,11.0*sy))
- draw_rect(track,Color("#1b2b60"),true)
- var value:float=clampf(progress.level_progress(),0.0,1.0)
- if value>0.0:
-  draw_rect(Rect2(track.position,Vector2(track.size.x*value,track.size.y)),GLOW_BLUE,true)
+  Vector2(677.0*sx,1563.0*sy),10,GLOW_GOLD)
+ var track:=Rect2(Vector2(147.0*sx,1577.0*sy),Vector2(706.0*sx,9.0*sy))
+ draw_rect(track,Color("#182456"),true)
+ var pct:float=clampf(progress.level_progress(),0.0,1.0)
+ if pct>0:
+  draw_rect(Rect2(track.position,Vector2(track.size.x*pct,track.size.y)),
+   GLOW_BLUE,true)
  var mission:Dictionary=progress.next_mission()
- _label("%s  %d/%d · %s"%[mission["label"],mission["progress"],
-  mission["target"],progress.theme_name()],
-  Vector2(83.0*sx,1622.0*sy),9,Color("#c8eeff"))
+ _label("%s %d/%d · %s"%[
+  mission["label"],mission["progress"],mission["target"],progress.theme_name()],
+  Vector2(145.0*sx,1608.0*sy),10,Color("#d6efff"))
+
 
 func _draw_sky(layout:Dictionary) -> void:
  var bounds:Vector2=layout["viewport"]
@@ -1019,8 +1016,8 @@ func _draw_clean_fall_well(board:Rect2) -> void:
 func _draw_falling(layout:Dictionary) -> void:
  var board:Rect2=layout["board"]
  var reference:bool=skin_fall!=null and float(layout["height"])>=760.0
- if reference:
-  _draw_clean_fall_well(board)
+ # The restored approved illustration includes a clean neon 10x18 field.
+ # Never draw a secondary checkerboard or double border over it.
  var cell:float=board.size.x/10.0 if reference else _board_back(board,10,18)
  var cell_h:float=board.size.y/18.0
  var ghost:Vector2i=Vector2i(falling.active.x,falling.ghost_row())
@@ -1044,9 +1041,7 @@ func _draw_falling(layout:Dictionary) -> void:
  var next_rect:Rect2=layout["next"]
  var hold_rect:Rect2=layout["hold"]
  if reference:
-  # Clean NEXT interior: the old image has a turquoise DEMO sprite fragment.
-  # Keep its illuminated border, paint just inside, add real next-piece gems.
-  draw_rect(next_rect.grow(-7.0),Color("#081743",.98),true)
+  # NEXT was cleaned in the original artwork, retain its bright chrome.
   _draw_side_piece(next_rect,falling.next_kind)
   if falling.hold_kind>=0:
    _draw_side_piece(hold_rect,falling.hold_kind)
