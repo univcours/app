@@ -65,13 +65,16 @@ $cdn='https://ribhlab.wordpress.com/wp-content/uploads/2026/11'
 $skins=Join-Path $project 'assets\skins'
 $menu=Join-Path $project 'assets\menu'
 $gems=Join-Path $skins 'gems'
-New-Item -ItemType Directory -Force -Path $skins,$menu,$gems|Out-Null
+$neon=Join-Path $skins 'neon_exact'
+New-Item -ItemType Directory -Force -Path $skins,$menu,$gems,$neon|Out-Null
 $assets=@(
  @('novagrid_cosmic_candy_arcade.png',(Join-Path $menu 'novagrid_cosmic_candy_arcade.png'),941,1672),
  @('blockfall_playable_chrome.png',(Join-Path $skins 'blockfall_playable_chrome.png'),941,1672),
  @('blockpuzzle_playable_chrome.png',(Join-Path $skins 'blockpuzzle_playable_chrome.png'),941,2091),
  @('blockpuzzle_cosmic_backdrop.png',(Join-Path $skins 'blockpuzzle_cosmic_backdrop.png'),941,2091),
- @('novagrid_candy_atlas7_v2.png',(Join-Path $root 'candy_atlas7.png'),700,100)
+ @('novagrid_candy_atlas7_v2.png',(Join-Path $root 'candy_atlas7.png'),700,100),
+ @('novagrid_exact_neon_board_asset.png',(Join-Path $neon 'neon_block_puzzle_empty_941x1672.png'),941,1672),
+ @('novagrid_exact_neon_gem_atlas.png',(Join-Path $root 'neon_reference_atlas7.png'),700,100)
 )
 foreach($a in $assets){
  Grab "$cdn/$($a[0])" $a[1]
@@ -94,9 +97,28 @@ try{
    CheckPng $file 100 100
   }finally{$graphic.Dispose();$piece.Dispose()}
  }
-}finally{$atlas.Dispose()}
+ }finally{$atlas.Dispose()}
+# The seven vivid transparent crystals are taken directly from the exact
+# Block Puzzle image selected by the owner. Retain legacy atlas for Blockfall.
+$neonAtlas=[System.Drawing.Bitmap]::new((Join-Path $root 'neon_reference_atlas7.png'))
+try{
+ for($i=0;$i -lt 7;$i++){
+  $piece=[System.Drawing.Bitmap]::new(100,100)
+  $graphic=[System.Drawing.Graphics]::FromImage($piece)
+  try{
+   $srcRect=[System.Drawing.Rectangle]::new($i*100,0,100,100)
+   $dstRect=[System.Drawing.Rectangle]::new(0,0,100,100)
+   $graphic.DrawImage($neonAtlas,$dstRect,$srcRect,[System.Drawing.GraphicsUnit]::Pixel)
+   $file=Join-Path $neon ('gem_'+($i+1)+'.png')
+   $piece.Save($file,[System.Drawing.Imaging.ImageFormat]::Png)
+   CheckPng $file 100 100
+  }finally{$graphic.Dispose();$piece.Dispose()}
+ }
+}finally{$neonAtlas.Dispose()}
 foreach($f in @('project.godot','scripts\Main.gd','assets\skins\blockfall_playable_chrome.png',
- 'assets\skins\blockpuzzle_playable_chrome.png','assets\skins\gems\candy_7_sapphire.png')){
+ 'assets\skins\blockpuzzle_playable_chrome.png','assets\skins\gems\candy_7_sapphire.png',
+ 'assets\skins\neon_exact\neon_block_puzzle_empty_941x1672.png',
+ 'assets\skins\neon_exact\gem_7.png')){
  if(!(Test-Path -LiteralPath (Join-Path $project $f))){throw "Missing file $f"}
 }
 Write-Host "FULL NOVAGRID SOURCE + ART VERIFIED: $project" -ForegroundColor Green
