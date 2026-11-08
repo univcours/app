@@ -32,6 +32,13 @@ func _run()->void:
   "victory, unlock and premium UI FX are real samples")
  verify((first.sounds["tap"] as AudioStreamWAV).mix_rate==32000,
   "all premium sounds use the upgraded 32kHz synthesis rate")
+ var pcm:PackedByteArray=(first.sounds["tap"] as AudioStreamWAV).data
+ var peak:int=0
+ for i in range(0,mini(pcm.size(),4096),2):
+  peak=maxi(peak,absi(pcm.decode_s16(i)))
+ verify(peak>1200 and peak<32760,"new neon button audio is clearly audible without clipping")
+ verify(first.sounds.has("close") and first.sounds.has("toggle") and first.sounds.has("reward"),
+  "distinct settings, navigation and reward effect sounds exist")
  var original_sound:bool=first.sounds_enabled
  var original_music:bool=first.music_enabled
  first.toggle_sound()

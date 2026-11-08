@@ -100,11 +100,55 @@ static func icon(c:CanvasItem,kind:String,at:Vector2,size:float,tint:Color)->voi
   "back":
    beam(c,at+Vector2(4,-9)*u,at+Vector2(-5,0)*u,tint,2*u)
    beam(c,at+Vector2(-5,0)*u,at+Vector2(4,9)*u,tint,2*u)
+  "settings":
+   c.draw_arc(at,9.0*u,0,TAU,48,tint,2.2*u,true)
+   c.draw_arc(at,3.8*u,0,TAU,32,tint,2.0*u,true)
+   for i in 8:
+    var d:Vector2=Vector2.RIGHT.rotated(float(i)*TAU/8.0)
+    beam(c,at+d*11*u,at+d*14*u,tint,1.4*u)
+  "sound":
+   beam(c,at+Vector2(-11,-5)*u,at+Vector2(-5,-5)*u,tint,1.7*u)
+   beam(c,at+Vector2(-5,-5)*u,at+Vector2(1,-10)*u,tint,1.7*u)
+   beam(c,at+Vector2(1,-10)*u,at+Vector2(1,10)*u,tint,1.7*u)
+   beam(c,at+Vector2(1,10)*u,at+Vector2(-5,5)*u,tint,1.7*u)
+   beam(c,at+Vector2(-5,5)*u,at+Vector2(-11,5)*u,tint,1.7*u)
+   c.draw_arc(at+Vector2(1,0)*u,8*u,-PI*.48,PI*.48,24,tint,1.8*u,true)
+  "music":
+   beam(c,at+Vector2(0,-12)*u,at+Vector2(0,7)*u,tint,2.2*u)
+   beam(c,at+Vector2(0,-12)*u,at+Vector2(11,-9)*u,tint,2.2*u)
+   beam(c,at+Vector2(11,-9)*u,at+Vector2(11,5)*u,tint,2.2*u)
+   c.draw_circle(at+Vector2(-4,8)*u,4.4*u,tint)
+   c.draw_circle(at+Vector2(7,6)*u,4.4*u,tint)
+  "effects":
+   star(c,at,11*u,tint)
+   star(c,at+Vector2(11,-9)*u,5*u,CYAN)
+  "language":
+   c.draw_arc(at,12*u,0,TAU,48,tint,1.8*u,true)
+   c.draw_arc(at,7*u,-PI*.5,PI*.5,30,tint,1.4*u,true)
+   c.draw_arc(at,7*u,PI*.5,PI*1.5,30,tint,1.4*u,true)
+   beam(c,at+Vector2(-11,0)*u,at+Vector2(11,0)*u,tint,1.0*u)
+   beam(c,at+Vector2(0,-12)*u,at+Vector2(0,12)*u,tint,1.0*u)
   "pause":
    c.draw_rect(Rect2(at+Vector2(-6,-10)*u,Vector2(4,20)*u),tint,true)
    c.draw_rect(Rect2(at+Vector2(2,-10)*u,Vector2(4,20)*u),tint,true)
   _:
    star(c,at,11*u,tint)
+
+static func logo(c:CanvasItem,baseline:float,size:int,time:float)->void:
+ # The two-tone Orbitron wordmark from the user's approved style reference.
+ var face:Font=Typography.ORBITRON
+ var left_width:float=face.get_string_size("Nova",HORIZONTAL_ALIGNMENT_LEFT,-1,size).x
+ var right_width:float=face.get_string_size("Grid",HORIZONTAL_ALIGNMENT_LEFT,-1,size).x
+ var x:float=(432.0-left_width-right_width)*.5
+ Typography.draw_neon(c,"Nova",Vector2(x,baseline),size,Color("#b4f7ff"))
+ Typography.draw_neon(c,"Grid",Vector2(x+left_width,baseline),size,Color("#ffc1ff"))
+ # Energetic cyan and pink accent beams, never added to touch coordinates.
+ c.draw_arc(Vector2(220,baseline-10),146,-PI*.63,-PI*.17,48,
+  Color(CYAN.r,CYAN.g,CYAN.b,.35),1.8,true)
+ c.draw_arc(Vector2(220,baseline-13),153,PI*.28,PI*.67,48,
+  Color(PINK.r,PINK.g,PINK.b,.32),1.8,true)
+ var sparkle_x:float=77+fposmod(time*24,285.0)
+ star(c,Vector2(sparkle_x,baseline-55),3.5,CYAN)
 
 static func mode_button(c:CanvasItem,r:Rect2,title:String,subtitle:String,
  kind:String,color:Color,clock:float,pressed:bool=false)->void:

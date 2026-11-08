@@ -195,13 +195,13 @@ func _home() -> void:
    Color(CYAN.r,CYAN.g,CYAN.b,.05+ring*.05),1.5,true)
  var moving:float=115+fposmod(clock*27.0,194.0)
  _sparkle(Vector2(moving,101),3.5+sin(clock*2.0),CYAN)
- _center("NovaGrid",154,49,Color("#f8edff"))
+ NeonSkin.logo(self,154,48,clock)
  _center(_tr("Cosmic Block Puzzle","Puzzle cosmique"),207,18,Color("#cbefff"))
  _hero()
  _center(_tr("YOUR NEXT ADVENTURE AWAITS","VOTRE AVENTURE COMMENCE"),440,11,Color("#aeb5e8"))
  var titles:Array=[_tr("Classic","Classique"),_tr("Daily Challenge","Défi du jour"),"Blockfall",_tr("Galaxy Stages","Étapes galactiques")]
  var subtitles:Array=[_tr("9 × 9 Puzzle","Puzzle 9 × 9"),_tr("A new challenge every day","Un nouveau défi chaque jour"),_tr("Endless block action","Blocs en chute libre"),_tr("3 handcrafted missions","3 missions faites à la main")]
- var hues:Array=[CYAN,GOLD,PURPLE,CYAN]
+ var hues:Array=[CYAN,NeonSkin.PINK,CYAN,NeonSkin.PINK]
  for i in 4:
   var box:=Rect2(28,462+i*100,376,84)
   var hue:Color=hues[i]
@@ -295,7 +295,8 @@ func _settings() -> void:
   _panel(row,CYAN if i<2 else Color("#ff31ed"))
   _text(labels[i],row.position+Vector2(20,33),22)
   _text(values[i],row.position+Vector2(20,59),13,Color("#cbd8ff"))
-  NeonSkin.icon(self,"settings",row.position+Vector2(326,39),17,CYAN)
+  NeonSkin.icon(self,["sound","music","effects","language"][i],
+   row.position+Vector2(326,39),20,CYAN if i%2==0 else NeonSkin.PINK)
  _center(_tr("Every setting is saved on this device.","Vos préférences sont sauvegardées ici."),750,15,Color("#b4c2e6"))
  _center("NovaGrid · Cosmic Edition",884,17,Color("#8c9dce"))
 
@@ -330,7 +331,14 @@ func _launch(index:int,entry:String="",stage:int=1) -> void:
 
 func _activate(key:String) -> void:
  if chosen>=0: return
- audio.effect("tap")
+ var sound_key:String="tap"
+ if key in ["settings","nav_settings","mode1","mode3","nav_map"]:
+  sound_key="popup"
+ elif key=="back" or key=="nav_home":
+  sound_key="close"
+ elif key in ["sound","music","quality","language"]:
+  sound_key="toggle"
+ audio.effect(sound_key)
  match key:
   "mode0": _launch(0,"classic")
   "mode1": screen="daily"
