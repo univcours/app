@@ -1031,7 +1031,7 @@ func _fall_soft_drop(audible:bool=true) -> void:
   audio.effect_for("falling","soft")
 
 func _fall_hard_drop() -> void:
- if falling.over:
+ if falling.over or falling.rescue_pending:
   return
  falling.hard_drop()
  _fall_locked()
@@ -1165,6 +1165,7 @@ func _layout() -> Dictionary:
  var w:float=safe.size.x
  var h:float=safe.size.y
  var margin:float=16.0
+ var action_width:float=maxf(36.0,minf(72.0,(w-32.0-24.0)/5.0))
  var header:float=clampf(h*.22,132.0,194.0)
  var side:float=clampf(w*.205,66.0,96.0)
  var board:Rect2
@@ -1186,11 +1187,12 @@ func _layout() -> Dictionary:
  return {"viewport":viewport,"safe":safe,"height":safe.end.y,"gutter":margin,"header_scale":1.0,
   "board":board,"tray":tray,"buttons":[],"tabs":[],"next":next,"hold":hold,
   "mode_switch":back,"pause":pause_button,"pause_visual":pause_button,
-  "audio":Rect2(safe.position.x+16,safe.end.y-102,44,44),
-  "music":Rect2(safe.position.x+72,safe.end.y-102,44,44),
-  "privacy":Rect2(safe.position.x+128,safe.end.y-102,74,44),
-  "bomb":Rect2(safe.end.x-100,safe.end.y-102,84,44),
-  "bomb_visual":Rect2(safe.end.x-100,safe.end.y-102,84,44),
+  "audio":Rect2(safe.position.x+16,safe.end.y-104,action_width,44),
+  "music":Rect2(safe.position.x+16+(action_width+6),safe.end.y-104,action_width,44),
+  "privacy":Rect2(safe.position.x+16+2*(action_width+6),safe.end.y-104,action_width,44),
+  "replay":Rect2(safe.position.x+16+3*(action_width+6),safe.end.y-104,action_width,44),
+  "bomb":Rect2(safe.position.x+16+4*(action_width+6),safe.end.y-104,action_width,44),
+  "bomb_visual":Rect2(safe.position.x+16+4*(action_width+6),safe.end.y-104,action_width,44),
   "progress":Rect2(safe.position.x+16,safe.end.y-50,w-32,42),
   "finish":Rect2(safe.position.x+46,safe.position.y+h*.5+28,w-92,48)}
 
@@ -1221,12 +1223,18 @@ func _draw_cosmic() -> void:
   _label(str(value),card.position+Vector2(0,card_h-10),clampi(int(card_h*.41),16,28),Color.WHITE,HORIZONTAL_ALIGNMENT_CENTER,card.size.x)
  if mode==0:_draw_puzzle(layout)
  else:_draw_falling(layout)
- _button(layout["audio"],"♪" if audio.sounds_enabled else "×",false)
- _button(layout["music"],"♫" if audio.music_enabled else "○",false)
+ _button(layout["audio"],"♪" if audio.sounds_enabled else "×",false,true)
+ _button(layout["music"],"♫" if audio.music_enabled else "○",false,true)
  if native_ads!=null:_button(layout["privacy"],"PRIVACY",false,true)
- if mode==0:
-  _button(layout["bomb"],"✦ %d"%puzzle.bombs,bomb_armed)
-  _label("EARNED BURSTS",Vector2(layout["bomb"].position.x,layout["bomb"].end.y+12),8,Color("#c5bcff"),HORIZONTAL_ALIGNMENT_CENTER,layout["bomb"].size.x)
+ _button(layout["replay"],"REPLAY",false,true)
+ var blast_count:int=puzzle.bombs if mode==0 else falling.rescues
+ _button(layout["bomb"],"BLAST %d"%blast_count,bomb_armed,true)
+ if mode==0 and puzzle.needs_rescue():
+  _label("NO MOVES - USE YOUR BLAST",layout["board"].position+Vector2(0,29),
+   14,GLOW_GOLD,HORIZONTAL_ALIGNMENT_CENTER,layout["board"].size.x)
+ if mode==1 and falling.rescue_pending:
+  _label("BLOCKED - TAP FILLED CELLS",layout["board"].position+Vector2(0,28),
+   13,GLOW_PINK,HORIZONTAL_ALIGNMENT_CENTER,layout["board"].size.x)
  _draw_progress_hud(layout)
  if entry=="stage":
   var cfg:Dictionary=campaign.stage_config(stage)
