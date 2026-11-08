@@ -60,7 +60,7 @@ if($extracted -lt 15 -or !(Test-Path (Join-Path $project 'project.godot'))){
  throw "Incomplete Godot source extraction: $extracted files"
 }
 
-Write-Host '[2/4] Downloading repaired reference artwork and 7 clean candy sprites from RibhLab HTTPS...' -ForegroundColor Cyan
+Write-Host '[2/4] Downloading ORIGINAL RESTORED Blockfall reference and 7 clean candy sprites from RibhLab HTTPS...' -ForegroundColor Cyan
 $cdn='https://ribhlab.wordpress.com/wp-content/uploads/2026/11'
 $skins=Join-Path $project 'assets\skins'
 $menu=Join-Path $project 'assets\menu'
@@ -69,7 +69,7 @@ $neon=Join-Path $skins 'neon_exact'
 New-Item -ItemType Directory -Force -Path $skins,$menu,$gems,$neon|Out-Null
 $assets=@(
  @('novagrid_cosmic_candy_arcade.png',(Join-Path $menu 'novagrid_cosmic_candy_arcade.png'),941,1672),
- @('novagrid_blockfall_clean_combo_background_20261108.png',(Join-Path $skins 'blockfall_playable_chrome.png'),941,1672),
+ @('novagrid_blockfall_reference_restored_20261108.png',(Join-Path $skins 'blockfall_playable_chrome.png'),941,1672),
  @('blockpuzzle_playable_chrome.png',(Join-Path $skins 'blockpuzzle_playable_chrome.png'),941,2091),
  @('blockpuzzle_cosmic_backdrop.png',(Join-Path $skins 'blockpuzzle_cosmic_backdrop.png'),941,2091),
  @('novagrid_candy_atlas7_v2.png',(Join-Path $root 'candy_atlas7.png'),700,100),
