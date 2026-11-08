@@ -156,11 +156,12 @@ func _check_game_over() -> void:
 func _award_bombs() -> void:
  # Advance milestone even when inventory is full; no double awards after
  # spending a saved charge.
- while total_lines >= (bomb_milestone+1)*BOMB_EVERY_LINES:
-  bomb_milestone+=1
-  if bombs<MAX_BOMBS:
-   bombs+=1
-   last_bomb_award+=1
+ var earned:int=int(total_lines/BOMB_EVERY_LINES)
+ var gained:int=maxi(0,earned-bomb_milestone)
+ var previous_count:int=bombs
+ bombs=mini(MAX_BOMBS,bombs+gained)
+ last_bomb_award=bombs-previous_count
+ bomb_milestone=maxi(bomb_milestone,earned)
 
 func _snapshot() -> Dictionary:
  return {"cells": cells.duplicate(true), "tray": tray.duplicate(true),

@@ -902,7 +902,7 @@ func _release(pos:Vector2) -> void:
  if layout["bomb"].has_point(pos) and layout["bomb"].has_point(pressed_at):
   var charges:int=puzzle.bombs if mode==0 else falling.rescues
   if charges>0:
-   bomb_armed=true if mode==1 and falling.rescue_pending else not bomb_armed
+   bomb_armed=true if ((mode==1 and falling.rescue_pending) or (mode==0 and puzzle.needs_rescue())) else not bomb_armed
    selected=-1
    audio.effect("tap")
   else:

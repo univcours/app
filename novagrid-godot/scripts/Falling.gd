@@ -118,11 +118,12 @@ func can_rescue() -> bool:
 
 func _award_rescues() -> void:
  last_rescue_award=0
- while lines >= (rescue_milestone+1)*RESCUE_EVERY_LINES:
-  rescue_milestone+=1
-  if rescues<MAX_RESCUES:
-   rescues+=1
-   last_rescue_award+=1
+ var earned:int=int(lines/RESCUE_EVERY_LINES)
+ var gained:int=maxi(0,earned-rescue_milestone)
+ var previous_count:int=rescues
+ rescues=mini(MAX_RESCUES,rescues+gained)
+ last_rescue_award=rescues-previous_count
+ rescue_milestone=maxi(rescue_milestone,earned)
 
 func detonate_rescue(center:Vector2i) -> int:
  if not can_rescue() or center.x<0 or center.x>=COLS or center.y<0 or center.y>=ROWS:
