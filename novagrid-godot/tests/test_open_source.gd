@@ -46,6 +46,13 @@ func _run_tests()->void:
  var restored=Falling.new()
  verify(restored.restore(save),"new rotation and lock fields survive save")
  verify(restored.rotation_state==f.rotation_state,"rotation state restored")
+ # Both menu and gameplay must ship the actual licensed fonts.
+ var heading_font:Font=load("res://assets/fonts/Orbitron.ttf") as Font
+ var ui_font:Font=load("res://assets/fonts/Oxanium.ttf") as Font
+ verify(heading_font!=null and heading_font.has_char(78) and heading_font.has_char(71),
+  "Orbitron neon display font imports and contains NovaGrid Latin glyphs")
+ verify(ui_font!=null and ui_font.has_char(67) and ui_font.has_char(57),
+  "Oxanium neon UI font imports and contains mode/digit glyphs")
  var home=Welcome.new()
  var detached_cards:Array[Rect2]=home._rectangles()
  verify(detached_cards.size()==2 and detached_cards[0].size.y>=75,
