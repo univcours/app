@@ -199,7 +199,7 @@ try {
     $qaText = $qaText -replace '(?m)^config/use_custom_user_dir=.*$', 'config/use_custom_user_dir=false'
     [IO.File]::WriteAllText($qaConfig, $qaText)
     InvokeGodotChecked @('--headless','--editor','--path',$qaProject,'--quit') 'Isolated QA import'
-    foreach ($suite in @('game','progression','touch','layout','audio','back_navigation','cosmic','integrity','open_source','menu','typography')) {
+    foreach ($suite in @('game','progression','touch','layout','audio','back_navigation','cosmic','integrity','open_source','menu','typography','legacy_cleanup')) {
         Write-Host "Running Godot test suite: $suite" -ForegroundColor Cyan
         InvokeGodotChecked @('--headless','--audio-driver','Dummy','--path',$qaProject,'--script',"res://tests/test_$suite.gd") "Godot $suite tests"
     }

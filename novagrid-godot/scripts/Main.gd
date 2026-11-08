@@ -216,59 +216,6 @@ func _process(delta:float) -> void:
 func _exit_tree() -> void:
  _save_game()
 
-func _legacy_layout() -> Dictionary:
- var viewport:Vector2=get_viewport_rect().size
- var w:float=viewport.x
- var h:float=viewport.y-banner_height
- var gutter:float=clampf(w*.031,9.0,18.0)
- if mode==1 and skin_fall!=null and h>=760.0:
-  return _reference_blockfall_layout(viewport,h)
- if mode==0 and skin_neon_puzzle!=null and h>=650.0:
-  return _neon_puzzle_layout(viewport,h)
- if mode==0 and skin_puzzle_chrome!=null and h>=760.0:
-  return _reference_blockpuzzle_layout(viewport,h)
- var header_scale:float=clampf(h/840.0,.72,1.0)
- var header_end:float=177.0*header_scale
- var board:Rect2
- var tray:Array=[]
- var buttons:Array=[]
- var side_width:float=clampf(w*.194,65.0,85.0)
- if mode==0:
-  # A real 9x9 glass grid and three unframed glowing crystal tray shapes.
-  var tray_height:float=clampf(h*.078,48.0,75.0)
-  var available:float=maxf(80.0,h-header_end-tray_height-115.0)
-  var cell:float=maxf(2.0,minf((w-2.0*gutter-10.0)/9.0,available/9.0))
-  var size:Vector2=Vector2(cell*9.0,cell*9.0)
-  board=Rect2(Vector2((w-size.x)*.5,header_end+minf(20.0,maxf(3.0,(available-size.y)*.10))),size)
-  var tray_y:float=board.end.y+11.0
-  var tray_w:float=(w-2.0*gutter-18.0)/3.0
-  for i in 3:
-   tray.append(Rect2(Vector2(gutter+i*(tray_w+9.0),tray_y),Vector2(tray_w,tray_height)))
- else:
-  # Leave the real 10x18 board big, with playable NEXT and HOLD at right.
-  var available:float=maxf(180.0,h-header_end-121.0)
-  var cell:float=maxf(2.0,minf((w-3.0*gutter-side_width)/10.0,available/18.0))
-  var size:Vector2=Vector2(cell*10.0,cell*18.0)
-  board=Rect2(Vector2(gutter,header_end+minf(12.0,maxf(3.0,(available-size.y)*.10))),size)
- var next_rect:=Rect2(Vector2(board.end.x+gutter,board.position.y+37.0),Vector2(side_width,96.0))
- # Reserve space after NEXT for a separate HOLD heading and hitbox.
- var hold_y:float=maxf(board.position.y+minf(187.0,board.size.y*.39),
-  next_rect.end.y+30.0)
- var hold_rect:=Rect2(Vector2(board.end.x+gutter,hold_y),Vector2(side_width,96.0))
- return {"viewport":viewport,"height":h,"gutter":gutter,"header_scale":header_scale,
-  "tabs":[],"board":board,"tray":tray,"buttons":buttons,
-  "progress":Rect2(gutter,h-(46.0 if h<760.0 else 36.0),
-   w-2.0*gutter,42.0 if h<760.0 else 29.0),
-  "mode_switch":Rect2(gutter,12.0*header_scale,43.0,43.0*header_scale),
-  "bomb_visual":Rect2(w-gutter-61.0,146.0,61.0,30.0),
-  "pause_visual":Rect2(w-gutter-48.0,80.0,48.0,48.0),
-  "bomb":Rect2(w-gutter-61.0,146.0*header_scale,61.0,30.0*header_scale),
-  "pause":Rect2(w-gutter-48.0,80.0*header_scale,48.0,48.0*header_scale),
-  "audio":Rect2(gutter,round(h-101.0),36.0,34.0),
-  "music":Rect2(gutter+42.0,round(h-101.0),36.0,34.0),
-  "privacy":Rect2(gutter+84.0,round(h-101.0),72.0,34.0),
-  "next":next_rect,"hold":hold_rect}
-
 func _draw() -> void:
  _draw_cosmic()
 
@@ -279,229 +226,12 @@ func _neon_puzzle_frame(viewport:Vector2,h:float) -> Rect2:
  return Rect2(Vector2((viewport.x-size.x)*.5,(h-size.y)*.5),size)
 
 
-func _neon_puzzle_layout(viewport:Vector2,h:float) -> Dictionary:
- var picture:Rect2=_neon_puzzle_frame(viewport,h)
- var s:float=picture.size.x/NEON_CANVAS.x
- var a:Vector2=picture.position
- var play:=Rect2(a+Vector2(58.0,422.0)*s,Vector2(827.0,844.0)*s)
- var trays:Array=[]
- for left in [40.0,334.0,628.0]:
-  trays.append(Rect2(a+Vector2(left,1315.0)*s,Vector2(268.0,230.0)*s))
- var no_button:=Rect2(Vector2(-100,-100),Vector2.ZERO)
- return {
-  "viewport":viewport,"height":h,"gutter":clampf(viewport.x*.03,9.0,18.0),
-  "header_scale":1.0,"board":play,"tray":trays,"buttons":[],"tabs":[],
-  "progress":no_button,"mode_switch":Rect2(a+Vector2(25,267)*s,Vector2(100,105)*s),
-  "pause_visual":Rect2(a+Vector2(806,267)*s,Vector2(102,105)*s),
-  "pause":Rect2(a+Vector2(806,267)*s,Vector2(102,105)*s),
-  "audio":no_button,"music":no_button,"privacy":no_button,
-  "bomb":no_button,"bomb_visual":no_button,"next":no_button,"hold":no_button
- }
-
-
-func _draw_neon_puzzle_values(layout:Dictionary) -> void:
- # SCORE + LEVEL decorative labels are from the exact art. Only numeric
- # values are drawn by Godot; their sample values were erased from the PNG.
- var pic:Rect2=_neon_puzzle_frame(layout["viewport"],float(layout["height"]))
- var s:float=pic.size.x/NEON_CANVAS.x
- var shadow:Color=Color("#184b9e")
- var white:Color=Color("#f5fdff")
- var left:Vector2=pic.position+Vector2(264.0,354.0)*s
- var right:Vector2=pic.position+Vector2(638.0,354.0)*s
- var textsize:int=maxi(12,int(round(43.0*s)))
- var second:int=maxi(12,int(round(44.0*s)))
- _label(str(puzzle.score),left+Vector2(0,1.2),textsize,shadow,
-  HORIZONTAL_ALIGNMENT_CENTER,206.0*s)
- _label(str(puzzle.score),left,textsize,white,
-  HORIZONTAL_ALIGNMENT_CENTER,206.0*s)
- _label(str(progress.level),right+Vector2(0,1.2),second,Color("#d057d8"),
-  HORIZONTAL_ALIGNMENT_CENTER,104.0*s)
- _label(str(progress.level),right,second,white,
-  HORIZONTAL_ALIGNMENT_CENTER,104.0*s)
-
-
-func _draw_neon_settings(layout:Dictionary) -> void:
- var w:float=layout["viewport"].x
- var h:float=float(layout["height"])
- var panel:=Rect2(Vector2(w*.1,h*.30),Vector2(w*.8,295))
- draw_rect(Rect2(Vector2.ZERO,Vector2(w,h)),Color("#05051d",.72),true)
- _glass_panel(panel,Color("#101b53"),GLOW_PINK)
- _label("SETTINGS",Vector2(panel.position.x,panel.position.y+43),25,
-  Color("#f8f6ff"),HORIZONTAL_ALIGNMENT_CENTER,panel.size.x)
- _button(Rect2(panel.position+Vector2(22,57),Vector2(panel.size.x-44,43)),
-  "SOUND: ON" if audio.sounds_enabled else "SOUND: OFF",audio.sounds_enabled)
- _button(Rect2(panel.position+Vector2(22,109),Vector2(panel.size.x-44,43)),
-  "MUSIC: ON" if audio.music_enabled else "MUSIC: OFF",audio.music_enabled)
- _button(Rect2(panel.position+Vector2(22,166),Vector2(panel.size.x-44,40)),"RESUME",true)
- _button(Rect2(panel.position+Vector2(22,220),Vector2(panel.size.x-44,43)),"GALAXY HOME")
-
-
 func _puzzle_chrome_frame(viewport:Vector2,h:float) -> Rect2:
  # Uniform scale preserves square 9x9 cells, never stretches on tall/short phones.
  var scale:float=minf(viewport.x/PUZZLE_CHROME_CANVAS.x,
   h/PUZZLE_CHROME_CANVAS.y)
  var size:Vector2=PUZZLE_CHROME_CANVAS*scale
  return Rect2(Vector2((viewport.x-size.x)*.5,(h-size.y)*.5),size)
-
-
-func _reference_blockpuzzle_layout(viewport:Vector2,h:float) -> Dictionary:
- # Gameplay and artwork use identical isotropic scaling and origin.
- var frame:Rect2=_puzzle_chrome_frame(viewport,h)
- var offset:Vector2=frame.position
- var sx:float=frame.size.x/PUZZLE_CHROME_CANVAS.x
- var sy:float=sx
- var board:=Rect2(offset+Vector2(73.0*sx,448.0*sy),Vector2(797.0*sx,797.0*sy))
- var tray:Array=[]
- for xpos in [50.0,335.0,618.0]:
-  tray.append(Rect2(offset+Vector2(xpos*sx,1364.0*sy),Vector2(273.0*sx,222.0*sy)))
- var gutter:float=clampf(viewport.x*.031,9.0,18.0)
- return {
-  "viewport":viewport,"height":h,"gutter":gutter,"header_scale":1.0,
-  "board":board,"tray":tray,"buttons":[],"tabs":[],
-  "progress":Rect2(offset+Vector2(44.0*sx,1861.0*sy),Vector2(855.0*sx,178.0*sy)),
-  "mode_switch":Rect2(offset+Vector2(39.0*sx,26.0*sy),Vector2(87.0*sx,91.0*sy)),
-  "pause_visual":Rect2(offset+Vector2(788.0*sx,191.0*sy),Vector2(99.0*sx,118.0*sy)),
-  "pause":Rect2(offset+Vector2(788.0*sx,191.0*sy),Vector2(99.0*sx,118.0*sy)),
-  "bomb_visual":Rect2(offset+Vector2(704.0*sx,324.0*sy),Vector2(186.0*sx,67.0*sy)),
-  "bomb":Rect2(offset+Vector2(704.0*sx,324.0*sy),Vector2(186.0*sx,67.0*sy)),
-  "audio":Rect2(offset+Vector2(44.0*sx,1692.0*sy),Vector2(73.0*sx,76.0*sy)),
-  "music":Rect2(offset+Vector2(133.0*sx,1692.0*sy),Vector2(73.0*sx,76.0*sy)),
-  "privacy":Rect2(offset+Vector2(226.0*sx,1698.0*sy),Vector2(110.0*sx,63.0*sy)),
-  "next":Rect2(),"hold":Rect2()
- }
-
-
-func _premium_numeric(message:String,at:Vector2,size:int,width:float) -> void:
- # Numeric HUD: one tight low-contrast shadow, NOT three offset overlapping labels.
- _label(message,at+Vector2(0,1),size,Color("#5c2865"),
-  HORIZONTAL_ALIGNMENT_CENTER,width)
- _label(message,at,size,GLOW_GOLD,HORIZONTAL_ALIGNMENT_CENTER,width)
-
-
-func _reference_puzzle_hud(layout:Dictionary) -> void:
- # HUD values are taken from the game engine, never baked into the artwork.
- var frame:Rect2=_puzzle_chrome_frame(layout["viewport"],float(layout["height"]))
- var sx:float=frame.size.x/PUZZLE_CHROME_CANVAS.x
- var sy:float=sx
- _premium_numeric(str(puzzle.score),Vector2(125.0*sx,287.0*sy),26,
-  252.0*sx)
- _premium_numeric(str(puzzle.best),Vector2(487.0*sx,287.0*sy),26,
-  228.0*sx)
- var percent:float=clampf(float(puzzle.fever)/100.0,0.0,1.0)
- var meter:=Rect2(Vector2(222.0*sx,340.0*sy),
-  Vector2(441.0*sx*percent,17.0*sy))
- if meter.size.x>0.9:
-  draw_rect(meter,Color("#fc63eb"),true)
-  draw_line(meter.position,Vector2(meter.end.x,meter.position.y),
-   Color("#ffffff",.75),1.2,true)
- _label("x%d" % puzzle.combo,Vector2(194.0*sx,404.0*sy),15,
-  Color("#ffcfef"),HORIZONTAL_ALIGNMENT_CENTER,82.0*sx)
- _label(str(puzzle.total_lines),Vector2(460.0*sx,404.0*sy),15,
-  Color("#a1eeff"),HORIZONTAL_ALIGNMENT_CENTER,88.0*sx)
- var count:String=str(puzzle.bombs) if puzzle.bombs>0 else "%d%%"%puzzle.bomb_charge()
- # The illustrated BOMB header occupies the upper half. Keep the live
- # counter on a separate baseline: no collision with the decorative text.
- _label(count,Vector2(708.0*sx,386.0*sy),11,GLOW_GOLD,
-  HORIZONTAL_ALIGNMENT_CENTER,178.0*sx)
- if bomb_armed:
-  draw_rect(layout["bomb_visual"].grow(-2.0),Color("#ff6bf1",.23),false,3.0)
-
-
-func _draw_reference_puzzle_progress(layout:Dictionary) -> void:
- # Replace ALL illustrated static footer labels with a single live Godot HUD.
- # Opaque glossy inner card masks the old GALAXY RANK title and progress track.
- var frame:Rect2=_puzzle_chrome_frame(layout["viewport"],float(layout["height"]))
- var unit:float=frame.size.x/PUZZLE_CHROME_CANVAS.x
- var panel:=Rect2(Vector2(47.0*unit,1849.0*unit),
-  Vector2(847.0*unit,181.0*unit))
- _glass_panel(panel,Color("#0f1544"),GLOW_PINK)
- _label("✦  LV %d · %s"%[progress.level,progress.rank_name()],
-  Vector2(83.0*unit,1911.0*unit),14,Color("#f6faff"))
- _label("★ %d · %dd streak"%[progress.stars,progress.streak],
-  Vector2(650.0*unit,1911.0*unit),11,GLOW_GOLD)
- var track:=Rect2(Vector2(89.0*unit,1944.0*unit),
-  Vector2(756.0*unit,12.0*unit))
- draw_rect(track,Color("#1b2f66"),true)
- var percent:float=clampf(progress.level_progress(),0.0,1.0)
- if percent>0:
-  draw_rect(Rect2(track.position,Vector2(track.size.x*percent,track.size.y)),
-   GLOW_BLUE,true)
- var mission:Dictionary=progress.next_mission()
- _label("%s %d/%d · %s"%[
-  mission["label"],mission["progress"],mission["target"],progress.theme_name()],
-  Vector2(85.0*unit,2008.0*unit),10,Color("#c9e8ff"))
-
-func _reference_blockfall_layout(viewport:Vector2,h:float) -> Dictionary:
- # Touch/gameplay rectangles calibrated from the actual 941x1672 reference.
- # Every position adapts independently to phone width, height and ad dock.
- var sx:float=viewport.x/SKIN_CANVAS.x
- var sy:float=h/SKIN_CANVAS.y
- var board:=Rect2(Vector2(76.0*sx,349.0*sy),
-  Vector2(586.0*sx,967.0*sy))
- var next_rect:=Rect2(Vector2(711.0*sx,406.0*sy),
-  Vector2(176.0*sx,177.0*sy))
- var hold_rect:=Rect2(Vector2(711.0*sx,667.0*sy),
-  Vector2(176.0*sx,165.0*sy))
- var gutter:float=clampf(viewport.x*.031,9.0,18.0)
- return {
-  "viewport":viewport,"height":h,"gutter":gutter,"header_scale":1.0,
-  "board":board,"tray":[],"buttons":[],"tabs":[],
-  "next":next_rect,"hold":hold_rect,
-  "progress":Rect2(Vector2(40.0*sx,1528.0*sy),
-   Vector2(860.0*sx,85.0*sy)),
-  "mode_switch":Rect2(Vector2(39.0*sx,22.0*sy),Vector2(81.0*sx,88.0*sy)),
-  "pause_visual":Rect2(Vector2(786.0*sx,163.0*sy),
-   Vector2(97.0*sx,92.0*sy)),
-  "pause":Rect2(Vector2(786.0*sx,163.0*sy),
-   Vector2(97.0*sx,92.0*sy)),
-  "audio":Rect2(Vector2(42.0*sx,1421.0*sy),Vector2(76.0*sx,68.0*sy)),
-  "music":Rect2(Vector2(129.0*sx,1421.0*sy),Vector2(76.0*sx,68.0*sy)),
-  "privacy":Rect2(Vector2(224.0*sx,1430.0*sy),Vector2(105.0*sx,52.0*sy)),
-  "bomb":Rect2(),"bomb_visual":Rect2()
- }
-
-
-func _reference_live_hud(layout:Dictionary) -> void:
- # The reference is treated as professionally illustrated chrome. These
- # value windows are replaced by live gameplay data on every redraw.
- var sx:float=float(layout["viewport"].x)/SKIN_CANVAS.x
- var sy:float=float(layout["height"])/SKIN_CANVAS.y
- # The bundled clean chrome PNG has no baked-in values or candy sprites.
- # Score and level are taken directly from the running Blockfall engine.
- _premium_numeric(str(falling.score),Vector2(161.0*sx,252.0*sy),28,
-  184.0*sx)
- _premium_numeric(str(falling.level),Vector2(539.0*sx,252.0*sy),28,
-  164.0*sx)
- # The original reference is its own chrome; don't paint a dark bar over it.
- _label("COMBO x%d  ✦  LINES %d" % [falling.combo,falling.lines],
-  Vector2(88.0*sx,309.0*sy),13,Color("#fff1ff"))
- # Original painted Combo frame, golden laurels and COMBO title remain as art.
- # This updated texture has the baked x0 erased. Draw only the live counter.
- # Never overlay a solid rectangle or a second UI panel over the art.
- _premium_numeric("x%d" % falling.combo,
-  Vector2(704.0*sx,1040.0*sy),29,208.0*sx)
- _sparkle(Vector2(431.0*sx,294.0*sy),GLOW_BLUE,2.5)
-
-
-func _draw_reference_progress(layout:Dictionary) -> void:
- # One original neon rank capsule only; no new rounded Godot panel.
- # Baked numbers in the source art have been replaced by a clean inset.
- var sx:float=float(layout["viewport"].x)/SKIN_CANVAS.x
- var sy:float=float(layout["height"])/SKIN_CANVAS.y
- _label("LV %d · %s"%[progress.level,progress.rank_name()],
-  Vector2(145.0*sx,1563.0*sy),13,Color("#f1f7ff"))
- _label("★ %d · %dd streak"%[progress.stars,progress.streak],
-  Vector2(677.0*sx,1563.0*sy),10,GLOW_GOLD)
- var track:=Rect2(Vector2(147.0*sx,1577.0*sy),Vector2(706.0*sx,9.0*sy))
- draw_rect(track,Color("#182456"),true)
- var pct:float=clampf(progress.level_progress(),0.0,1.0)
- if pct>0:
-  draw_rect(Rect2(track.position,Vector2(track.size.x*pct,track.size.y)),
-   GLOW_BLUE,true)
- var mission:Dictionary=progress.next_mission()
- _label("%s %d/%d · %s"%[
-  mission["label"],mission["progress"],mission["target"],progress.theme_name()],
-  Vector2(145.0*sx,1608.0*sy),10,Color("#d6efff"))
 
 
 func _draw_sky(layout:Dictionary) -> void:
@@ -603,60 +333,6 @@ func _button(rect:Rect2,title:String,active:bool=false,small:bool=false) -> void
  _label(title,Vector2(rect.position.x,rect.position.y+rect.size.y*.65),
   fontsize,Color("#f7fbff"),HORIZONTAL_ALIGNMENT_CENTER,rect.size.x)
 
-func _draw_header(layout:Dictionary) -> void:
- var w:float=layout["viewport"].x
- var g:float=layout["gutter"]
- var mode_name:String="BLOCK PUZZLE" if mode==0 else "BLOCKFALL"
- var accent:Color=GLOW_BLUE if mode==0 else GLOW_PINK
- # Bright arcade headline, cosmic underline and gold subtitle.
- _premium_title(mode_name,Vector2(0,44),29,w,accent)
- _label("✦  3D CANDY GALAXY  ✦",Vector2(0,62),11,
-  GLOW_GOLD,HORIZONTAL_ALIGNMENT_CENTER,w)
- draw_line(Vector2(w*.36,68),Vector2(w*.64,68),accent,1.7,true)
- _sparkle(Vector2(w*.65,68),GLOW_GOLD,3.0)
- var score:int=puzzle.score if mode==0 else falling.score
- var best:int=puzzle.best if mode==0 else falling.best
- var second_label:String="BEST" if mode==0 else "LEVEL"
- var second_value:String=str(best) if mode==0 else str(falling.level)
- var left_card:=Rect2(Vector2(g,77),Vector2((w-3.0*g-55.0)*.51,57))
- var right_card:=Rect2(Vector2(left_card.end.x+g,77),
-  Vector2((w-3.0*g-55.0)*.49,57))
- _glass_panel(left_card,Color("#270d4e"),GLOW_PINK)
- _glass_panel(right_card,Color("#08285a"),GLOW_BLUE)
- _label("SCORE",Vector2(left_card.position.x,left_card.position.y+17),
-  12,Color("#f4d9ff"),HORIZONTAL_ALIGNMENT_CENTER,left_card.size.x)
- _label(str(score),Vector2(left_card.position.x+1,left_card.position.y+44),
-  26,Color("#e49c45"),HORIZONTAL_ALIGNMENT_CENTER,left_card.size.x)
- _label(str(score),Vector2(left_card.position.x,left_card.position.y+42),
-  26,GLOW_GOLD,HORIZONTAL_ALIGNMENT_CENTER,left_card.size.x)
- _label(second_label,Vector2(right_card.position.x,right_card.position.y+17),
-  12,Color("#d1f7ff"),HORIZONTAL_ALIGNMENT_CENTER,right_card.size.x)
- _label(second_value,Vector2(right_card.position.x+1,right_card.position.y+44),
-  26,Color("#d59149"),HORIZONTAL_ALIGNMENT_CENTER,right_card.size.x)
- _label(second_value,Vector2(right_card.position.x,right_card.position.y+42),
-  26,GLOW_GOLD,HORIZONTAL_ALIGNMENT_CENTER,right_card.size.x)
- _button(layout["pause_visual"],"▶" if paused else "Ⅱ",true,false)
- if mode==0:
-  var progress_bar:=Rect2(Vector2(g,147),Vector2(w-2.0*g-73.0,10))
-  _glass_panel(progress_bar,Color("#221048"),GLOW_PINK)
-  var gauge:=Rect2(progress_bar.position+Vector2(2,2),
-   Vector2(maxf(0.0,(progress_bar.size.x-4)*float(puzzle.fever)/100.0),progress_bar.size.y-4))
-  if gauge.size.x>1.0:
-   draw_rect(gauge,Color("#f467f7"),true)
-   draw_line(gauge.position,Vector2(gauge.end.x,gauge.position.y),Color("#ffffff",.67),1.2,true)
-  _label("FEVER  %d%%" % puzzle.fever,Vector2(g,172),10,GLOW_PINK)
-  var bomb:Rect2=layout["bomb_visual"]
-  _glass_panel(bomb,Color("#32104c") if bomb_armed else Color("#081337"),
-   GLOW_PINK)
-  _label("✦  %s" % (str(puzzle.bombs) if puzzle.bombs>0 else "%d%%" % puzzle.bomb_charge()),
-   Vector2(bomb.position.x,bomb.position.y+21),13,
-   GLOW_GOLD,HORIZONTAL_ALIGNMENT_CENTER,bomb.size.x)
-  _label("COMBO x%d  •  LINES %d" % [puzzle.combo,puzzle.total_lines],
-   Vector2(g+79,172),10,Color("#f9dcff"))
- else:
-  _label("COMBO x%d  ✦  LINES %d" % [falling.combo,falling.lines],
-   Vector2(g,171),13,Color("#ffc3f8"))
-
 func _draw_progress_hud(layout:Dictionary) -> void:
  # Premium rank ribbon anchored outside the playable cells and native ad dock.
  var rect:Rect2=layout["progress"]
@@ -707,15 +383,6 @@ func _draw_back_button(rect:Rect2) -> void:
  draw_line(pivot,pivot+Vector2(arm*.70,arm),Color("#b6c9ff"),stroke+1.0,true)
  draw_line(pivot+Vector2(arm*.65,-arm),pivot,Color.WHITE,stroke,true)
  draw_line(pivot,pivot+Vector2(arm*.65,arm),Color.WHITE,stroke,true)
-
-
-func _draw_tabs(layout:Dictionary) -> void:
- # Back chevrons return to the menu, never silently swap active game mode.
- _draw_back_button(layout["mode_switch"])
- _button(layout["audio"],"♪" if audio.sounds_enabled else "×",false,true)
- _button(layout["music"],"♫" if audio.music_enabled else "○",false,true)
- if native_ads!=null:
-  _button(layout["privacy"],"PRIVACY",false,true)
 
 
 func _gem(rect:Rect2,color_id:int,ghost:bool=false) -> void:
@@ -834,24 +501,6 @@ func _draw_puzzle(layout:Dictionary) -> void:
   for p in s:
    _gem(Rect2(left+Vector2(p.x*cell,p.y*cell_y),
     Vector2(cell,cell_y)),int(colors[selected]),true)
-
-func _draw_clean_fall_well(board:Rect2) -> void:
- # Draw the *real* empty 10x18 grid above the imported illustration.
- # The source image contains partially erased demo blocks at the bottom.
- # Masking only the interior preserves its original neon frame and planets.
- var dark:=Color("#08112e")
- draw_rect(board,dark,true)
- var dx:float=board.size.x/10.0
- var dy:float=board.size.y/18.0
- for row in 18:
-  for col in 10:
-   var cell:=Rect2(board.position+Vector2(col*dx,row*dy),Vector2(dx,dy))
-   draw_rect(cell.grow(-.75),
-    Color("#101b47") if (row+col)%2==0 else Color("#0b1640"),true)
-   draw_rect(cell,Color("#615bd4",.55),false,.75)
- # A single inside rim, not two stacked borders from art and Godot.
- draw_rect(board,Color("#50dcff",.85),false,1.45)
-
 
 func _draw_falling(layout:Dictionary) -> void:
  var board:Rect2=layout["board"]
