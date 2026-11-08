@@ -86,6 +86,13 @@ the filesystem scan; CI and the Windows script classify only those exact types
 at that single configuration step and require its completion marker. All other
 errors and all gameplay/import/export/compile errors remain fatal.
 
+The pinned Poing AdMob 5.1.0 controller's `--check-only` run under Godot 4.5.1
+also reports exactly `ERROR: 4 resources still in use at exit (run with --verbose
+for details).` CI classifies that exact shutdown line only in `admob-check.log`;
+plugin import, script/parser failures, all other errors and Android exports stay
+strict. APK uploads run after failures too, preserving a completed no-ads build
+if a later plugin/build step fails.
+
 ## Remaining release gates
 
 - Real Galaxy S22 Ultra/midrange-device testing: touch drag origin/preview,

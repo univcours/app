@@ -165,8 +165,13 @@ jobs:
           path.write_text(current+'\n'+extra)
           PY
           godot --headless --editor --path "$PROJECT" --quit 2>&1 | tee "$PROJECT/build/reports/admob-import.log"
+          if grep -E 'SCRIPT ERROR|Parse Error|Parser Error|ERROR:' "$PROJECT/build/reports/admob-import.log"; then exit 1; fi
           godot --headless --path "$PROJECT" --check-only --script res://ads/AdMobRuntime.gd 2>&1 | tee "$PROJECT/build/reports/admob-check.log"
-          if grep -E 'SCRIPT ERROR|Parse Error|Parser Error|ERROR:' "$PROJECT/build/reports/admob-import.log" "$PROJECT/build/reports/admob-check.log"; then exit 1; fi
+          # Pinned Poing 5.1.0 creates four static resources while checking its
+          # typed controller; Godot 4.5.1 reports their shutdown references.
+          # Allow this exact diagnostic only for --check-only, never for the
+          # plugin import, runtime tests or Android export.
+          if grep -E 'SCRIPT ERROR|Parse Error|Parser Error|ERROR:' "$PROJECT/build/reports/admob-check.log" | grep -Fvx 'ERROR: 4 resources still in use at exit (run with --verbose for details).'; then exit 1; fi
       - name: Export and verify native Android AdMob TEST APK
         env:
           GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
@@ -183,6 +188,7 @@ jobs:
           done
           "$tool" dump xmltree "$PROJECT/build/NovaGrid-Cosmic-AdMob-TEST.apk" AndroidManifest.xml | grep -F 'ca-app-pub-3940256099942544~3347511713'
       - name: Upload Android debug APKs
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: novagrid-cosmic-android-debug-apks
