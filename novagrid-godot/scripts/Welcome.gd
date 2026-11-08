@@ -3,6 +3,9 @@ extends Node2D
 ## The animated nebula and crystal textures are shared by both live game modes.
 const VisualsScript = preload("res://scripts/Visuals.gd")
 const AudioScript = preload("res://scripts/Audio.gd")
+# Bundled SIL Open Font License typefaces; independent of Android system fonts.
+const DISPLAY_FONT:Font = preload("res://assets/fonts/Orbitron.ttf")
+const UI_FONT:Font = preload("res://assets/fonts/Oxanium.ttf")
 # Original AI-designed 941x1672 image is the EXACT full-screen source of truth.
 # Shipped as res://assets/menu/novagrid_cosmic_candy_arcade.png inside the
 # playable editor-ready ZIP. If absent, the previous Godot-rendered fallback
@@ -84,25 +87,48 @@ func _rectangles() -> Array[Rect2]:
 
 func _label(message:String,pos:Vector2,size:int,color:Color=Color.WHITE,
  alignment:HorizontalAlignment=HORIZONTAL_ALIGNMENT_LEFT,width:float=-1.0) -> void:
- draw_string(font,pos,message,alignment,width,size,color)
+ # Multi-layer neon typography, with fallback for symbols absent from the fonts.
+ var typeface:Font=DISPLAY_FONT if size>=19 else UI_FONT
+ for i in message.length():
+  if not typeface.has_char(message.unicode_at(i)):
+   typeface=font
+   break
+ var glow:Color=Color("#b45eff") if size>=29 else color
+ var strength:float=.72 if color.get_luminance()>.4 else .42
+ if size>=19:
+  draw_string_outline(typeface,pos,message,alignment,width,size,9,
+   Color(glow.r,glow.g,glow.b,.16*strength))
+  draw_string_outline(typeface,pos,message,alignment,width,size,5,
+   Color(glow.r,glow.g,glow.b,.42*strength))
+  draw_string_outline(typeface,pos,message,alignment,width,size,2,
+   Color(glow.r,glow.g,glow.b,.75*strength))
+ else:
+  draw_string_outline(typeface,pos,message,alignment,width,size,3,
+   Color(glow.r,glow.g,glow.b,.30*strength))
+  draw_string_outline(typeface,pos,message,alignment,width,size,1,
+   Color(glow.r,glow.g,glow.b,.65*strength))
+ draw_string(typeface,pos,message,alignment,width,size,color)
 
 func _glass(box:Rect2,fill:Color,outline:Color,strong:bool=false) -> void:
  var key:String=fill.to_html(true)+outline.to_html(true)+("Y" if strong else "N")
  if not panel_cache.has(key):
   var style:=StyleBoxFlat.new()
   style.bg_color=fill
-  style.border_color=outline
+  style.border_color=outline.lightened(.18)
   style.set_corner_radius_all(22 if strong else 15)
-  style.set_border_width_all(2 if strong else 1)
-  style.shadow_color=Color(outline.r,outline.g,outline.b,.22 if strong else .12)
-  style.shadow_size=15 if strong else 8
+  style.set_border_width_all(2)
+  style.shadow_color=Color(outline.r,outline.g,outline.b,.53 if strong else .31)
+  style.shadow_size=23 if strong else 13
   panel_cache[key]=style
  draw_style_box(panel_cache[key],box)
  var line_from:=box.position+Vector2(18,3)
  var line_to:=Vector2(box.end.x-18,box.position.y+3)
  draw_line(line_from,line_to,Color(1,1,1,.52),1.7,true)
  draw_line(line_from+Vector2(0,2.5),line_to+Vector2(0,2.5),
-  Color(.55,.90,1.0,.19),1.0,true)
+  Color(.55,.90,1.0,.29),1.0,true)
+ draw_line(Vector2(box.position.x+13,box.end.y-4),
+  Vector2(box.end.x-13,box.end.y-4),
+  Color(outline.r,outline.g,outline.b,.37),1.2,true)
 
 func _planet(center:Vector2,radius:float,main:Color,halo:Color) -> void:
  for step in range(5,0,-1):
@@ -339,10 +365,23 @@ func _hero_cube(x:float,y:float,side:float,color:Color) -> void:
  var right:=PackedVector2Array([
   Vector2(x+side,y),Vector2(x+side*1.21,y-side*.19),
   Vector2(x+side*1.21,y+side*.81),Vector2(x+side,y+side)])
+ draw_rect(Rect2(x-4,y-4,side+9,side+9),Color(c.r,c.g,c.b,.075),true)
  draw_colored_polygon(front,c)
- draw_colored_polygon(top,c.lightened(.38))
- draw_colored_polygon(right,c.darkened(.27))
- draw_rect(Rect2(x+3,y+3,side-6,side-6),Color(1,1,1,.08),true)
+ draw_colored_polygon(top,c.lightened(.46))
+ draw_colored_polygon(right,c.darkened(.31))
+ var bevel:float=maxf(3.0,side*.09)
+ draw_colored_polygon(PackedVector2Array([
+  Vector2(x,y),Vector2(x+side,y),
+  Vector2(x+side-bevel,y+bevel),Vector2(x+bevel,y+bevel)]),c.lightened(.38))
+ draw_colored_polygon(PackedVector2Array([
+  Vector2(x,y),Vector2(x+bevel,y+bevel),
+  Vector2(x+bevel,y+side-bevel),Vector2(x,y+side)]),c.lightened(.21))
+ draw_colored_polygon(PackedVector2Array([
+  Vector2(x+side,y),Vector2(x+side,y+side),
+  Vector2(x+side-bevel,y+side-bevel),Vector2(x+side-bevel,y+bevel)]),c.darkened(.20))
+ draw_rect(Rect2(x+bevel,y+bevel,side-2*bevel,side-2*bevel),Color(1,1,1,.065),true)
+ draw_line(Vector2(x+bevel*1.3,y+bevel*1.2),
+  Vector2(x+side*.58,y+bevel*1.2),Color(1,1,1,.57),1.3,true)
  draw_line(Vector2(x+2,y+2),Vector2(x+side-3,y+2),Color(1,1,1,.75),1.6,true)
  draw_line(Vector2(x+2,y+2),Vector2(x+2,y+side-3),Color(1,1,1,.33),1.4,true)
  draw_line(Vector2(x+side-1,y+2),Vector2(x+side-1,y+side-2),
@@ -375,8 +414,10 @@ func _reference_hero() -> void:
 func _menu_row(y:float,title:String,subtitle:String,accent:Color,
  enabled:bool,number:int) -> void:
  var rect:=Rect2(20,y,392,81)
- var ink:Color=Color("#102253") if enabled else Color("#14152e")
- _glass(rect,ink,accent if enabled else Color("#546088"),true)
+ var ink:Color=Color("#071c4a") if enabled else Color("#11112c")
+ _glass(rect,ink,accent if enabled else Color("#65538d"),true)
+ draw_line(Vector2(42,y+2),Vector2(387,y+2),
+  Color(accent.r,accent.g,accent.b,.52 if enabled else .18),1.5,true)
  # Gradient-like glow on the left and consistent illuminated game icon.
  draw_rect(Rect2(23,y+11,5,59),Color(accent.r,accent.g,accent.b,.85 if enabled else .24),true)
  var glyph:Rect2=Rect2(37,y+21,40,40)
@@ -393,13 +434,13 @@ func _menu_row(y:float,title:String,subtitle:String,accent:Color,
    _hero_cube(48+yy*5,y+28+yy*5,10,accent)
  else:
   _label("✦",Vector2(45,y+49),28,accent)
- _label(title,Vector2(91,y+34),22,
-  Color("#f2f7ff") if enabled else Color("#9fa8d0"))
- _label(subtitle,Vector2(91,y+55),11,Color("#b9cef2"))
+ _label(title,Vector2(91,y+34),20,
+  Color("#f5faff") if enabled else Color("#aab5d6"))
+ _label(subtitle,Vector2(91,y+55),12,Color("#bce3ff"))
  if enabled:
   _label("▶",Vector2(361,y+50),26,accent)
  else:
-  _label("SOON",Vector2(343,y+46),13,Color("#bac4ea"))
+  _label("SOON",Vector2(344,y+46),12,Color("#b4acef"))
 
 func _draw() -> void:
  var actual:Vector2=get_viewport_rect().size
@@ -417,14 +458,12 @@ func _draw() -> void:
  _label("★",Vector2(62,49),19,Color("#ffe7a2"))
  _glass(Rect2(348,21,65,44),Color("#141d4c"),Color("#9c78ff"))
  _label("⚙",Vector2(368,51),25,Color("#f4efff"))
- _label("NovaGrid",Vector2(0,143),47,Color("#742bee"),
+ _label("NovaGrid",Vector2(0,144),45,Color("#f7eaff"),
   HORIZONTAL_ALIGNMENT_CENTER,432)
- _label("NovaGrid",Vector2(0,140),47,Color("#f2f1ff"),
-  HORIZONTAL_ALIGNMENT_CENTER,432)
- _label("Cosmic Block Puzzle",Vector2(0,169),15,Color("#b6d9ff"),
+ _label("Cosmic Block Puzzle",Vector2(0,169),15,Color("#a5eaff"),
   HORIZONTAL_ALIGNMENT_CENTER,432)
  _reference_hero()
- _menu_row(548,"Classic","9 × 9 Puzzle",Color("#39e6ff"),true,0)
+ _menu_row(548,"Classic","9 X 9 Puzzle",Color("#39e6ff"),true,0)
  _menu_row(633,"Daily Challenge","Coming soon",Color("#ffc15b"),false,1)
  _menu_row(718,"Blockfall","Endless block action",Color("#df6dff"),true,2)
  _menu_row(803,"Galaxy Stages","Coming soon",Color("#31dfff"),false,3)
