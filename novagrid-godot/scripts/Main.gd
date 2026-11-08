@@ -420,19 +420,40 @@ func _draw_back_button(rect:Rect2) -> void:
  draw_line(pivot,pivot+Vector2(arm*.65,arm),Color.WHITE,stroke,true)
 
 
-func _gem(rect:Rect2,color_id:int,ghost:bool=false) -> void:
- # Premium 3D candy TILE, not a tiny floating ball on a nearly-black grid.
- # Every occupied cell has a distinct, bright, glass-square footprint.
- if color_id<=0:
-  return
+func _gem(rect:Rect2,color_id:int,ghost:bool=false,moving:bool=false) -> void:
+ # Animated Candy Glass in both game modes. Seven vivid base hues receive
+ # a moving two-tone rim, gentle breath glow and specular highlights.
+ if color_id<=0:return
  var tint:Color=GEM_COLORS[clampi(color_id,1,7)]
+ var second:Color=GEM_COLORS[1+posmod(color_id+2,7)]
  var tile:Rect2=rect.grow(-maxf(.7,rect.size.x*.025))
+ var phase:float=clock*3.6+tile.position.x*.037+tile.position.y*.043
+ var pulse:float=.65+.25*sin(phase)
+ var mixed:Color=tint.lerp(second,.12+.14*(.5+.5*sin(phase*.7)))
  if ghost:
-  draw_rect(tile,Color(tint.r,tint.g,tint.b,.22),true)
-  draw_rect(tile,tint.lightened(.3),false,1.8)
+  draw_rect(tile,Color(mixed.r,mixed.g,mixed.b,.14+.08*pulse),true)
+  draw_rect(tile,mixed.lightened(.34),false,1.6)
+  return
+ var texture:Texture2D=visuals.get_gem_texture(color_id)
+ if texture!=null:
+  draw_texture_rect(texture,tile,false)
  else:
-  var texture:Texture2D=visuals.get_gem_texture(color_id)
-  if texture!=null:draw_texture_rect(texture,tile,false)
+  draw_rect(tile,Color(tint.r,tint.g,tint.b,.82),true)
+  draw_rect(tile.grow(-tile.size.x*.1),tint.lightened(.24),false,2)
+ draw_rect(tile.grow(.75),Color(mixed.r,mixed.g,mixed.b,.36+.24*pulse),
+  false,1.4 if not moving else 2.2)
+ var sweep:float=fposmod(clock*.67+tile.position.x*.004+tile.position.y*.006,1.0)
+ var x0:float=tile.position.x+3+sweep*tile.size.x*.55
+ draw_line(Vector2(x0,tile.position.y+3),
+  Vector2(minf(tile.end.x-3,x0+tile.size.x*.24),tile.position.y+3),
+  Color(1,1,1,.32+.20*pulse),1.4,true)
+ if moving and not visuals.reduced_effects:
+  for radius in 2:
+   draw_rect(tile.grow(2.4+radius*2.1),
+    Color(mixed.r,mixed.g,mixed.b,.18/(radius+1)),false,2.1,true)
+  draw_line(tile.position+Vector2(3,tile.size.y*.24),
+   tile.position+Vector2(3,tile.size.y*.73),
+   Color(second.r,second.g,second.b,.65*pulse),2.2,true)
 
 func _board_back(board_rect:Rect2,cols:int,rows:int) -> float:
  # Identical luxury neon system in Puzzle and Blockfall, but each has its
@@ -551,17 +572,19 @@ func _draw_falling(layout:Dictionary) -> void:
    if id>0:
     _gem(Rect2(board.position+Vector2(x*cell,y*cell_h),
      Vector2(cell,cell_h)),id)
- for p in falling.piece:
-  var pos:Vector2i=ghost+p
-  if pos.y>=0 and pos.y<18 and falling.board[pos.y][pos.x]==0:
-   # The real upcoming landing position is a luminous hollow tetromino.
-   _gem(Rect2(board.position+Vector2(pos.x*cell,pos.y*cell_h),
-    Vector2(cell,cell_h)),falling.kind+1,true)
- for p in falling.piece:
-  var pos:Vector2=fall_display+Vector2(p)
-  if pos.y>=0 and pos.y<18:
-   _gem(Rect2(board.position+Vector2(pos.x*cell,pos.y*cell_h),
-    Vector2(cell,cell_h)),falling.kind+1)
+ # A pending rescue freezes the blocked piece until the earned explosion
+ # frees the spawn. Do not render it on top of settled glass cells.
+ if not falling.rescue_pending:
+  for p in falling.piece:
+   var pos:Vector2i=ghost+p
+   if pos.y>=0 and pos.y<18 and falling.board[pos.y][pos.x]==0:
+    _gem(Rect2(board.position+Vector2(pos.x*cell,pos.y*cell_h),
+     Vector2(cell,cell_h)),falling.kind+1,true)
+  for p in falling.piece:
+   var pos:Vector2=fall_display+Vector2(p)
+   if pos.y>=0 and pos.y<18:
+    _gem(Rect2(board.position+Vector2(pos.x*cell,pos.y*cell_h),
+     Vector2(cell,cell_h)),falling.kind+1,false,true)
  var next_rect:Rect2=layout["next"]
  var hold_rect:Rect2=layout["hold"]
  if reference:
