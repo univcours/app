@@ -36,6 +36,15 @@ func _run()->void:
     verify(absf(h-(float(layout["viewport"].y)-ad_h))<1.0,
      label+" native ad reserve is separate")
     verify(board.position.x>=-1.0 and board.end.x<=width+1.0,label+" board fits viewport width")
+    if ad_h>0.0:
+     verify(absf(layout["safe"].end.y-(float(dims.y)-ad_h))<1.0,
+      label+" game safe area stops exactly at top of the dock")
+     for item in ["pause","mode_switch","audio","music","privacy","bomb","progress","finish","next","hold"]:
+      var target:Rect2=layout[item]
+      verify(target.end.y<=layout["safe"].end.y+1.0,
+       label+" "+item+" stays entirely ABOVE the native ad")
+     var dock_area:=Rect2(Vector2(0,layout["safe"].end.y),Vector2(width,ad_h))
+     verify(not board.intersects(dock_area),label+" playable grid never intersects banner")
     verify(board.position.y>=0.0 and board.end.y<h-90.0,label+" entire board stays above controls and ad")
     verify(layout["pause"].end.y<=board.position.y+8.0,label+" small pause button above gameboard")
     verify(layout["mode_switch"].end.y<=board.position.y+8.0,label+" small mode toggle above gameboard")
@@ -81,7 +90,7 @@ func _run()->void:
  app.set_native_banner_height(64.0)
  app.mode=0
  var before_moves:int=app.puzzle.moves
- var outside:Vector2=Vector2(200,630)
+ var outside:Vector2=Vector2(200,940)
  if app._layout()["safe"].end.y<=outside.y:
   app._press(outside)
   verify(not app.touching,"touch inside banner dock never reaches gameplay")
