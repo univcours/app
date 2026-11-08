@@ -21,6 +21,10 @@ jobs:
         shell: pwsh
         run: |
           & ./novagrid-godot/tests/test_qa_cleanup.ps1
+      - name: Verify safe GitHub-to-Godot automatic updates on Windows
+        shell: pwsh
+        run: |
+          & ./novagrid-godot/tests/test_auto_sync.ps1
   cosmic-qa-android:
     runs-on: ubuntu-latest
     timeout-minutes: 35
@@ -66,7 +70,7 @@ jobs:
       - name: Parse Windows installers
         shell: pwsh
         run: |
-          foreach ($path in @('novagrid-godot/scripts/update-build-install.ps1','novagrid-godot/scripts/install-admob.ps1','novagrid-godot/scripts/switch-cosmic.ps1','novagrid-godot/tests/test_switch_cosmic.ps1')) {
+          foreach ($path in @('novagrid-godot/scripts/update-build-install.ps1','novagrid-godot/scripts/install-admob.ps1','novagrid-godot/scripts/switch-cosmic.ps1','novagrid-godot/tests/test_switch_cosmic.ps1','novagrid-godot/scripts/auto-sync-godot.ps1','novagrid-godot/tests/test_auto_sync.ps1')) {
             $tokens=$null; $errors=$null
             [System.Management.Automation.Language.Parser]::ParseFile($path,[ref]$tokens,[ref]$errors) | Out-Null
             if ($errors.Count) { $errors | ForEach-Object { Write-Error "$path : $($_.Message)" }; exit 1 }
