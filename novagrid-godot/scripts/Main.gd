@@ -459,6 +459,10 @@ func _reference_live_hud(layout:Dictionary) -> void:
  draw_rect(strip,Color("#100d39",.96),true)
  _label("COMBO x%d   ✦   LINES %d" % [falling.combo,falling.lines],
   Vector2(strip.position.x,310.0*sy),13,Color("#ffdcf7"))
+ # Mask the baked x0, leaving exactly one true live combo value.
+ var combo_value:=Rect2(Vector2(734.0*sx,969.0*sy),
+  Vector2(130.0*sx,90.0*sy))
+ draw_rect(combo_value,Color("#2b104b",.99),true)
  _premium_numeric("x%d" % falling.combo,Vector2(715.0*sx,1038.0*sy),27,
   177.0*sx)
  _sparkle(Vector2(431.0*sx,294.0*sy),GLOW_BLUE,2.5)
@@ -882,9 +886,26 @@ func _draw_puzzle(layout:Dictionary) -> void:
    _gem(Rect2(left+Vector2(p.x*cell,p.y*cell_y),
     Vector2(cell,cell_y)),int(colors[selected]),true)
 
+func _draw_clean_fall_well(board:Rect2) -> void:
+ # Draw live empty grid OVER the original screenshot: no frozen demo candy.
+ var dark:=Color("#08112e")
+ draw_rect(board,dark,true)
+ var dx:float=board.size.x/10.0
+ var dy:float=board.size.y/18.0
+ for row in 18:
+  for col in 10:
+   var cell:=Rect2(board.position+Vector2(col*dx,row*dy),Vector2(dx,dy))
+   draw_rect(cell.grow(-.75),
+    Color("#101b47") if (row+col)%2==0 else Color("#0b1640"),true)
+   draw_rect(cell,Color("#615bd4",.55),false,.75)
+ draw_rect(board,Color("#50dcff",.85),false,1.45)
+
+
 func _draw_falling(layout:Dictionary) -> void:
  var board:Rect2=layout["board"]
  var reference:bool=skin_fall!=null and float(layout["height"])>=760.0
+ if reference:
+  _draw_clean_fall_well(board)
  var cell:float=board.size.x/10.0 if reference else _board_back(board,10,18)
  var cell_h:float=board.size.y/18.0
  var ghost:Vector2i=Vector2i(falling.active.x,falling.ghost_row())
@@ -908,7 +929,8 @@ func _draw_falling(layout:Dictionary) -> void:
  var next_rect:Rect2=layout["next"]
  var hold_rect:Rect2=layout["hold"]
  if reference:
-  # Frames are painted in the actual reference artwork. Draw only live sprites.
+  # Clean baked NEXT-demo fragment without covering the neon frame.
+  draw_rect(next_rect.grow(-7.0),Color("#081743",.98),true)
   _draw_side_piece(next_rect,falling.next_kind)
   if falling.hold_kind>=0:
    _draw_side_piece(hold_rect,falling.hold_kind)
