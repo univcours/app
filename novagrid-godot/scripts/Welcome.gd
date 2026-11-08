@@ -126,6 +126,28 @@ func _planet(center:Vector2,radius:float,main:Color,halo:Color) -> void:
  draw_arc(center,radius*1.25,PI+.53,TAU-.45,76,Color(halo.r,halo.g,halo.b,.13),1.7,true)
  draw_circle(center-Vector2(radius*.31,radius*.36),radius*.13,Color(1,1,1,.34))
 
+# Original lightweight cosmic atmosphere, drawn natively rather than using a
+# static screenshot. Kept behind the playable hit targets.
+func _cosmic_backdrop(size:Vector2) -> void:
+ var bands:Array=[
+  {"center":Vector2(.15,.12),"radius":.72,"color":Color("#6122bb")},
+  {"center":Vector2(.90,.35),"radius":.68,"color":Color("#0542ab")},
+  {"center":Vector2(.47,.78),"radius":.62,"color":Color("#ab145b")}
+ ]
+ for band in bands:
+  var center:Vector2=Vector2(band["center"])*size
+  var radius:float=size.x*float(band["radius"])
+  var shade:Color=band["color"]
+  for ring in range(9,0,-1):
+   var t:float=float(ring)/9.0
+   draw_circle(center,radius*t,Color(shade.r,shade.g,shade.b,.012))
+ # Thin intertwined galaxy trails frame the two functional game choices.
+ for arc_index in 3:
+  var radius:float=size.x*(.60+float(arc_index)*.13)
+  var hue:Color=Color("#42daff") if arc_index%2==0 else Color("#d857ff")
+  draw_arc(Vector2(size.x*.58,size.y*.48),radius,-.61,1.61,96,
+   Color(hue.r,hue.g,hue.b,.10),1.2,true)
+
 func _starfield(size:Vector2) -> void:
  for star in stars:
   var point:Vector2=star["p"]
@@ -288,10 +310,10 @@ func _card(rect:Rect2,index:int) -> void:
  # Canonical coordinates: 390 x 226, normalized to a single interactive card.
  draw_set_transform(panel.position,0.0,Vector2(panel.size.x/390.0,panel.size.y/226.0))
  var label_color:Color=Color("#8ff5ff") if is_puzzle else Color("#ffc5fb")
- _label("01  /  STRATEGY" if is_puzzle else "02  /  ARCADE",
+ _label("01  /  9 x 9" if is_puzzle else "02  /  FALLING BLOCKS",
   Vector2(21,31),12,label_color)
- _label("BLOCK",Vector2(20,76),36,Color.WHITE)
- _label("PUZZLE" if is_puzzle else "FALL",
+ _label("CLASSIC" if is_puzzle else "BLOCKFALL",Vector2(20,76),29,Color.WHITE)
+ _label("PUZZLE" if is_puzzle else "ARCADE",
   Vector2(20,112),36,accent)
  _label("PLACE  ·  MATCH  ·  BLAST" if is_puzzle else "DROP  ·  ROTATE  ·  SURVIVE",
   Vector2(21,136),10,Color("#c8ddf7"))
@@ -301,7 +323,7 @@ func _card(rect:Rect2,index:int) -> void:
  # Large CTA is the brightest element on the left, away from game thumbnail.
  var button:=Rect2(Vector2(20,180),Vector2(164,34))
  _glass(button,Color("#006f97") if is_puzzle else Color("#8a2a9a"),accent)
- _label("PLAY  ▶",Vector2(button.position.x,button.position.y+23),17,
+ _label("PLAY NOW  ▶",Vector2(button.position.x,button.position.y+23),16,
   Color.WHITE,HORIZONTAL_ALIGNMENT_CENTER,button.size.x)
  var inset:=Rect2(Vector2(204,21),Vector2(168,186))
  _mini_board(inset,not is_puzzle)
@@ -327,7 +349,8 @@ func _draw() -> void:
  var compact:bool=view.y<730.0
  # Dark atmospheric veil behind the brand prevents the nebula from
  # reducing readability; no fake imagery and no expensive blur shaders.
- draw_rect(Rect2(Vector2.ZERO,view),Color("#060b27",.35),true)
+ draw_rect(Rect2(Vector2.ZERO,view),Color("#060b27",.48),true)
+ _cosmic_backdrop(view)
  _starfield(view)
  var header_height:float=cards[0].position.y
  var title_y:float=header_height*.36
@@ -354,17 +377,17 @@ func _draw() -> void:
   draw_texture_rect(tex,Rect2(p,Vector2(diameter,diameter)),false,Color.WHITE)
  # One coherent name instead of old NOVA / G.RID fragmentation.
  var brand_size:int=clampi(int(view.x*.112*small),33,50)
- _label("NOVAGRID",Vector2(0,title_y+3),brand_size,Color("#148bff"),
+ _label("NovaGrid",Vector2(0,title_y+3),brand_size,Color("#148bff"),
   HORIZONTAL_ALIGNMENT_CENTER,view.x)
- _label("NOVAGRID",Vector2(0,title_y),brand_size,Color("#f8fdff"),
+ _label("NovaGrid",Vector2(0,title_y),brand_size,Color("#f8fdff"),
   HORIZONTAL_ALIGNMENT_CENTER,view.x)
  var sub_y:float=title_y+27.0*small
- _label("C O S M I C    C A N D Y    A R C A D E",Vector2(0,sub_y),
+ _label("C O S M I C   B L O C K   P U Z Z L E",Vector2(0,sub_y),
   11 if not compact else 9,Color("#96f4ff"),HORIZONTAL_ALIGNMENT_CENTER,view.x)
  var trail_y:float=sub_y+15.0*small
  draw_line(Vector2(view.x*.33,trail_y),Vector2(view.x*.67,trail_y),
   Color("#ab7fff",.82),2.0,true)
- _label("TWO WORLDS. ENDLESS COMBOS.",Vector2(0,trail_y+22.0*small),
+ _label("CRYSTAL BLOCKS  ·  COSMIC COMBOS",Vector2(0,trail_y+22.0*small),
   11 if not compact else 9,Color("#e2d9ff"),HORIZONTAL_ALIGNMENT_CENTER,view.x)
  _label("CHOOSE YOUR ADVENTURE",Vector2(0,cards[0].position.y-13.0),
   11,Color("#b4cbff"),HORIZONTAL_ALIGNMENT_CENTER,view.x)
@@ -377,9 +400,9 @@ func _draw() -> void:
   var footer:=Rect2(Vector2(cards[0].position.x,footer_top),
    Vector2(cards[0].size.x,footer_height))
   _glass(footer,Color("#10224a"),Color("#587bff"))
-  _label("★  BUILD YOUR GALAXY",footer.position+Vector2(18,25),
+  _label("★  YOUR COSMIC JOURNEY",footer.position+Vector2(18,25),
    16 if not compact else 13,Color("#ffe49a"))
-  _label("LEVEL UP  ·  UNLOCK THEMES  ·  DAILY QUESTS",
+  _label("LEVEL UP  ·  UNLOCK THEMES  ·  EARN STARS",
    footer.position+Vector2(18,44),10 if not compact else 9,Color("#bde2ff"))
   if footer_height>65.0:
    var kinds:=[2,3,4,5,1]
