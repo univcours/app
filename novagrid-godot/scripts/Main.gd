@@ -75,6 +75,7 @@ var mode := 0
 var paused := false
 var selected := -1
 var bomb_armed := false
+var restart_confirm := false
 var touching := false
 var dragging := false
 var pressed_at := Vector2.ZERO
@@ -196,7 +197,7 @@ func _process(delta:float) -> void:
   else:
    fall_display=fall_display.lerp(target,clampf(delta*20.0,0.0,1.0))
  visual_pointer=visual_pointer.lerp(touch_at,clampf(delta*19.0,0.0,1.0))
- if mode==1 and touching and falling_touch_valid and not paused and not falling.over:
+ if mode==1 and touching and falling_touch_valid and not paused and not falling.over and not falling.rescue_pending:
   if clock-press_clock>.24 and not touch_moved:
    soft_clock+=delta
    if soft_clock>=.075:
@@ -229,7 +230,7 @@ func _process(delta:float) -> void:
    fragments.remove_at(idx)
   else:
    fragments[idx] = f
- if mode==1 and not paused and not falling.over:
+ if mode==1 and not paused and not falling.over and not falling.rescue_pending:
   # Proper lock delay from the rebuilt Blockfall engine.
   if falling.advance_lock(delta):
    _fall_locked()
@@ -688,16 +689,17 @@ func _draw_modal(layout:Dictionary) -> void:
  var modal := Rect2(Vector2(viewport.x*.09,game_height*.34),
   Vector2(viewport.x*.82,222))
  _glass_panel(modal,Color("#061335"),GLOW_PINK)
- var title := "PAUSED" if paused else "GAME OVER"
+ var title := "RESTART RUN?" if restart_confirm else "PAUSED" if paused else "GAME OVER"
  _label(title,Vector2(modal.position.x,modal.position.y+56),26,
   Color("#fff2ff"),HORIZONTAL_ALIGNMENT_CENTER,modal.size.x)
  var score:int = puzzle.score if mode==0 else falling.score
  _label("SCORE  %d" % score,Vector2(modal.position.x,modal.position.y+88),
   16,Color("#cbe9ff"),HORIZONTAL_ALIGNMENT_CENTER,modal.size.x)
- var action := "▶ RESUME" if paused else "↻ PLAY AGAIN"
+ var action := "REPLAY NOW" if restart_confirm else "▶ RESUME" if paused else "↻ PLAY AGAIN"
  _button(Rect2(modal.position+Vector2(27,107),Vector2(modal.size.x-54,36)),action,true)
  if paused:
-  _button(Rect2(modal.position+Vector2(27,148),Vector2(modal.size.x-54,27)),"↻ NEW RUN",false,true)
+  _button(Rect2(modal.position+Vector2(27,148),Vector2(modal.size.x-54,27)),
+   "CANCEL" if restart_confirm else "↻ NEW RUN",false,true)
  _button(Rect2(modal.position+Vector2(27,184),Vector2(modal.size.x-54,28)),"⌂  GALAXY HOME",false,true)
 
 func _origin_from_position(pos:Vector2,centered:bool,board:Rect2,shape:Array) -> Vector2i:
@@ -772,7 +774,7 @@ func _move_pointer(pos:Vector2) -> void:
  if pos.distance_to(pressed_at)>11.0:
   dragging=true
   touch_moved=true
- if mode==1 and falling_touch_valid and not paused and not falling.over:
+ if mode==1 and falling_touch_valid and not paused and not falling.over and not falling.rescue_pending:
   var board:Rect2=_layout()["board"]
   var threshold:float=board.size.x/10.0*.72
   while touch_at.x-horizontal_anchor>threshold:
@@ -815,7 +817,7 @@ func _release(pos:Vector2) -> void:
   if error!=OK:
    printerr("NovaGrid: cannot return to main menu: ",error)
   return
- if paused and mode==0 and skin_neon_puzzle!=null and not puzzle.over:
+ if paused and not restart_confirm and mode==0 and skin_neon_puzzle!=null and not puzzle.over:
   var w:float=layout["viewport"].x
   var h:float=float(layout["height"])
   var panel:=Rect2(Vector2(w*.1,h*.30),Vector2(w*.8,295))
@@ -841,15 +843,27 @@ func _release(pos:Vector2) -> void:
    get_tree().change_scene_to_file("res://scenes/Welcome.tscn")
    return
   if primary.has_point(pos):
-   if paused:
+   if restart_confirm or not paused:
+    _restart_mode()
+   else:
+    paused=false
+   audio.effect("confirm")
+  elif paused and restart.has_point(pos):
+   if restart_confirm:
+    restart_confirm=false
     paused=false
    else:
     _restart_mode()
    audio.effect("tap")
-  elif paused and restart.has_point(pos):
-   paused=false
-   _restart_mode()
-   audio.effect("tap")
+  queue_redraw()
+  return
+ if not paused and not (puzzle.over if mode==0 else falling.over) and layout["replay"].has_point(pos) and layout["replay"].has_point(pressed_at):
+  restart_confirm=true
+  settings_open=false
+  paused=true
+  selected=-1
+  bomb_armed=false
+  audio.effect("popup")
   queue_redraw()
   return
  if layout["progress"].has_point(pos) and layout["progress"].has_point(pressed_at):
@@ -900,6 +914,19 @@ func _release(pos:Vector2) -> void:
  queue_redraw()
 
 func _restart_mode() -> void:
+ # Replay changes only this run. The permanent record and earned XP survive.
+ paused=false
+ settings_open=false
+ restart_confirm=false
+ selected=-1
+ bomb_armed=false
+ touching=false
+ dragging=false
+ flash=0.0
+ shake=0.0
+ shockwaves.clear()
+ headlines.clear()
+ fragments.clear()
  # Interstitials only after completed rounds; never on Pause/New Run.
  var completed:bool=(puzzle.over if mode==0 else falling.over)
  if completed and native_ads!=null:
