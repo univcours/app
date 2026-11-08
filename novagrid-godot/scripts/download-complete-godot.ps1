@@ -69,12 +69,12 @@ $neon=Join-Path $skins 'neon_exact'
 New-Item -ItemType Directory -Force -Path $skins,$menu,$gems,$neon|Out-Null
 $assets=@(
  @('novagrid_cosmic_candy_arcade.png',(Join-Path $menu 'novagrid_cosmic_candy_arcade.png'),941,1672),
- @('blockfall_playable_chrome.png',(Join-Path $skins 'blockfall_playable_chrome.png'),941,1672),
+ @('novagrid_blockfall_clean_combo_background_20261108.png',(Join-Path $skins 'blockfall_playable_chrome.png'),941,1672),
  @('blockpuzzle_playable_chrome.png',(Join-Path $skins 'blockpuzzle_playable_chrome.png'),941,2091),
  @('blockpuzzle_cosmic_backdrop.png',(Join-Path $skins 'blockpuzzle_cosmic_backdrop.png'),941,2091),
  @('novagrid_candy_atlas7_v2.png',(Join-Path $root 'candy_atlas7.png'),700,100),
  @('novagrid_exact_neon_board_asset.png',(Join-Path $neon 'neon_block_puzzle_empty_941x1672.png'),941,1672),
- @('novagrid_exact_neon_gem_atlas.png',(Join-Path $root 'neon_reference_atlas7.png'),700,100)
+ @('novagrid_clean_7_gems_atlas_20261108.png',(Join-Path $root 'neon_reference_atlas7.png'),1792,256)
 )
 foreach($a in $assets){
  Grab "$cdn/$($a[0])" $a[1]
@@ -103,15 +103,15 @@ try{
 $neonAtlas=[System.Drawing.Bitmap]::new((Join-Path $root 'neon_reference_atlas7.png'))
 try{
  for($i=0;$i -lt 7;$i++){
-  $piece=[System.Drawing.Bitmap]::new(100,100)
+  $piece=[System.Drawing.Bitmap]::new(256,256)
   $graphic=[System.Drawing.Graphics]::FromImage($piece)
   try{
-   $srcRect=[System.Drawing.Rectangle]::new($i*100,0,100,100)
-   $dstRect=[System.Drawing.Rectangle]::new(0,0,100,100)
+   $srcRect=[System.Drawing.Rectangle]::new($i*256,0,256,256)
+   $dstRect=[System.Drawing.Rectangle]::new(0,0,256,256)
    $graphic.DrawImage($neonAtlas,$dstRect,$srcRect,[System.Drawing.GraphicsUnit]::Pixel)
    $file=Join-Path $neon ('gem_'+($i+1)+'.png')
    $piece.Save($file,[System.Drawing.Imaging.ImageFormat]::Png)
-   CheckPng $file 100 100
+   CheckPng $file 256 256
   }finally{$graphic.Dispose();$piece.Dispose()}
  }
 }finally{$neonAtlas.Dispose()}
