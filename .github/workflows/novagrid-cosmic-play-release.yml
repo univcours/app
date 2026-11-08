@@ -246,7 +246,7 @@ jobs:
           echo "Verified official package + API 36 + live ads, signed upload still required"
       - name: Sign AAB only using the existing Google Play upload key
         env:
-          NOVAGRID_UPLOAD_KEYSTORE_BASE64: @SECRET(NOVAGRID_UPLOAD_KEYSTORE_BASE64)@
+          NOVAGRID_UPLOAD_KEYSTORE_BASE64: ${{ secrets.NOVAGRID_UPLOAD_KEYSTORE_BASE64 }}
           NOVAGRID_UPLOAD_KEYSTORE_PASSWORD: ${{ secrets.NOVAGRID_UPLOAD_KEYSTORE_PASSWORD }}
           NOVAGRID_UPLOAD_KEY_ALIAS: ${{ secrets.NOVAGRID_UPLOAD_KEY_ALIAS }}
           NOVAGRID_UPLOAD_KEY_PASSWORD: ${{ secrets.NOVAGRID_UPLOAD_KEY_PASSWORD }}
