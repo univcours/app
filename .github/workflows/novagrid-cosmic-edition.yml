@@ -1,0 +1,201 @@
+name: NovaGrid Cosmic Edition — Godot QA and Android TEST
+on:
+  push:
+    branches: [novagrid-cosmic-edition-20261108]
+    paths:
+      - 'novagrid-godot/**'
+      - '.github/workflows/novagrid-cosmic-edition.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: novagrid-cosmic-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  cosmic-qa-android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      PROJECT: novagrid-godot
+      GODOT_SILENCE_ROOT_WARNING: '1'
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Cache pinned engine and matching export templates
+        id: godot-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/novagrid/godot-4.5.1
+            ~/.local/share/godot/export_templates/4.5.1.stable
+          key: novagrid-godot-linux-4.5.1-templates-v1
+      - name: Install Godot 4.5.1 and Android templates
+        run: |
+          set -euo pipefail
+          engine="$HOME/.cache/novagrid/godot-4.5.1"
+          if [ ! -x "$engine/godot" ]; then
+            mkdir -p "$engine"
+            curl --retry 3 -fL -o /tmp/godot.zip https://github.com/godotengine/godot-builds/releases/download/4.5.1-stable/Godot_v4.5.1-stable_linux.x86_64.zip
+            unzip -q /tmp/godot.zip -d /tmp/godot-engine
+            install -m 755 /tmp/godot-engine/Godot_v4.5.1-stable_linux.x86_64 "$engine/godot"
+          fi
+          echo "$engine" >> "$GITHUB_PATH"
+          "$engine/godot" --version | grep '^4\.5\.1\.'
+          templates="$HOME/.local/share/godot/export_templates/4.5.1.stable"
+          if [ ! -s "$templates/android_debug.apk" ] || [ ! -s "$templates/android_source.zip" ]; then
+            curl --retry 3 -fL -o /tmp/godot-templates.tpz https://github.com/godotengine/godot-builds/releases/download/4.5.1-stable/Godot_v4.5.1-stable_export_templates.tpz
+            mkdir -p "$templates"
+            unzip -q /tmp/godot-templates.tpz -d /tmp/godot-templates
+            cp -a /tmp/godot-templates/templates/. "$templates/"
+          fi
+      - name: Parse Windows installers
+        shell: pwsh
+        run: |
+          foreach ($path in @('novagrid-godot/scripts/update-build-install.ps1','novagrid-godot/scripts/install-admob.ps1')) {
+            $tokens=$null; $errors=$null
+            [System.Management.Automation.Language.Parser]::ParseFile($path,[ref]$tokens,[ref]$errors) | Out-Null
+            if ($errors.Count) { $errors | ForEach-Object { Write-Error "$path : $($_.Message)" }; exit 1 }
+          }
+      - name: Import and static validation
+        run: |
+          set -euo pipefail
+          mkdir -p "$PROJECT/build/reports"
+          timeout 120s godot --headless --editor --path "$PROJECT" --quit 2>&1 | tee "$PROJECT/build/reports/import.log"
+          if grep -E 'SCRIPT ERROR|Parse Error|Parser Error|ERROR:' "$PROJECT/build/reports/import.log"; then exit 1; fi
+          for script in "$PROJECT"/scripts/*.gd; do
+            name="$(basename "$script")"
+            timeout 90s godot --headless --path "$PROJECT" --check-only --script "res://scripts/$name" 2>&1 | tee -a "$PROJECT/build/reports/static.log"
+          done
+          if grep -E 'SCRIPT ERROR|Parse Error|Parser Error|ERROR:' "$PROJECT/build/reports/static.log"; then exit 1; fi
+      - name: Execute isolated gameplay and mobile UI tests
+        run: |
+          set -euo pipefail
+          passed=0
+          for suite in game progression touch layout audio back_navigation cosmic integrity open_source menu; do
+            qa_data="$RUNNER_TEMP/novagrid-test-$suite"
+            mkdir -p "$qa_data"
+            XDG_DATA_HOME="$qa_data" timeout 120s godot --headless --audio-driver Dummy --path "$PROJECT" --script "res://tests/test_$suite.gd" 2>&1 | tee "$PROJECT/build/reports/$suite.log"
+            if grep -E 'SCRIPT ERROR|Parse Error|Parser Error|FAIL|ERROR:' "$PROJECT/build/reports/$suite.log"; then exit 1; fi
+            passed=$((passed+1))
+          done
+          echo "Godot test suites: $passed passed, 0 failed" | tee "$PROJECT/build/reports/suites.txt"
+          cat "$PROJECT/build/reports/suites.txt" >> "$GITHUB_STEP_SUMMARY"
+      - name: Capture seven actual runtime screens at portrait resolution
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb xauth libgl1-mesa-dri >/dev/null
+          mkdir -p "$RUNNER_TEMP/novagrid-capture"
+          XDG_DATA_HOME="$RUNNER_TEMP/novagrid-capture" LIBGL_ALWAYS_SOFTWARE=1 timeout 180s xvfb-run -a -s '-screen 0 432x960x24' godot --audio-driver Dummy --rendering-method gl_compatibility --path "$PROJECT" --script res://tests/capture_cosmic.gd 2>&1 | tee "$PROJECT/build/reports/capture.log"
+          if grep -E 'SCRIPT ERROR|Parse Error|Parser Error|FAIL|ERROR:' "$PROJECT/build/reports/capture.log"; then exit 1; fi
+          cp "$PROJECT/build/render-report.json" "$PROJECT/build/reports/render-report.json"
+          python3 - <<'PY'
+          from pathlib import Path
+          images = list(Path('novagrid-godot/build').glob('*.png'))
+          assert len(images) >= 7, f'Expected seven real runtime screenshots, found {len(images)}'
+          print(f'Runtime screenshots: {len(images)}')
+          PY
+      - name: Configure Android SDK and isolated debug signing
+        run: |
+          set -euo pipefail
+          if [ ! -d "$ANDROID_HOME/platforms/android-35" ]; then
+            "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-35'
+          fi
+          test -d "$ANDROID_HOME/platforms/android-35"
+          NOVAGRID_ANDROID_SDK="$ANDROID_HOME" NOVAGRID_JAVA_SDK="$JAVA_HOME" godot --headless --editor --path "$PROJECT" --script res://scripts/configure_android_editor.gd 2>&1 | tee "$PROJECT/build/reports/android-config.log"
+          grep -F NOVAGRID_ANDROID_EDITOR_CONFIGURED "$PROJECT/build/reports/android-config.log"
+          if grep -E 'SCRIPT ERROR|Parse Error|Parser Error|ERROR:' "$PROJECT/build/reports/android-config.log"; then exit 1; fi
+          keytool -genkeypair -keystore "$RUNNER_TEMP/novagrid-cosmic-debug.keystore" -alias androiddebugkey -storepass android -keypass android -keyalg RSA -keysize 2048 -validity 4000 -dname 'CN=NovaGrid Cosmic QA,O=Development,C=MA' -noprompt
+      - name: Export no-ads Android preview APK
+        env:
+          GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
+          GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
+        run: |
+          set -euo pipefail
+          export GODOT_ANDROID_KEYSTORE_DEBUG_PATH="$RUNNER_TEMP/novagrid-cosmic-debug.keystore"
+          godot --headless --path "$PROJECT" --export-debug 'Android Preview' "$PWD/$PROJECT/build/NovaGrid-Cosmic-Preview.apk" 2>&1 | tee "$PROJECT/build/reports/android-preview.log"
+          test -s "$PROJECT/build/NovaGrid-Cosmic-Preview.apk"
+          if grep -E 'SCRIPT ERROR|Parse Error|Parser Error|ERROR:' "$PROJECT/build/reports/android-preview.log"; then exit 1; fi
+      - name: Install checksummed Poing AdMob TEST plugin
+        run: |
+          set -euo pipefail
+          base=https://github.com/poingstudios/godot-admob-plugin/releases/download/v5.1.0
+          curl --retry 3 -fL -o /tmp/poing.zip "$base/poing-godot-admob-v5.1.0.zip"
+          echo '8c53ff52719edf6a81cc7d32a9cdaad2d9e11693c85faca25008a1c19355726f  /tmp/poing.zip' | sha256sum -c -
+          curl --retry 3 -fL -o /tmp/poing-android.zip "$base/android-template-v4.5.1.zip"
+          echo 'f7fdf644d50c0e231d8f02ae044057e489d0bcafcf50e908a4858477e7ee05ee  /tmp/poing-android.zip' | sha256sum -c -
+          unzip -q /tmp/poing.zip -d /tmp/poing-addon
+          found="$(find /tmp/poing-addon -path '*/addons/admob/plugin.cfg' -print -quit)"
+          test -n "$found"
+          mkdir -p "$PROJECT/addons"
+          cp -a "$(dirname "$found")" "$PROJECT/addons/admob"
+          mkdir -p "$PROJECT/addons/admob/android/bin"
+          unzip -q /tmp/poing-android.zip -d "$PROJECT/addons/admob/android/bin"
+          find "$PROJECT/addons/admob/android/bin" -type f -name '*.aar' | grep .
+          cp "$PROJECT/ads/AdMobRuntime.gd.txt" "$PROJECT/ads/AdMobRuntime.gd"
+          python3 - <<'PY'
+          from pathlib import Path
+          project = Path('novagrid-godot')
+          cfg = project/'project.godot'
+          content = cfg.read_text()
+          assert '[editor_plugins]' not in content and '[admob]' not in content
+          content += '\n[editor_plugins]\nenabled=PackedStringArray("res://addons/admob/plugin.cfg")\n\n[admob]\ngeneral/android/enabled=true\ngeneral/android/app_id="ca-app-pub-3940256099942544~3347511713"\n\n[novagrid_ads]\nproduction_release=false\n'
+          cfg.write_text(content)
+          path = project/'export_presets.cfg'
+          current = path.read_text()
+          assert '[preset.1]' not in current
+          extra = current.replace('[preset.0]', '[preset.1]').replace('[preset.0.options]', '[preset.1.options]')
+          extra = extra.replace('name="Android Preview"', 'name="Android AdMob Test"')
+          extra = extra.replace('gradle_build/use_gradle_build=false', 'gradle_build/use_gradle_build=true')
+          extra = extra.replace('version/code=2', 'version/code=3').replace('version/name="0.2.0-native-preview"', 'version/name="0.3.0-cosmic-test"')
+          extra = extra.replace('package/name="NovaGrid Godot Preview"', 'package/name="NovaGrid Cosmic AdMob Test"')
+          assert 'package/unique_name="com.novagrid.cosmicpuzzle.godotpreview"' in extra
+          path.write_text(current+'\n'+extra)
+          PY
+          godot --headless --editor --path "$PROJECT" --quit 2>&1 | tee "$PROJECT/build/reports/admob-import.log"
+          godot --headless --path "$PROJECT" --check-only --script res://ads/AdMobRuntime.gd 2>&1 | tee "$PROJECT/build/reports/admob-check.log"
+          if grep -E 'SCRIPT ERROR|Parse Error|Parser Error|ERROR:' "$PROJECT/build/reports/admob-import.log" "$PROJECT/build/reports/admob-check.log"; then exit 1; fi
+      - name: Export and verify native Android AdMob TEST APK
+        env:
+          GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
+          GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
+        run: |
+          set -euo pipefail
+          export GODOT_ANDROID_KEYSTORE_DEBUG_PATH="$RUNNER_TEMP/novagrid-cosmic-debug.keystore"
+          godot --headless --path "$PROJECT" --install-android-build-template --export-debug 'Android AdMob Test' "$PWD/$PROJECT/build/NovaGrid-Cosmic-AdMob-TEST.apk" 2>&1 | tee "$PROJECT/build/reports/android-admob.log"
+          if grep -E 'SCRIPT ERROR|Parse Error|Parser Error|ERROR:' "$PROJECT/build/reports/android-admob.log"; then exit 1; fi
+          test -s "$PROJECT/build/NovaGrid-Cosmic-AdMob-TEST.apk"
+          tool="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
+          for apk in "$PROJECT/build/NovaGrid-Cosmic-Preview.apk" "$PROJECT/build/NovaGrid-Cosmic-AdMob-TEST.apk"; do
+            "$tool" dump badging "$apk" | grep -F "package: name='com.novagrid.cosmicpuzzle.godotpreview'"
+          done
+          "$tool" dump xmltree "$PROJECT/build/NovaGrid-Cosmic-AdMob-TEST.apk" AndroidManifest.xml | grep -F 'ca-app-pub-3940256099942544~3347511713'
+      - name: Upload Android debug APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: novagrid-cosmic-android-debug-apks
+          path: novagrid-godot/build/NovaGrid-Cosmic-*.apk
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload actual runtime screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: novagrid-cosmic-runtime-screenshots
+          path: novagrid-godot/build/*.png
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Upload QA reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: novagrid-cosmic-test-reports
+          path: novagrid-godot/build/reports/
+          if-no-files-found: warn
+          retention-days: 14

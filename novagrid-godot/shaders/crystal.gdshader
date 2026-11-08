@@ -13,34 +13,31 @@ float rounded_box(vec2 p, vec2 b, float radius) {
 }
 void fragment() {
  vec2 uv=UV;
- vec2 p=(uv-.5)*2.0;
- float outer=rounded_box(p,vec2(.94,.94),.18);
- float mask=1.0-smoothstep(-.012,.035,outer);
- float inner=rounded_box(p,vec2(.74,.74),.075);
- float rim=clamp((inner-outer)*9.0,0.0,1.0);
- float top=pow(1.0-uv.y,2.0);
- float bottom=pow(uv.y,4.0);
- float left=pow(1.0-uv.x,4.0);
- float right=pow(uv.x,4.0);
- // Reference-like crystal facets: symmetric translucent diamond / X.
- float top_v=1.0-smoothstep(.012,.070,abs(uv.y-(.14+.52*abs(uv.x-.5))));
- float bottom_v=1.0-smoothstep(.018,.085,abs(uv.y-(.85-.53*abs(uv.x-.5))));
- float broad_highlight=exp(-pow((uv.y-.16)/.155,2.0))*
-  smoothstep(.05,.23,uv.x)*(1.0-smoothstep(.77,.95,uv.x));
- float spine=1.0-smoothstep(.02,.055,abs(uv.x-.5));
- float edge=smoothstep(.06,.0,abs(p.x)-.83)+smoothstep(.06,.0,abs(p.y)-.83);
- float glint=pow(max(0.0,sin((uv.x*9.1-uv.y*12.0)+TIME*1.1)),12.0)*.05;
+ vec2 p=uv*2.0-1.0;
+ float outer=rounded_box(p,vec2(.97),.065);
+ float mask=1.0-smoothstep(-.008,.018,outer);
+ float inset=.155;
+ vec2 inner=clamp((uv-inset)/(1.0-2.0*inset),0.0,1.0);
+ float bevel=min(min(uv.x,1.0-uv.x),min(uv.y,1.0-uv.y));
+ float top_facet=step(uv.y,uv.x)*step(uv.y,1.0-uv.x)*(1.0-step(inset,bevel));
+ float left_facet=step(uv.x,uv.y)*step(uv.x,1.0-uv.y)*(1.0-step(inset,bevel));
+ float bottom_facet=step(1.0-uv.y,uv.x)*step(1.0-uv.y,1.0-uv.x)*(1.0-step(inset,bevel));
  vec3 base=gem_color.rgb;
- // Preserve vivid fully saturated gem cores. White light is confined to
- // thin glints rather than bleaching the entire block into a pastel tile.
- vec3 core=base*(.77+top*.24+bottom*.11);
- core+=base*rim*.23;
- core+=vec3(.93,.98,1.0)*broad_highlight*.10*shine;
- core+=vec3(.98,.99,1.0)*rim*(.07+.065*top);
- core+=vec3(.95,.99,1.0)*(top_v*.075+bottom_v*.068+spine*.012);
- core+=base*glint*.14;
- core+=vec3(.92,.98,1.0)*edge*.035;
- core=clamp(core,vec3(0.0),vec3(1.0));
- float transparency=mask*(.96-.065*(1.0-rim));
- COLOR=vec4(core,transparency);
+ float diamond=abs(inner.x-.5)+abs(inner.y-.5);
+ float crease=1.0-smoothstep(.006,.032,abs(diamond-.48));
+ float triangle=step(abs(inner.x-.5),abs(inner.y-.5));
+ vec3 core=base*(.55+uv.y*.24+triangle*.11);
+ core+=base*top_facet*.48+base*left_facet*.16;
+ core-=base*bottom_facet*.22;
+ // Softbox reflection restricted to the crown, with a diagonal glass streak.
+ float crown=exp(-pow((uv.y-.16)/.075,2.0))*(1.0-smoothstep(.25,.50,abs(uv.x-.5)));
+ float diagonal=exp(-pow((uv.x+uv.y*.72-.43)/.06,2.0));
+ core=mix(core,vec3(.94,.97,1.0),crown*.52*shine);
+ core+=vec3(.7,.85,1.0)*crease*.18;
+ core+=base*diagonal*.18;
+ float rim=1.0-smoothstep(.01,.035,bevel);
+ core=mix(core,base*.50+vec3(.48),rim*.78);
+ float bottom_rim=exp(-pow((uv.y-.956)/.012,2.0));
+ core+=base*bottom_rim*.25;
+ COLOR=vec4(clamp(core,vec3(0.0),vec3(1.0)),mask);
 }

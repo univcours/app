@@ -25,6 +25,8 @@ var hold_used := false
 var rotation_state := 0
 var lock_delay_elapsed := 0.0
 const LOCK_DELAY_SECONDS := 0.42
+const MAX_LOCK_RESETS := 15
+var lock_resets := 0
 var score := 0
 var best := 0
 var lines := 0
@@ -68,6 +70,7 @@ func reset() -> void:
  hold_used = false
  rotation_state = 0
  lock_delay_elapsed = 0.0
+ lock_resets = 0
  next_kind = _take()
  _spawn()
 
@@ -89,6 +92,7 @@ func _spawn() -> void:
  active = Vector2i(3,0)
  rotation_state = 0
  lock_delay_elapsed = 0.0
+ lock_resets = 0
  if not fits(piece,active):
   over = true
 
@@ -106,6 +110,7 @@ func hold_piece() -> bool:
   active=Vector2i(3,0)
   rotation_state=0
   lock_delay_elapsed=0.0
+  lock_resets=0
   if not fits(piece,active):
    over=true
  hold_used=true
@@ -123,13 +128,15 @@ func fits(shape: Array, at: Vector2i) -> bool:
 func move(dx: int) -> bool:
  if over or not fits(piece,active+Vector2i(dx,0)):
   return false
+ var grounded:bool=not fits(piece,active+Vector2i(0,1))
  active.x += dx
- lock_delay_elapsed=0.0
+ _reset_lock_after_input(grounded)
  return true
 
 func rotate(direction:int=1) -> bool:
  if over or kind==1:
   return false
+ var grounded:bool=not fits(piece,active+Vector2i(0,1))
  # Use permissive rotational tests adapted from the MIT-licensed
  # PokeTetris SRS kick data, preserving our existing 2D piece rendering.
  var rotated:Array=[]
@@ -147,9 +154,18 @@ func rotate(direction:int=1) -> bool:
    piece=rotated
    active=trial
    rotation_state=posmod(rotation_state+direction,4)
-   lock_delay_elapsed=0.0
+   _reset_lock_after_input(grounded)
    return true
  return false
+
+func _reset_lock_after_input(grounded:bool) -> void:
+ # Keep a generous slide/rotate grace period without allowing an endless
+ # grounded piece by alternating left/right on a touchscreen.
+ if not grounded:
+  return
+ if lock_resets<MAX_LOCK_RESETS:
+  lock_delay_elapsed=0.0
+  lock_resets+=1
 
 func advance_lock(delta:float) -> bool:
  # Standard mobile-friendly lock delay: movement and rotations reset it.
@@ -242,52 +258,127 @@ func cell_at(col: int,row: int) -> int:
 func snapshot() -> Dictionary:
  return {"version":1,"board":board.duplicate(true),"bag":bag.duplicate(),
   "kind":kind,"next_kind":next_kind,"hold_kind":hold_kind,"hold_used":hold_used,
-  "rotation_state":rotation_state,"lock_delay_elapsed":lock_delay_elapsed,
+  "rotation_state":rotation_state,"lock_delay_elapsed":lock_delay_elapsed,"lock_resets":lock_resets,
   "piece":piece.map(func(p):return [p.x,p.y]),"active":[active.x,active.y],
   "score":score,"best":best,"lines":lines,"level":level,"combo":combo,
   "drops":drops,"over":over}
 
+func _saved_integer(value:Variant,minimum:int,maximum:int) -> bool:
+ if not (value is int or value is float):
+  return false
+ var number:float=float(value)
+ return is_finite(number) and number==floor(number) and number>=minimum and number<=maximum
+
+func _valid_shape(decoded:Array,kind_id:int) -> bool:
+ # A restored tetromino must be the saved kind in a legal orientation.
+ # Normalize both sets because the original I spawn has a one-row offset.
+ var expected:Array=_shape(kind_id)
+ for orientation in 4:
+  var minimum:=Vector2i(999,999)
+  for point in expected:
+   minimum.x=mini(minimum.x,point.x)
+   minimum.y=mini(minimum.y,point.y)
+  var candidate_min:=Vector2i(999,999)
+  for point in decoded:
+   candidate_min.x=mini(candidate_min.x,point.x)
+   candidate_min.y=mini(candidate_min.y,point.y)
+  var matches:bool=true
+  for point in decoded:
+   if not expected.has(point-candidate_min+minimum):
+    matches=false
+  if matches:
+   return true
+  for index in expected.size():
+   var point:Vector2i=expected[index]
+   expected[index]=Vector2i(-point.y,point.x)
+ return false
+
 func restore(raw: Dictionary) -> bool:
- var source: Variant = raw.get("board",[])
+ # Validate the complete candidate before changing any live state. JSON may
+ # contain nulls, dictionaries or fractional numbers where integers belong.
+ if not _saved_integer(raw.get("version",1),1,1):
+  return false
+ var source:Variant=raw.get("board",[])
  if not source is Array or source.size()!=ROWS:
   return false
  for row in source:
   if not row is Array or row.size()!=COLS:
    return false
   for cell in row:
-   if int(cell)<0 or int(cell)>7:
+   if not _saved_integer(cell,0,7):
     return false
- var positions: Variant = raw.get("piece",[])
- var next_position: Variant = raw.get("active",[])
+ for key in ["kind","next_kind"]:
+  if not _saved_integer(raw.get(key,0),0,6):
+   return false
+ if not _saved_integer(raw.get("hold_kind",-1),-1,6):
+  return false
+ var saved_bag:Variant=raw.get("bag",[])
+ if not saved_bag is Array or saved_bag.size()>7:
+  return false
+ var unique_bag:Dictionary={}
+ for item in saved_bag:
+  if not _saved_integer(item,0,6) or unique_bag.has(int(item)):
+   return false
+  unique_bag[int(item)]=true
+ var positions:Variant=raw.get("piece",[])
+ var next_position:Variant=raw.get("active",[])
  if not positions is Array or positions.size()!=4:
   return false
  if not next_position is Array or next_position.size()!=2:
   return false
- var decoded: Array = []
- for p in positions:
-  if not p is Array or p.size()!=2:
+ if not _saved_integer(next_position[0],-4,COLS-1) or not _saved_integer(next_position[1],-4,ROWS-1):
+  return false
+ var decoded:Array=[]
+ for point in positions:
+  if not point is Array or point.size()!=2:
    return false
-  decoded.append(Vector2i(int(p[0]),int(p[1])))
- var candidate_kind := int(raw.get("kind",0))
- var candidate_next := int(raw.get("next_kind",0))
- var candidate_hold:int=int(raw.get("hold_kind",-1))
- if candidate_kind<0 or candidate_kind>6 or candidate_next<0 or candidate_next>6 or candidate_hold<-1 or candidate_hold>6:
+  if not _saved_integer(point[0],0,3) or not _saved_integer(point[1],0,3):
+   return false
+  var cell:=Vector2i(int(point[0]),int(point[1]))
+  if decoded.has(cell):
+   return false
+  decoded.append(cell)
+ var candidate_kind:int=int(raw.get("kind",0))
+ if not _valid_shape(decoded,candidate_kind):
+  return false
+ var candidate_active:=Vector2i(int(next_position[0]),int(next_position[1]))
+ if not raw.get("over",false) is bool or not raw.get("hold_used",false) is bool:
+  return false
+ var candidate_over:bool=raw.get("over",false)
+ for cell in decoded:
+  var at:Vector2i=candidate_active+cell
+  if at.x<0 or at.x>=COLS or at.y>=ROWS:
+   return false
+  if not candidate_over and at.y>=0 and int(source[at.y][at.x])!=0:
+   return false
+ for key in ["score","best","lines","combo","drops"]:
+  if not _saved_integer(raw.get(key,0),0,2147483647):
+   return false
+ if not _saved_integer(raw.get("level",1),1,2147483647):
+  return false
+ if not _saved_integer(raw.get("rotation_state",0),0,3) or not _saved_integer(raw.get("lock_resets",0),0,MAX_LOCK_RESETS):
+  return false
+ var saved_lock:Variant=raw.get("lock_delay_elapsed",0.0)
+ if not (saved_lock is int or saved_lock is float) or not is_finite(float(saved_lock)) or float(saved_lock)<0.0 or float(saved_lock)>LOCK_DELAY_SECONDS:
   return false
  board=source.duplicate(true)
- bag=raw.get("bag",[]).duplicate()
+ bag=saved_bag.map(func(value):return int(value))
  piece=decoded
  kind=candidate_kind
- next_kind=candidate_next
- hold_kind=candidate_hold
- hold_used=bool(raw.get("hold_used",false))
- rotation_state=clampi(int(raw.get("rotation_state",0)),0,3)
- lock_delay_elapsed=clampf(float(raw.get("lock_delay_elapsed",0.0)),0.0,LOCK_DELAY_SECONDS)
- active=Vector2i(int(next_position[0]),int(next_position[1]))
- score=maxi(0,int(raw.get("score",0)))
+ next_kind=int(raw.get("next_kind",0))
+ hold_kind=int(raw.get("hold_kind",-1))
+ hold_used=raw.get("hold_used",false)
+ rotation_state=int(raw.get("rotation_state",0))
+ lock_delay_elapsed=float(saved_lock)
+ lock_resets=int(raw.get("lock_resets",0))
+ active=candidate_active
+ score=int(raw.get("score",0))
  best=maxi(score,int(raw.get("best",score)))
- lines=maxi(0,int(raw.get("lines",0)))
- level=maxi(1,int(raw.get("level",1)))
- combo=maxi(0,int(raw.get("combo",0)))
- drops=maxi(0,int(raw.get("drops",0)))
- over=bool(raw.get("over",false))
+ lines=int(raw.get("lines",0))
+ level=int(raw.get("level",1))
+ combo=int(raw.get("combo",0))
+ drops=int(raw.get("drops",0))
+ over=candidate_over
+ last_lines=0
+ last_gained=0
  return true

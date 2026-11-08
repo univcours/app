@@ -1,0 +1,9 @@
+# Godot editor/import/build state (source .uid files are intentionally versioned).
+novagrid-godot/.godot/
+novagrid-godot/build/
+novagrid-godot/android/
+novagrid-godot/addons/
+novagrid-godot/ads/AdMobRuntime.gd
+*.import
+*.keystore
+*.jks

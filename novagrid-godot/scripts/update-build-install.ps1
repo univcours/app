@@ -11,6 +11,16 @@ function CheckExit([string]$step) {
     if ($LASTEXITCODE -ne 0) { throw "$step failed (exit $LASTEXITCODE)." }
 }
 
+# Godot may print a GDScript error and still return zero. Reject both signals.
+function InvokeGodotChecked([string[]]$Arguments, [string]$Step) {
+    $output = @(& $godot @Arguments 2>&1)
+    $exitCode = $LASTEXITCODE
+    $output | ForEach-Object { Write-Host $_ }
+    if ($exitCode -ne 0 -or ($output -match 'SCRIPT ERROR|Parse Error|Parser Error|ERROR:')) {
+        throw "$Step failed (exit $exitCode). See Godot output above."
+    }
+}
+
 function LocateGodot {
     $configDir = Join-Path $env:LOCALAPPDATA 'NovaGrid'
     $cache = Join-Path $configDir 'godot-exe.txt'
@@ -99,7 +109,7 @@ function LocateGodot {
 
 $project = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $root = (Resolve-Path (Join-Path $project '..')).Path
-$branch = 'novagrid-open-source-rebuild'
+$branch = 'novagrid-cosmic-edition-20261108'
 $package = 'com.novagrid.cosmicpuzzle.godotpreview'
 if (!(Test-Path (Join-Path $project 'project.godot'))) { throw 'Godot project missing.' }
 if (!(Test-Path (Join-Path $root '.git'))) { throw 'Git repository missing.' }
@@ -153,12 +163,36 @@ $env:ANDROID_HOME = $sdk
 $env:JAVA_HOME = $jdk
 
 Write-Host 'Importing source in Godot 4.5.1...' -ForegroundColor Cyan
-& $godot --headless --editor --path $project --quit
-CheckExit 'Godot project import'
+InvokeGodotChecked @('--headless','--editor','--path',$project,'--quit') 'Godot project import'
+
+# Run real tests on an isolated copy with a unique application data directory.
+# Tests drive scenes and write saves, so they must not use the player's save.
+$qaId = 'NovaGrid-QA-' + [Guid]::NewGuid().ToString('N')
+$qaProject = Join-Path ([IO.Path]::GetTempPath()) $qaId
+try {
+    New-Item -ItemType Directory -Force -Path $qaProject | Out-Null
+    Get-ChildItem -LiteralPath $project -Force |
+        Where-Object { $_.Name -notin @('.godot','build','android','.git') } |
+        Copy-Item -Destination $qaProject -Recurse -Force
+    $qaConfig = Join-Path $qaProject 'project.godot'
+    $qaText = [IO.File]::ReadAllText($qaConfig)
+    $qaText = $qaText -replace '(?m)^config/name="[^"]*"', ('config/name="' + $qaId + '"')
+    $qaText = $qaText -replace '(?m)^config/use_custom_user_dir=.*$', 'config/use_custom_user_dir=false'
+    [IO.File]::WriteAllText($qaConfig, $qaText)
+    InvokeGodotChecked @('--headless','--editor','--path',$qaProject,'--quit') 'Isolated QA import'
+    foreach ($suite in @('game','progression','touch','layout','audio','back_navigation','cosmic','integrity','open_source','menu')) {
+        Write-Host "Running Godot test suite: $suite" -ForegroundColor Cyan
+        InvokeGodotChecked @('--headless','--audio-driver','Dummy','--path',$qaProject,'--script',"res://tests/test_$suite.gd") "Godot $suite tests"
+    }
+} finally {
+    if (Test-Path -LiteralPath $qaProject) { Remove-Item -LiteralPath $qaProject -Recurse -Force }
+    $qaData = Join-Path $env:APPDATA ("Godot\app_userdata\" + $qaId)
+    if (Test-Path -LiteralPath $qaData) { Remove-Item -LiteralPath $qaData -Recurse -Force }
+}
+
 
 Write-Host 'Configuring Godot Android SDK and Java SDK paths...' -ForegroundColor Cyan
-& $godot --headless --editor --path $project --script 'res://scripts/configure_android_editor.gd'
-CheckExit 'Godot editor SDK configuration'
+InvokeGodotChecked @('--headless','--editor','--path',$project,'--script','res://scripts/configure_android_editor.gd') 'Godot editor SDK configuration'
 
 $templates = Join-Path $env:APPDATA 'Godot\export_templates\4.5.1.stable'
 if (!(Test-Path (Join-Path $templates 'android_debug.apk'))) {
@@ -200,8 +234,7 @@ if($AdMobTest){
 }
 Write-Host "Exporting Godot Android debug APK: $presetName" -ForegroundColor Cyan
 $exportArgs+=@('--export-debug',$presetName,$fresh)
-& $godot @exportArgs
-CheckExit 'Godot APK export'
+InvokeGodotChecked $exportArgs 'Godot APK export'
 if (!(Test-Path $fresh) -or (Get-Item $fresh).Length -lt 100000) { throw 'Godot did not produce a valid APK.' }
 Move-Item -LiteralPath $fresh -Destination $apk -Force
 

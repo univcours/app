@@ -1,45 +1,39 @@
 extends Node2D
-## NovaGrid Reborn: real Godot 4.5.1 responsive menu, not a screenshot.
-## The animated nebula and crystal textures are shared by both live game modes.
+## Responsive native cosmic launcher. Every visible action has a real destination.
 const VisualsScript = preload("res://scripts/Visuals.gd")
 const AudioScript = preload("res://scripts/Audio.gd")
-# Original AI-designed 941x1672 image is the EXACT full-screen source of truth.
-# Shipped as res://assets/menu/novagrid_cosmic_candy_arcade.png inside the
-# playable editor-ready ZIP. If absent, the previous Godot-rendered fallback
-# remains operational rather than showing a broken texture.
-const EXACT_MENU_ART = "res://assets/menu/novagrid_cosmic_candy_arcade.png"
-const EXACT_MENU_CANVAS = Vector2(941.0,1672.0)
-const EXACT_PUZZLE_HIT = Rect2(65.0,374.0,813.0,414.0)
-const EXACT_FALL_HIT = Rect2(64.0,814.0,814.0,440.0)
-const GEMS = [
- Color("#132255"),Color("#ff287f"),Color("#ffc323"),Color("#13e5ff"),
- Color("#a65cff"),Color("#17e888"),Color("#ff812b"),Color("#3688ff")]
-var visuals
-var audio
-var exact_menu_texture:Texture2D = null
-var font:Font
-var clock:float=0.0
-var touch_position:Vector2=Vector2(-1000,-1000)
-var stars:Array=[]
-var panel_cache:Dictionary={}
-var chosen:int=-1
-var transition_elapsed:float=0.0
-# Exact Blockfall gameplay proportions. Unlike Block Puzzle, this preview
-# has a vertical well, an ACTIVE falling T tetromino, landing ghost and NEXT.
+const ProgressionScript = preload("res://scripts/Progression.gd")
+const CampaignScript = preload("res://scripts/Campaign.gd")
+const SaveStore = preload("res://scripts/SaveStore.gd")
+const SafeArea = preload("res://scripts/SafeArea.gd")
+const GEMS = [Color("#132255"),Color("#ff287f"),Color("#ffc323"),Color("#13e5ff"),Color("#a65cff"),Color("#53e620"),Color("#ff812b"),Color("#3688ff")]
+const CYAN = Color("#3de4ff")
+const PURPLE = Color("#b965ff")
+const GOLD = Color("#ffd34b")
+# Retain the correct proportions as a shared declaration for regression QA.
 const FALL_PREVIEW_COLS:int=10
 const FALL_PREVIEW_ROWS:int=18
-const FALL_PREVIEW_T = [
- Vector2i(3,3), Vector2i(4,3), Vector2i(5,3), Vector2i(4,4)
-]
-const FALL_PREVIEW_NEXT = [
- Vector2i(0,0),Vector2i(0,1),Vector2i(0,2),Vector2i(1,2)
-]
+const FALL_PREVIEW_T=[Vector2i(3,3),Vector2i(4,3),Vector2i(5,3),Vector2i(4,4)]
+const FALL_PREVIEW_NEXT=[Vector2i(0,0),Vector2i(0,1),Vector2i(0,2),Vector2i(1,2)]
+var visuals
+var audio
+var progress
+var campaign
+var font:Font
+var clock:float=0.0
+var screen:String="home"
+var language:String="en"
+var reduced_effects:bool=false
+var chosen:int=-1
+var transition_elapsed:float=0.0
+var panel_cache:Dictionary={}
+var pressed_key:String=""
+var touch_position:Vector2=Vector2(-1000,-1000)
+var save_data:Dictionary={}
+var stars:Array=[]
 
 func _ready() -> void:
- # Always render the ACTUAL reference artwork if its PNG is shipped with the
- # Godot project. Keep the procedural fallback for source-only installations.
- if ResourceLoader.exists(EXACT_MENU_ART):
-  exact_menu_texture=load(EXACT_MENU_ART) as Texture2D
+ get_tree().quit_on_go_back=false
  font=ThemeDB.fallback_font
  visuals=VisualsScript.new()
  add_child(visuals)
@@ -47,381 +41,395 @@ func _ready() -> void:
  audio=AudioScript.new()
  add_child(audio)
  audio.select_music("puzzle")
- var random:=RandomNumberGenerator.new()
- random.seed=204812
- for i in 100:
-  stars.append({"p":Vector2(random.randf(),random.randf()),
-   "s":random.randf_range(.55,1.75),"phase":random.randf_range(0,TAU)})
+ progress=ProgressionScript.new()
+ campaign=CampaignScript.new()
+ save_data=SaveStore.read()
+ if save_data.get("progression") is Dictionary:
+  progress.restore(save_data["progression"])
+ if save_data.get("campaign") is Dictionary:
+  campaign.restore(save_data["campaign"])
+ var cfg:=ConfigFile.new()
+ if cfg.load("user://novagrid-visual.cfg")==OK:
+  language=String(cfg.get_value("interface","language","en"))
+  reduced_effects=bool(cfg.get_value("graphics","reduced_effects",false))
+ var rng:=RandomNumberGenerator.new()
+ rng.seed=204812
+ for i in 65:
+  stars.append({"p":Vector2(rng.randf(),rng.randf()),"r":rng.randf_range(.5,1.6),"phase":rng.randf_range(0,TAU)})
  get_viewport().size_changed.connect(queue_redraw)
- queue_redraw()
 
 func _process(delta:float) -> void:
  clock+=delta
  if chosen>=0:
   transition_elapsed+=delta
   if transition_elapsed>.22:
-   var session:Node=get_node_or_null("/root/Session")
-   if session!=null:
-    session.set("start_mode",chosen)
-   var err:int=get_tree().change_scene_to_file("res://scenes/Main.tscn")
-   if err!=OK:
-    printerr("Could not open NovaGrid gameplay: ",err)
-   chosen=-1
+   var error:int=get_tree().change_scene_to_file("res://scenes/Main.tscn")
+   if error!=OK:
+    printerr("NovaGrid gameplay transition failed: ",error)
+    chosen=-1
  queue_redraw()
 
+func _frame() -> Rect2:
+ var view:Vector2=get_viewport_rect().size if is_inside_tree() else Vector2(432,960)
+ var safe:Rect2=SafeArea.content_rect(view) if is_inside_tree() else Rect2(Vector2.ZERO,view)
+ var s:float=minf(safe.size.x/432.0,safe.size.y/960.0)
+ var size:Vector2=Vector2(432,960)*s
+ return Rect2(safe.position+(safe.size-size)*.5,size)
+
+func _local_transform(origin:Vector2=Vector2.ZERO,local_scale:Vector2=Vector2.ONE) -> void:
+ var frame:Rect2=_frame()
+ var s:float=frame.size.x/432.0
+ draw_set_transform(frame.position+origin*s,0,local_scale*s)
+
+func _real_rect(rect:Rect2) -> Rect2:
+ var frame:Rect2=_frame()
+ return Rect2(frame.position+rect.position*frame.size.x/432.0,rect.size*frame.size.x/432.0)
+
 func _rectangles() -> Array[Rect2]:
- var size:Vector2=get_viewport_rect().size if is_inside_tree() else Vector2(432.0,960.0)
- # For the reference image, the WHOLE card is touchable despite being a
- # flattened, pixel-identical artwork. No transparent dead PLAY buttons.
- if exact_menu_texture != null:
-  var ratio:=Vector2(size.x/EXACT_MENU_CANVAS.x,size.y/EXACT_MENU_CANVAS.y)
-  return [
-   Rect2(EXACT_PUZZLE_HIT.position*ratio,EXACT_PUZZLE_HIT.size*ratio),
-   Rect2(EXACT_FALL_HIT.position*ratio,EXACT_FALL_HIT.size*ratio)
-  ]
- var margin:float=clampf(size.x*.052,14.0,28.0)
- var card_height:float=clampf(size.y*.235,146.0,226.0)
- var gap:float=clampf(size.y*.018,11.0,19.0)
- var top:float=clampf(size.y*.267,158.0,273.0)
- # Keep two complete cards + progression footer on small Android screens.
- if top+2.0*card_height+gap>size.y-126.0:
-  top=maxf(138.0,size.y-126.0-2.0*card_height-gap)
- return [
-  Rect2(margin,top,size.x-2.0*margin,card_height),
-  Rect2(margin,top+card_height+gap,size.x-2.0*margin,card_height)
- ]
+ var result:Array[Rect2]=[]
+ for i in 4:
+  result.append(_real_rect(Rect2(28,462+i*100,376,84)))
+ return result
 
-func _label(message:String,pos:Vector2,size:int,color:Color=Color.WHITE,
- alignment:HorizontalAlignment=HORIZONTAL_ALIGNMENT_LEFT,width:float=-1.0) -> void:
- draw_string(font,pos,message,alignment,width,size,color)
+func _map_nodes() -> Array[Rect2]:
+ return [_real_rect(Rect2(86,300,84,84)),_real_rect(Rect2(269,466,84,84)),_real_rect(Rect2(96,644,84,84))]
 
-func _glass(box:Rect2,fill:Color,outline:Color,strong:bool=false) -> void:
- var key:String=fill.to_html(true)+outline.to_html(true)+("Y" if strong else "N")
+func _targets() -> Dictionary:
+ var result:Dictionary={}
+ if screen=="home":
+  var cards:Array[Rect2]=_rectangles()
+  for i in 4: result["mode"+str(i)]=cards[i]
+  result["settings"]=_real_rect(Rect2(346,26,60,60))
+ else:
+  result["back"]=_real_rect(Rect2(26,30,58,58))
+  if screen=="map":
+   var nodes:Array[Rect2]=_map_nodes()
+   for i in nodes.size(): result["stage"+str(i+1)]=nodes[i]
+  elif screen=="daily":
+   result["daily_play"]=_real_rect(Rect2(38,759,356,78))
+  elif screen=="settings":
+   for i in 4: result[["sound","music","quality","language"][i]]=_real_rect(Rect2(34,235+i*106,364,78))
+ return result
+
+func _tr(en:String,fr:String) -> String:
+ return fr if language=="fr" else en
+
+func _text(message:String,pos:Vector2,size:int=18,color:Color=Color.WHITE,width:float=-1,align:HorizontalAlignment=HORIZONTAL_ALIGNMENT_LEFT) -> void:
+ draw_string(font,pos,message,align,width,size,color)
+
+func _center(message:String,y:float,size:int=18,color:Color=Color.WHITE) -> void:
+ _text(message,Vector2(0,y),size,color,432,HORIZONTAL_ALIGNMENT_CENTER)
+
+func _panel(rect:Rect2,accent:Color,fill:Color=Color("#0a1235"),radius:int=22) -> void:
+ var key:String=accent.to_html()+fill.to_html()+str(radius)
  if not panel_cache.has(key):
   var style:=StyleBoxFlat.new()
   style.bg_color=fill
-  style.border_color=outline
-  style.set_corner_radius_all(22 if strong else 15)
-  style.set_border_width_all(2 if strong else 1)
-  style.shadow_color=Color(outline.r,outline.g,outline.b,.22 if strong else .12)
-  style.shadow_size=15 if strong else 8
+  style.border_color=accent
+  style.set_border_width_all(2)
+  style.set_corner_radius_all(radius)
+  style.shadow_color=Color(accent,.24)
+  style.shadow_size=12
   panel_cache[key]=style
- draw_style_box(panel_cache[key],box)
- var line_from:=box.position+Vector2(18,3)
- var line_to:=Vector2(box.end.x-18,box.position.y+3)
- draw_line(line_from,line_to,Color(1,1,1,.52),1.7,true)
- draw_line(line_from+Vector2(0,2.5),line_to+Vector2(0,2.5),
-  Color(.55,.90,1.0,.19),1.0,true)
+ draw_style_box(panel_cache[key],rect)
+ # A narrow specular strip and top glass gradient are independent of labels.
+ for i in 12:
+  var alpha:float=.10*(1.0-float(i)/12.0)
+  draw_line(rect.position+Vector2(15,5+i),Vector2(rect.end.x-15,rect.position.y+5+i),Color(1,1,1,alpha),1)
+ draw_line(rect.position+Vector2(19,2),Vector2(rect.end.x-19,rect.position.y+2),Color(1,1,1,.62),1.4,true)
 
-func _planet(center:Vector2,radius:float,main:Color,halo:Color) -> void:
- for step in range(5,0,-1):
-  var extra:float=float(step)*radius*.17
-  draw_circle(center,radius+extra,Color(halo.r,halo.g,halo.b,.020))
- draw_circle(center,radius,Color(main.r*.28,main.g*.35,main.b*.7,.76))
- for i in 26:
-  var rr:float=radius*(1.0-float(i)/38.0)
-  draw_arc(center-Vector2(radius*.21,radius*.14),rr,PI*1.15,TAU*.92,52,
-   Color(halo.r,halo.g,halo.b,.022),1.2,true)
- draw_arc(center,radius*1.25,-.43,PI+.53,76,Color(halo.r,halo.g,halo.b,.37),1.7,true)
- draw_arc(center,radius*1.25,PI+.53,TAU-.45,76,Color(halo.r,halo.g,halo.b,.13),1.7,true)
- draw_circle(center-Vector2(radius*.31,radius*.36),radius*.13,Color(1,1,1,.34))
+func _sparkle(pos:Vector2,radius:float,color:Color) -> void:
+ draw_line(pos-Vector2(radius,0),pos+Vector2(radius,0),Color(color,.7),1.2,true)
+ draw_line(pos-Vector2(0,radius*1.4),pos+Vector2(0,radius*1.4),Color(color,.7),1.2,true)
+ draw_circle(pos,radius*.22,Color.WHITE)
 
-func _starfield(size:Vector2) -> void:
+func _planet(center:Vector2,radius:float,color:Color) -> void:
+ for glow in range(5,0,-1): draw_circle(center,radius+glow*2.5,Color(color,.025))
+ draw_circle(center,radius,Color("#080c2d"))
+ for i in range(32,0,-1):
+  var f:float=float(i)/32.0
+  draw_circle(center-Vector2(radius*.21,radius*.16)*(1-f),radius*f,Color(color.darkened(.45*(1-f)),.065))
+ draw_arc(center,radius,PI*1.01,PI*1.76,40,color.lightened(.3),2,true)
+ for i in 6:
+  var y:float=center.y+radius*(float(i)/6-.5)*1.6
+  var half:float=sqrt(maxf(0,radius*radius-pow(y-center.y,2)))
+  draw_line(Vector2(center.x-half*.85,y),Vector2(center.x+half*.75,y+radius*.10),Color(color,.14),3,true)
+
+func _crystal(rect:Rect2,kind:int,depth:float=0.0) -> void:
+ var tint:Color=GEMS[kind]
+ if depth>0:
+  var p:Vector2=rect.position
+  var e:Vector2=rect.end
+  var d:=Vector2(depth,-depth*.55)
+  draw_colored_polygon(PackedVector2Array([p,p+d,Vector2(e.x,p.y)+d,Vector2(e.x,p.y)]),tint.lightened(.42))
+  draw_colored_polygon(PackedVector2Array([Vector2(e.x,p.y),Vector2(e.x,p.y)+d,e+d,e]),tint.darkened(.20))
+  draw_polyline(PackedVector2Array([p,p+d,Vector2(e.x,p.y)+d,e+d,e]),tint.lightened(.7),1.1,true)
+ var texture:Texture2D=visuals.get_gem_texture(kind)
+ if texture!=null: draw_texture_rect(texture,rect,false)
+ else: draw_rect(rect,tint)
+
+func _stars() -> void:
  for star in stars:
-  var point:Vector2=star["p"]
-  var place:=Vector2(point.x*size.x, fposmod(point.y*size.y+clock*float(star["s"])*4.0,size.y))
-  var brightness:float=.25+.52*absf(sin(clock*.73+float(star["phase"])))
-  draw_circle(place,float(star["s"]),Color(.88,.93,1.0,brightness))
- # Original, low-cost orbital lines add depth without obscuring the actual UI.
- var middle:=Vector2(size.x*.53,size.y*.19)
- for n in 4:
-  var radius:float=size.x*(.30+float(n)*.11)
-  draw_arc(middle,radius,-.85,PI+.56,96,Color(.38,.52,1.0,.045),1.0,true)
+  var at:Vector2=star["p"]*Vector2(432,960)
+  var alpha:float=.23+.33*sin(clock*.8+float(star["phase"]))
+  draw_circle(at,float(star["r"]),Color(.8,.87,1,alpha))
+ for i in 5:
+  _sparkle(Vector2(28+i*88,192+fposmod(i*157.0,586)),2.3+sin(clock+i),Color("#cc85ff"))
 
-func _crystal(rect:Rect2,kind:int,alpha:float=1.0) -> void:
- var tex:Texture2D=visuals.get_gem_texture(kind)
- if tex!=null:
-  draw_texture_rect(tex,rect,false,Color(1,1,1,alpha))
- else:
-  var color:Color=GEMS[clampi(kind,1,GEMS.size()-1)]
-  draw_rect(rect,color,true)
- # The sweet is a true StandardMaterial3D mesh with clearcoat, rendered
- # by the same SubViewport candy atlas as the two live play modes.
+func _hero() -> void:
+ var bob:float=sin(clock*1.1)*4.5 if not reduced_effects else 0.0
+ _local_transform(Vector2(216,391+bob),Vector2(1,.27))
+ for i in range(7,0,-1): draw_arc(Vector2.ZERO,130+i,0,TAU,100,Color(.5,.16,1,.025*i),2,true)
+ draw_arc(Vector2.ZERO,144,0,TAU,100,Color("#9c5aff"),3,true)
+ draw_arc(Vector2.ZERO,124,0,TAU,100,CYAN,2,true)
+ _local_transform()
+ for block in [Vector3(135,330,4),Vector3(189,330,4),Vector3(243,330,3),Vector3(135,275,4),Vector3(189,275,2),Vector3(243,275,3),Vector3(189,220,2)]:
+  _crystal(Rect2(block.x,block.y+bob,55,56),int(block.z),17)
+ _sparkle(Vector2(298,247+bob),10,GOLD)
+ _sparkle(Vector2(129,320+bob),6,PURPLE)
+ _sparkle(Vector2(213,395+bob),9,CYAN)
 
-func _mini_board(rect:Rect2,falling:bool) -> void:
- if falling:
-  _falling_preview(rect)
-  return
- # Block Puzzle preview is deliberately broad and SQUARE (9x9 gameplay);
- # Blockfall uses its own separate tall-well rendering below.
- var cols:int=7
- var rows:int=7
- var side:float=minf(rect.size.x/float(cols),rect.size.y/float(rows))
- var board:=Rect2(rect.position+Vector2((rect.size.x-cols*side)*.5,
-  (rect.size.y-rows*side)*.5),Vector2(cols*side,rows*side))
- _glass(board.grow(6.0),Color("#080f30"),Color("#61baff"))
- for y in rows:
-  for x in cols:
-   var cell:=Rect2(board.position+Vector2(x*side,y*side),Vector2(side,side))
-   var background:=Color(.07,.15,.34,.94) if (x+y)%2==0 else Color(.055,.12,.29,.94)
-   draw_rect(cell.grow(-.80),background,true)
-   var gem:int=0
-   if y==5 and x!=3:
-    gem=1+(x*2)%7
-   elif y==6 and x<4:
-    gem=1+(x+3)%7
-   elif x==5 and y>=2 and y<=4:
-    gem=3
-   elif y==1 and x>=1 and x<=3:
-    gem=4
-   elif y==2 and x==2:
-    gem=4
-   if gem>0:
-    _crystal(cell.grow(-1.0),gem)
- draw_line(board.position+Vector2(3,board.size.y+5),
-  board.end+Vector2(-3,5),Color("#42f3ff"),2.0,true)
+func _home() -> void:
+ _panel(Rect2(28,28,145,54),Color("#6949bd"))
+ _text("★",Vector2(40,63),29,GOLD)
+ _text(str(progress.stars),Vector2(78,62),23)
+ _panel(Rect2(188,28,145,54),Color("#3c62c5"))
+ _text("LV "+str(progress.level),Vector2(205,62),22,Color("#d9e5ff"))
+ _panel(Rect2(346,26,60,60),Color("#6668df"))
+ _text("⚙",Vector2(357,65),31,Color("#dcefff"))
+ _planet(Vector2(57,229),26,Color("#8566ff"))
+ _planet(Vector2(386,157),40,Color("#5277fb"))
+ var glow:float=.55+.15*sin(clock*1.5)
+ for j in range(4,0,-1):
+  _text("NovaGrid",Vector2(-j*.6,157+j*.7),59,Color(.67,.19,1,.05*glow),432,HORIZONTAL_ALIGNMENT_CENTER)
+ _center("NovaGrid",154,59,Color("#f8edff"))
+ _center(_tr("Cosmic Block Puzzle","Puzzle cosmique"),187,21,Color("#b6c0ff"))
+ _hero()
+ _center(_tr("YOUR NEXT ADVENTURE AWAITS","VOTRE AVENTURE COMMENCE"),440,11,Color("#aeb5e8"))
+ var titles:Array=[_tr("Classic","Classique"),_tr("Daily Challenge","Défi du jour"),"Blockfall",_tr("Galaxy Stages","Étapes galactiques")]
+ var subtitles:Array=[_tr("9 × 9 Puzzle","Puzzle 9 × 9"),_tr("A new challenge every day","Un nouveau défi chaque jour"),_tr("Endless block action","Blocs en chute libre"),_tr("3 handcrafted missions","3 missions faites à la main")]
+ var hues:Array=[CYAN,GOLD,PURPLE,CYAN]
+ for i in 4:
+  var box:=Rect2(28,462+i*100,376,84)
+  var hue:Color=hues[i]
+  if pressed_key=="mode"+str(i): box=box.grow(-2)
+  _panel(box,hue,Color(hue.darkened(.83),.96),23)
+  var icon:=Vector2(64,box.position.y+42)
+  if i==0:
+   for y in 3:
+    for x in 3: draw_rect(Rect2(icon+Vector2(x*11-16,y*11-16),Vector2(9,9)),hue,false,1.5)
+  elif i==1:
+   draw_rect(Rect2(icon-Vector2(18,17),Vector2(36,36)),hue,false,2)
+   draw_line(icon-Vector2(18,7),icon+Vector2(18,-7),hue,2,true)
+   _sparkle(icon+Vector2(0,6),7,hue)
+  elif i==2:
+   for tile in [Vector2(0,-14),Vector2(-14,0),Vector2(0,0),Vector2(14,0)]:
+    _crystal(Rect2(icon+tile-Vector2(6,2),Vector2(13,15)),4)
+  else:
+   draw_arc(icon,17,-1.2,1.9,24,hue,2,true)
+   draw_line(icon-Vector2(12,-16),icon+Vector2(12,-16),Color.WHITE,3,true)
+   _sparkle(icon,8,GOLD)
+  _text(titles[i],Vector2(103,box.position.y+33),25)
+  _text(subtitles[i],Vector2(103,box.position.y+59),14,Color("#d0daf3"))
+  draw_colored_polygon(PackedVector2Array([Vector2(370,box.position.y+28),Vector2(383,box.position.y+42),Vector2(370,box.position.y+56)]),hue.lightened(.4))
+ var track:=Rect2(28,883,376,46)
+ _panel(track,Color("#56478c"),Color("#0b1030"),15)
+ _text(progress.rank_name(),Vector2(44,904),12,Color("#e4e6ff"))
+ _text(_tr("GALAXY PROGRESS","PROGRÈS GALACTIQUE"),Vector2(44,920),9,Color("#9ba4d2"))
+ draw_rect(Rect2(214,904,172,5),Color("#242b57"))
+ draw_rect(Rect2(214,904,172*progress.level_progress(),5),CYAN)
 
+func _heading(title:String,subtitle:String) -> void:
+ _panel(Rect2(26,30,58,58),Color("#5664d7"))
+ _text("‹",Vector2(41,72),43,Color("#e0f3ff"))
+ _text(title,Vector2(101,68),29)
+ _center(subtitle,122,14,Color("#bfc8f1"))
 
-func _falling_preview(rect:Rect2) -> void:
- # Real proportions: 10 columns x 18 rows, like the live Blockfall engine.
- # The remaining horizontal space is a dedicated NEXT-piece sidebar.
- # Keep ~8 px inner padding: nothing may escape the clickable game card.
- _glass(rect,Color("#080b2b"),Color("#ed8fff"))
- var padding:float=7.0
- var cell:float=minf((rect.size.y-2.0*padding)/float(FALL_PREVIEW_ROWS),
-  (rect.size.x-55.0)/float(FALL_PREVIEW_COLS))
- var width:float=cell*float(FALL_PREVIEW_COLS)
- var height:float=cell*float(FALL_PREVIEW_ROWS)
- var well:=Rect2(rect.position+Vector2(padding, (rect.size.y-height)*.5),
-  Vector2(width,height))
- # Distinct Tetris-like well with strong vertical edges and visible bottom.
- draw_rect(well.grow(1.8),Color("#020a25"),true)
- draw_line(well.position-Vector2(2,0),
-  well.position+Vector2(-2,height),Color("#c268ff"),2.5,true)
- draw_line(well.position+Vector2(width+2,0),
-  well.end+Vector2(2,0),Color("#64ddff"),2.5,true)
- for y in FALL_PREVIEW_ROWS:
-  for x in FALL_PREVIEW_COLS:
-   var tile:=Rect2(well.position+Vector2(x*cell,y*cell),
-    Vector2(cell,cell))
-   var checker:Color=Color("#11234f") if (x+y)%2==0 else Color("#0b1a3e")
-   draw_rect(tile.grow(-.45),checker,true)
- # Four coherent LOCKED tetrominoes, not randomized pile like Block Puzzle.
- # J piece along the left, orange L on the right, yellow O and green S.
- var locked:Array=[
-  {"color":7,"cells":[Vector2i(0,15),Vector2i(0,16),
-   Vector2i(0,17),Vector2i(1,17)]},
-  {"color":6,"cells":[Vector2i(8,15),Vector2i(8,16),
-   Vector2i(8,17),Vector2i(7,17)]},
-  {"color":2,"cells":[Vector2i(5,16),Vector2i(6,16),
-   Vector2i(5,17),Vector2i(6,17)]},
-  {"color":5,"cells":[Vector2i(3,14),Vector2i(4,14),
-   Vector2i(2,15),Vector2i(3,15)]}
- ]
- for piece in locked:
-  for spot in piece["cells"]:
-   var p:Vector2i=spot
-   _crystal(Rect2(well.position+Vector2(p.x*cell,p.y*cell),
-    Vector2(cell,cell)).grow(-.45),int(piece["color"]))
- # GHOST shows where the moving T will land. The ghost is NOT filled.
- # Four visible translucent outlines emphasize real falling mechanics.
- for spot in FALL_PREVIEW_T:
-  var shadow:Vector2i=spot+Vector2i(0,9)
-  var ghost:=Rect2(well.position+Vector2(shadow.x*cell,shadow.y*cell),
-   Vector2(cell,cell)).grow(-1.0)
-  draw_rect(ghost,Color("#dca2ff",.10),true)
-  draw_rect(ghost,Color("#f2adff",.55),false,1.2)
- # Active pink T is mid-air, moving down gently; all FOUR cells remain aligned.
- var fall_offset:float=fposmod(clock*.75,1.0)*cell*.70
- for spot in FALL_PREVIEW_T:
-  var target:Vector2i=spot
-  var at:=Rect2(well.position+Vector2(target.x*cell,
-   target.y*cell+fall_offset),Vector2(cell,cell))
-  _crystal(at.grow(-.35),4)
- # Vertical movement tracer and arrow make it clear this is a FALLING piece.
- var track_x:float=well.position.x+4.5*cell
- draw_line(Vector2(track_x,well.position.y+5.4*cell),
-  Vector2(track_x,well.position.y+9.3*cell),
-  Color("#dba9ff",.30),1.0,true)
- var arrow_y:float=well.position.y+9.8*cell
- draw_line(Vector2(track_x-3,arrow_y-4),Vector2(track_x,arrow_y),
-  Color("#e2b4ff",.6),1.5,true)
- draw_line(Vector2(track_x+3,arrow_y-4),Vector2(track_x,arrow_y),
-  Color("#e2b4ff",.6),1.5,true)
- # Dedicated next preview removes ambiguity: real Blockfall queues shapes.
- var side_x:float=well.end.x+6.0
- var side_width:float=maxf(27.0,rect.end.x-side_x-5.0)
- _label("NEXT",Vector2(side_x,rect.position.y+20),10,
-  Color("#f5cdff"))
- var next_cell:float=minf(12.0,(side_width-4.0)*.5)
- for spot in FALL_PREVIEW_NEXT:
-  var p:Vector2i=spot
-  _crystal(Rect2(Vector2(side_x+4.0+p.x*next_cell,
-   rect.position.y+31.0+p.y*next_cell),
-   Vector2(next_cell,next_cell)).grow(-.35),6)
- _label("↓ DROP",Vector2(side_x,rect.position.y+105),9,
-  Color("#8df5ff"))
- _label("LINES",Vector2(side_x,rect.position.y+143),9,
-  Color("#acbbf6"))
- _label("04",Vector2(side_x,rect.position.y+161),16,
-  Color("#f9e0ff"))
- # Last line of the well is always visible, preventing floating-board illusion.
- draw_line(well.position+Vector2(0,height+2),
-  well.end+Vector2(0,2),Color("#ef78ff"),2.2,true)
+func _map() -> void:
+ _heading(_tr("Galaxy Stages","Étapes galactiques"),_tr("Three worlds. One cosmic journey.","Trois mondes. Un voyage cosmique."))
+ _planet(Vector2(68,217),53,Color("#6753d3"))
+ _planet(Vector2(399,627),45,Color("#2c6cce"))
+ var points:=PackedVector2Array([Vector2(128,342),Vector2(180,405),Vector2(311,508),Vector2(280,589),Vector2(138,686)])
+ var curve:=Curve2D.new()
+ curve.add_point(points[0],Vector2.ZERO,Vector2(150,5))
+ curve.add_point(points[2],Vector2(-7,-120),Vector2(-5,120))
+ curve.add_point(points[4],Vector2(130,-18),Vector2.ZERO)
+ var path:PackedVector2Array=curve.get_baked_points()
+ for thickness in [15,9,4]: draw_polyline(path,Color(.37,.22,1,.06+float(15-thickness)*.018),thickness,true)
+ draw_polyline(path,Color("#87b5ff"),1.7,true)
+ var centers:Array=[Vector2(128,342),Vector2(311,508),Vector2(138,686)]
+ for i in 3:
+  var center:Vector2=centers[i]
+  var open:bool=i+1<=campaign.unlocked
+  var earned:int=int(campaign.completed.get(str(i+1),0))
+  var accent:Color=GOLD if i+1==campaign.unlocked else CYAN if open else Color("#7385bd")
+  _local_transform(center+Vector2(0,29),Vector2(1,.34))
+  draw_circle(Vector2.ZERO,46,Color(accent,.16))
+  draw_arc(Vector2.ZERO,45,0,TAU,64,accent,3,true)
+  _local_transform()
+  _panel(Rect2(center-Vector2(35,30),Vector2(70,60)),accent,Color(accent.darkened(.80)),26)
+  if open:
+   _text(str(i+1),center+Vector2(-35,11),31,Color.WHITE,70,HORIZONTAL_ALIGNMENT_CENTER)
+  else:
+   draw_arc(center-Vector2(0,5),8,PI,TAU,20,Color("#cad4ef"),2.2,true)
+   draw_rect(Rect2(center-Vector2(12,5),Vector2(24,20)),Color("#cad4ef"))
+   draw_circle(center+Vector2(0,2),2.4,Color("#24315e"))
+   draw_line(center+Vector2(0,2),center+Vector2(0,8),Color("#24315e"),2,true)
+  for s in 3:
+   _text("★",center+Vector2(-29+s*20,-47),20,GOLD if s<earned else Color("#53618e"))
+  var name:String=CampaignScript.NAMES[i]
+  _text(name,center+Vector2(-82,65),14,Color("#e5eaff"),164,HORIZONTAL_ALIGNMENT_CENTER)
+ var done:int=campaign.completed.size()
+ _panel(Rect2(28,823,376,106),PURPLE)
+ _text(_tr("Your constellation","Votre constellation"),Vector2(48,858),24)
+ _text(_tr("Missions completed","Missions terminées")+"  %d / 3"%done,Vector2(48,886),15,Color("#c6d4ff"))
+ draw_rect(Rect2(48,903,336,6),Color("#262650"))
+ if done>0: draw_rect(Rect2(48,903,112*done,6),GOLD)
 
-func _card(rect:Rect2,index:int) -> void:
- var is_puzzle:bool=index==0
- var active:bool=rect.grow(4).has_point(touch_position)
- var cyan:=Color("#35eaff")
- var pink:=Color("#ff8ef6")
- var accent:Color=cyan if is_puzzle else pink
- var background:Color=Color("#0c254d") if is_puzzle else Color("#241348")
- var bob:float=sin(clock*1.6+float(index)*2.0)*1.2
- var panel:=Rect2(rect.position+Vector2(0,bob),rect.size)
- _glass(panel,background,accent,true)
- # Side-tone and neon rail give real hierarchy, not a flat text rectangle.
- draw_rect(Rect2(panel.position+Vector2(2,17),Vector2(3,panel.size.y-34)),accent,true)
- draw_line(panel.position+Vector2(14,panel.size.y-3),
-  panel.position+Vector2(panel.size.x*.48,panel.size.y-3),
-  Color(accent.r,accent.g,accent.b,.8),2.0,true)
- # Scale inner content proportionally for 360x640 through 432x960.
- # Canonical coordinates: 390 x 226, normalized to a single interactive card.
- draw_set_transform(panel.position,0.0,Vector2(panel.size.x/390.0,panel.size.y/226.0))
- var label_color:Color=Color("#8ff5ff") if is_puzzle else Color("#ffc5fb")
- _label("01  /  STRATEGY" if is_puzzle else "02  /  ARCADE",
-  Vector2(21,31),12,label_color)
- _label("BLOCK",Vector2(20,76),36,Color.WHITE)
- _label("PUZZLE" if is_puzzle else "FALL",
-  Vector2(20,112),36,accent)
- _label("PLACE  ·  MATCH  ·  BLAST" if is_puzzle else "DROP  ·  ROTATE  ·  SURVIVE",
-  Vector2(21,136),10,Color("#c8ddf7"))
- for j in 3:
-  var kind:int=(j+3) if is_puzzle else (j+1)
-  _crystal(Rect2(Vector2(20+24*j,146),Vector2(23,23)),kind)
- # Large CTA is the brightest element on the left, away from game thumbnail.
- var button:=Rect2(Vector2(20,180),Vector2(164,34))
- _glass(button,Color("#006f97") if is_puzzle else Color("#8a2a9a"),accent)
- _label("PLAY  ▶",Vector2(button.position.x,button.position.y+23),17,
-  Color.WHITE,HORIZONTAL_ALIGNMENT_CENTER,button.size.x)
- var inset:=Rect2(Vector2(204,21),Vector2(168,186))
- _mini_board(inset,not is_puzzle)
- # Animated, original glow guides the eye to the preview's playfield.
- draw_arc(Vector2(290,114),101.0,PI*.55,PI*1.22,32,
-  Color(accent.r,accent.g,accent.b,.22),2.1,true)
- if active:
-  draw_arc(Vector2(294,116),106.0,-.65,.75,26,
-   Color(accent.r,accent.g,accent.b,.60),3.0,true)
- draw_set_transform(Vector2.ZERO,0.0,Vector2.ONE)
+func _daily() -> void:
+ _heading(_tr("Daily Challenge","Défi du jour"),progress.day_key+"  ·  UTC")
+ _planet(Vector2(216,242),68,Color("#8e4bca"))
+ _crystal(Rect2(188,203,50,56),2,15)
+ _panel(Rect2(28,344,376,172),GOLD)
+ _center(_tr("CLEAR 6 GROUPS","ÉLIMINEZ 6 GROUPES"),389,26,GOLD)
+ _center(_tr("Same crystals. A fresh puzzle every day.","Les mêmes cristaux. Un défi par jour."),420,15,Color("#d8dff4"))
+ _center(_tr("Complete rows, columns or 3 × 3 boxes.","Complétez lignes, colonnes ou carrés 3 × 3."),448,14,Color("#d8dff4"))
+ _center(_tr("Daily reward can be earned once.","La récompense est accordée une seule fois."),485,13,Color("#a9b6dc"))
+ var daily:Dictionary=save_data.get("daily",{}) if save_data.get("daily",{}) is Dictionary else {}
+ if daily.get("reward_day","")==progress.day_key:
+  _center(_tr("TODAY’S REWARD EARNED","RÉCOMPENSE DU JOUR OBTENUE"),542,12,GOLD)
+ _text(_tr("DAILY MISSIONS","MISSIONS DU JOUR"),Vector2(34,566),13,Color("#c2c6f1"))
+ for i in progress.MISSIONS.size():
+  var mission:Dictionary=progress.MISSIONS[i]
+  var amount:int=int(progress.daily.get(mission["id"],0))
+  var target:int=mission["target"]
+  var y:float=596+i*47
+  var labels:Array=[_tr("Place 12 crystals","Placez 12 cristaux"),_tr("Clear 6 groups","Éliminez 6 groupes"),_tr("Drop 10 blocks","Lâchez 10 blocs")]
+  _text(labels[i],Vector2(36,y),16,Color("#e1e6ff"))
+  _text("%d / %d"%[amount,target],Vector2(0,y),14,GOLD,395,HORIZONTAL_ALIGNMENT_RIGHT)
+  draw_rect(Rect2(36,y+11,359,4),Color("#27294f"))
+  if amount>0: draw_rect(Rect2(36,y+11,359*float(amount)/target,4),CYAN)
+ _panel(Rect2(38,759,356,78),GOLD,Color("#55311a"))
+ _center(_tr("PLAY TODAY'S PUZZLE","JOUER AU DÉFI DU JOUR"),808,24)
+ _center(_tr("Your Classic run is saved separately.","Votre partie classique est sauvegardée."),887,13,Color("#a9b4d9"))
+
+func _settings() -> void:
+ _heading(_tr("Settings","Réglages"),_tr("Make this galaxy yours.","Votre galaxie, vos préférences."))
+ var labels:Array=[_tr("Sound effects","Effets sonores"),_tr("Music","Musique"),_tr("Visual effects","Effets visuels"),_tr("Language","Langue")]
+ var values:Array=[_tr("ON","OUI") if audio.sounds_enabled else _tr("OFF","NON"),_tr("ON","OUI") if audio.music_enabled else _tr("OFF","NON"),_tr("LOW","RÉDUITS") if reduced_effects else _tr("FULL","COMPLETS"),"FRANÇAIS" if language=="fr" else "ENGLISH"]
+ for i in 4:
+  var row:=Rect2(34,235+i*106,364,78)
+  _panel(row,CYAN if i<2 else PURPLE)
+  _text(labels[i],row.position+Vector2(20,33),22)
+  _text(values[i],row.position+Vector2(20,59),13,Color("#cbd8ff"))
+  _text("›",row.position+Vector2(326,49),29,CYAN)
+ _center(_tr("Every setting is saved on this device.","Vos préférences sont sauvegardées ici."),750,15,Color("#b4c2e6"))
+ _center("NovaGrid · Cosmic Edition",884,17,Color("#8c9dce"))
 
 func _draw() -> void:
+ if font==null or visuals==null: return
  var view:Vector2=get_viewport_rect().size
- if exact_menu_texture != null:
-  # Render the supplied image itself, no approximation via procedural panels.
-  # Stretch to the viewport so all CTA/buttons remain present on narrow phones.
-  draw_texture_rect(exact_menu_texture,Rect2(Vector2.ZERO,view),false)
-  if chosen>=0:
-   draw_rect(Rect2(Vector2.ZERO,view),
-    Color(.01,.02,.08,clampf(transition_elapsed/.28,0.0,1.0)),true)
-  return
- var cards:Array[Rect2]=_rectangles()
- var compact:bool=view.y<730.0
- # Dark atmospheric veil behind the brand prevents the nebula from
- # reducing readability; no fake imagery and no expensive blur shaders.
- draw_rect(Rect2(Vector2.ZERO,view),Color("#060b27",.35),true)
- _starfield(view)
- var header_height:float=cards[0].position.y
- var title_y:float=header_height*.36
- var small:float=.83 if compact else 1.0
- _planet(Vector2(view.x*.84,header_height*.42),view.x*.115,
-  Color("#101a58"),Color("#6678ff"))
- _planet(Vector2(view.x*.13,header_height*.59),view.x*.067,
-  Color("#07375c"),Color("#4ee9f6"))
- # A restrained candy constellation frames the genuine brand and makes
- # the game visually identifiable from the first screen.
- var hero_gems:=[{"kind":1,"x":.045,"y":.29,"size":45.0},
-  {"kind":2,"x":.86,"y":.70,"size":48.0},
-  {"kind":5,"x":.055,"y":.72,"size":35.0}]
- for item in hero_gems:
-  var tex:Texture2D=visuals.get_gem_texture(int(item["kind"]))
-  if tex==null:
-   continue
-  var diameter:float=float(item["size"])*small
-  var offset:float=sin(clock*1.25+float(item["kind"]))*4.0
-  var p:=Vector2(view.x*float(item["x"]),header_height*float(item["y"])+offset)
-  var halo:Color=GEMS[int(item["kind"])]
-  draw_circle(p+Vector2(diameter*.5,diameter*.5),diameter*.62,
-   Color(halo.r,halo.g,halo.b,.10))
-  draw_texture_rect(tex,Rect2(p,Vector2(diameter,diameter)),false,Color.WHITE)
- # One coherent name instead of old NOVA / G.RID fragmentation.
- var brand_size:int=clampi(int(view.x*.112*small),33,50)
- _label("NOVAGRID",Vector2(0,title_y+3),brand_size,Color("#148bff"),
-  HORIZONTAL_ALIGNMENT_CENTER,view.x)
- _label("NOVAGRID",Vector2(0,title_y),brand_size,Color("#f8fdff"),
-  HORIZONTAL_ALIGNMENT_CENTER,view.x)
- var sub_y:float=title_y+27.0*small
- _label("C O S M I C    C A N D Y    A R C A D E",Vector2(0,sub_y),
-  11 if not compact else 9,Color("#96f4ff"),HORIZONTAL_ALIGNMENT_CENTER,view.x)
- var trail_y:float=sub_y+15.0*small
- draw_line(Vector2(view.x*.33,trail_y),Vector2(view.x*.67,trail_y),
-  Color("#ab7fff",.82),2.0,true)
- _label("TWO WORLDS. ENDLESS COMBOS.",Vector2(0,trail_y+22.0*small),
-  11 if not compact else 9,Color("#e2d9ff"),HORIZONTAL_ALIGNMENT_CENTER,view.x)
- _label("CHOOSE YOUR ADVENTURE",Vector2(0,cards[0].position.y-13.0),
-  11,Color("#b4cbff"),HORIZONTAL_ALIGNMENT_CENTER,view.x)
- for i in 2:
-  _card(cards[i],i)
- var footer_top:float=cards[1].end.y+clampf(view.y*.020,11.0,20.0)
- var room:float=view.y-footer_top-57.0
- if room>42.0:
-  var footer_height:float=minf(room,87.0)
-  var footer:=Rect2(Vector2(cards[0].position.x,footer_top),
-   Vector2(cards[0].size.x,footer_height))
-  _glass(footer,Color("#10224a"),Color("#587bff"))
-  _label("★  BUILD YOUR GALAXY",footer.position+Vector2(18,25),
-   16 if not compact else 13,Color("#ffe49a"))
-  _label("LEVEL UP  ·  UNLOCK THEMES  ·  DAILY QUESTS",
-   footer.position+Vector2(18,44),10 if not compact else 9,Color("#bde2ff"))
-  if footer_height>65.0:
-   var kinds:=[2,3,4,5,1]
-   for i in kinds.size():
-    _crystal(Rect2(footer.position+Vector2(19+i*28,49),
-     Vector2(25,25)),kinds[i])
-   _label("YOUR NEXT HIGH SCORE STARTS HERE",
-    footer.position+Vector2(155,66),9,Color("#d5cdff"))
- _label("ORIGINAL PUZZLE ARCADE   •   PLAY YOUR WAY",
-  Vector2(0,view.y-18.0),10 if not compact else 8,
-  Color(.76,.88,1.0,.8),HORIZONTAL_ALIGNMENT_CENTER,view.x)
+ draw_rect(Rect2(Vector2.ZERO,view),Color(.012,.012,.055,.42))
+ var frame:Rect2=_frame()
+ var s:float=frame.size.x/432.0
+ draw_set_transform(frame.position,0,Vector2(s,s))
+ _stars()
+ match screen:
+  "map": _map()
+  "daily": _daily()
+  "settings": _settings()
+  _: _home()
+ draw_set_transform(Vector2.ZERO)
  if chosen>=0:
-  draw_rect(Rect2(Vector2.ZERO,view),
-   Color(.01,.02,.09,clampf(transition_elapsed/.28,0.0,1.0)),true)
+  draw_rect(Rect2(Vector2.ZERO,view),Color(.01,.01,.05,clampf(transition_elapsed/.25,0,1)))
 
-func _launch(index:int) -> void:
- if chosen>=0:
-  return
+func _launch(index:int,entry:String="",stage:int=1) -> void:
+ if chosen>=0: return
+ if entry=="stage" and (stage<1 or stage>campaign.unlocked or stage>CampaignScript.TOTAL_STAGES): return
+ var session:Node=get_node_or_null("/root/Session")
+ if session==null: return
+ session.set("start_mode",index)
+ session.set("entry",entry if entry!="" else "classic" if index==0 else "blockfall")
+ session.set("stage",stage)
  chosen=index
- transition_elapsed=0.0
+ transition_elapsed=0
  audio.effect("tap")
+
+func _activate(key:String) -> void:
+ if chosen>=0: return
+ audio.effect("tap")
+ match key:
+  "mode0": _launch(0,"classic")
+  "mode1": screen="daily"
+  "mode2": _launch(1,"blockfall")
+  "mode3": screen="map"
+  "settings": screen="settings"
+  "back": screen="home"
+  "daily_play": _launch(0,"daily")
+  "sound": audio.toggle_sound()
+  "music": audio.toggle_music("puzzle")
+  "quality":
+   reduced_effects=not reduced_effects
+   _save_preferences()
+   visuals.reduced_effects=reduced_effects
+   visuals.sky_material.set_shader_parameter("reduced_effects",reduced_effects)
+   visuals.sky_material.set_shader_parameter("activity",.45 if reduced_effects else .75)
+   visuals.sky_material.set_shader_parameter("motion_speed",0.0 if reduced_effects else .08)
+  "language":
+   language="fr" if language=="en" else "en"
+   _save_preferences()
+  _:
+   if key.begins_with("stage"):
+    var level:int=int(key.trim_prefix("stage"))
+    if level>=1 and level<=campaign.unlocked:
+     _launch(0,"stage",level)
+    else:
+     audio.effect("invalid")
+ queue_redraw()
+
+func _save_preferences() -> void:
+ var cfg:=ConfigFile.new()
+ cfg.load("user://novagrid-visual.cfg")
+ cfg.set_value("graphics","reduced_effects",reduced_effects)
+ cfg.set_value("interface","language",language)
+ cfg.save("user://novagrid-visual.cfg")
+
+func _press(pos:Vector2) -> void:
+ pressed_key=""
+ touch_position=pos
+ if chosen>=0: return
+ var targets:Dictionary=_targets()
+ for key in targets:
+  if targets[key].has_point(pos):
+   pressed_key=key
+   break
+ queue_redraw()
+
+func _release(pos:Vector2) -> void:
+ var targets:Dictionary=_targets()
+ if pressed_key!="" and targets.has(pressed_key) and targets[pressed_key].has_point(pos):
+  _activate(pressed_key)
+ pressed_key=""
+ touch_position=Vector2(-1000,-1000)
+ queue_redraw()
 
 func _input(event:InputEvent) -> void:
  if event is InputEventScreenTouch and event.index==0:
-  if event.pressed:
-   touch_position=event.position
-  else:
-   for i in 2:
-    if _rectangles()[i].grow(4).has_point(event.position):
-     _launch(i)
-     break
-   touch_position=Vector2(-1000,-1000)
-  queue_redraw()
- elif not OS.has_feature("mobile") and event is InputEventMouseMotion:
-  touch_position=event.position
- elif not OS.has_feature("mobile") and event is InputEventMouseButton and event.button_index==MOUSE_BUTTON_LEFT and event.pressed:
-  for i in 2:
-   if _rectangles()[i].grow(4).has_point(event.position):
-    _launch(i)
-    break
+  if event.pressed: _press(event.position)
+  else: _release(event.position)
+  get_viewport().set_input_as_handled()
+ elif not OS.has_feature("mobile") and event is InputEventMouseButton and event.button_index==MOUSE_BUTTON_LEFT:
+  if event.pressed: _press(event.position)
+  else: _release(event.position)
  elif event is InputEventKey and event.pressed and not event.echo:
-  if event.keycode==KEY_1 or event.keycode==KEY_ENTER:
-   _launch(0)
-  elif event.keycode==KEY_2:
-   _launch(1)
+  match event.keycode:
+   KEY_ESCAPE: screen="home"
+   KEY_ENTER,KEY_1: _launch(0,"classic")
+   KEY_2: _launch(1,"blockfall")
+
+func _notification(what:int) -> void:
+ if what==NOTIFICATION_WM_GO_BACK_REQUEST:
+  if screen!="home":
+   screen="home"
+   queue_redraw()
+  else:get_tree().quit()

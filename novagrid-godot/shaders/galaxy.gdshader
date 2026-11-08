@@ -6,6 +6,7 @@ render_mode unshaded;
 uniform vec4 void_color : source_color = vec4(0.028,0.014,0.105,1.0);
 uniform vec4 blue_nebula : source_color = vec4(0.09,0.59,1.0,1.0);
 uniform vec4 magenta_nebula : source_color = vec4(0.81,0.16,1.0,1.0);
+uniform bool reduced_effects = false;
 uniform float activity : hint_range(0.0,1.0) = 1.0;
 uniform float motion_speed : hint_range(0.0,1.0) = 0.13;
 
@@ -33,6 +34,11 @@ void fragment() {
  vec2 uv=UV;
  vec2 x=vec2(uv.x*1.35,uv.y*1.77);
  float t=TIME*motion_speed;
+ if (reduced_effects) {
+  float haze=n2(x*3.5);
+  vec3 low=void_color.rgb+mix(magenta_nebula.rgb,blue_nebula.rgb,uv.x)*haze*.20;
+  COLOR=vec4(low,1.0);
+ } else {
  float cloudy=fbm(x*2.4+vec2(t,-t*0.32));
  float wisps=fbm(x*4.4-vec2(t*0.4,t*0.25));
  float whirl=sin(uv.y*10.0+uv.x*7.0+cloudy*8.0+t)*0.5+0.5;
@@ -46,7 +52,10 @@ void fragment() {
  float band=exp(-pow(ribbon/.24,2.0));
  float band_noise=fbm(uv*vec2(6.7,9.5)+vec2(t*.32,-t*.2));
  vec3 stream_colors=mix(vec3(.29,.10,.62),vec3(.08,.45,.73),clamp(uv.x*.91,0.0,1.0));
- col += band*stream_colors*(.45+band_noise*1.15)*activity;
+ float filament=fbm(uv*vec2(32.0,43.0)+vec2(t*.1));
+ float fracture=smoothstep(.39,.7,filament)*band;
+ col += band*stream_colors*(.25+band_noise*.75)*activity;
+ col += mix(magenta_nebula.rgb,blue_nebula.rgb,uv.x)*fracture*.53*activity;
  col += magenta_nebula.rgb*mag*activity*.90;
  col += blue_nebula.rgb*cyan*activity*.91;
  float cosmic_swirl=exp(-pow((uv.y-.30+.16*sin(uv.x*8.0+t*.8))/.19,2.0));
@@ -69,4 +78,5 @@ void fragment() {
  float center_fade=1.0-.15*exp(-pow((uv.x-.5)/.39,2.0));
  col*=center_fade;
  COLOR=vec4(col,1.0);
+ }
 }

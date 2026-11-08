@@ -303,70 +303,94 @@ func save_state() -> Dictionary:
   "fever": fever, "fever_moves": fever_moves, "over": over,
   "total_lines": total_lines, "bombs": bombs, "bomb_milestone": bomb_milestone}
 
+func _saved_integer(value:Variant,minimum:int,maximum:int) -> bool:
+ if not (value is int or value is float):
+  return false
+ var number:float=float(value)
+ return is_finite(number) and number==floor(number) and number>=minimum and number<=maximum
+
 func load_state(raw: Dictionary) -> bool:
- var board_value: Variant = raw.get("cells", [])
+ # Undo snapshots predate the version field; version 1 JSON stays compatible.
+ if not _saved_integer(raw.get("version",1),1,1):
+  return false
+ var board_value:Variant=raw.get("cells",[])
  if not board_value is Array:
   return false
- if board_value.size()==12:
-  # Safe legacy 10x12-to-9x9 upgrade: keep account score/milestones and
-  # start a fresh board, rather than silently dropping an incompatible save.
-  var legacy:Dictionary=raw.duplicate(true)
-  legacy["cells"]=[]
-  for _y in ROWS:
-   legacy["cells"].append(_empty_row())
-  var safe_tray:Array=[]
-  for raw_shape in raw.get("tray",[]):
-   safe_tray.append(raw_shape)
-  if safe_tray.size()==3:
-   legacy["tray"]=safe_tray
-  else:
-   return false
-  legacy["over"]=false
-  raw=legacy
-  board_value=raw["cells"]
- if board_value.size()!=ROWS:
+ var legacy:bool=board_value.size()==12
+ if not legacy and board_value.size()!=ROWS:
   return false
  for row in board_value:
-  if not row is Array or row.size() != COLS:
+  if not row is Array or row.size()!=(10 if legacy else COLS):
    return false
   for value in row:
-   if int(value) < 0 or int(value) > 7:
+   if not _saved_integer(value,0,7):
     return false
- var tray_value: Variant = raw.get("tray", [])
- if not tray_value is Array or tray_value.size() != 3:
+ var tray_value:Variant=raw.get("tray",[])
+ if not tray_value is Array or tray_value.size()!=3:
   return false
- var decoded: Array = []
+ var decoded:Array=[]
  for shape in tray_value:
-  if not shape is Array:
+  if not shape is Array or shape.size()>6:
    return false
-  var points: Array = []
-  for p in shape:
-   if p is Vector2i:
-    points.append(p)
-   elif p is Array and p.size() == 2:
-    points.append(Vector2i(int(p[0]), int(p[1])))
+  var points:Array=[]
+  for point in shape:
+   var cell:Vector2i
+   if point is Vector2i:
+    cell=point
+   elif point is Array and point.size()==2:
+    if not _saved_integer(point[0],0,COLS-1) or not _saved_integer(point[1],0,ROWS-1):
+     return false
+    cell=Vector2i(int(point[0]),int(point[1]))
    else:
     return false
+   if cell.x<0 or cell.x>=COLS or cell.y<0 or cell.y>=ROWS or points.has(cell):
+    return false
+   points.append(cell)
+  # Empty slots represent already placed pieces. Nonempty slots must be one
+  # of the game's real shapes, or a corrupt save can create invisible cells.
+  if not points.is_empty():
+   var matches:bool=false
+   for form in SHAPES:
+    var expected:Array=_copy_shape(form)
+    if expected.size()==points.size():
+     var same:bool=true
+     for cell in points:
+      if not expected.has(cell):same=false
+     if same:matches=true
+   if not matches:return false
   decoded.append(points)
- cells = board_value.duplicate(true)
- tray = decoded
  var stored_colors:Variant=raw.get("tray_colors",[7,1,5])
- tray_colors=[7,1,5]
- if stored_colors is Array and stored_colors.size()==3:
-  for i in 3:
-   tray_colors[i]=clampi(int(stored_colors[i]),1,7)
- score = maxi(0, int(raw.get("score", 0)))
- best = maxi(score, int(raw.get("best", score)))
- combo = maxi(0, int(raw.get("combo", 0)))
- moves = maxi(0, int(raw.get("moves", 0)))
- fever = clampi(int(raw.get("fever", 0)), 0, 100)
- fever_moves = clampi(int(raw.get("fever_moves", 0)), 0, 5)
- total_lines=maxi(0,int(raw.get("total_lines",0)))
- bombs=clampi(int(raw.get("bombs",0)),0,MAX_BOMBS)
- bomb_milestone=clampi(int(raw.get("bomb_milestone",0)),0,BOMB_MILESTONES.size())
+ if not stored_colors is Array or stored_colors.size()!=3:
+  return false
+ for color in stored_colors:
+  if not _saved_integer(color,1,7):return false
+ for key in ["score","best","combo","moves","total_lines"]:
+  if not _saved_integer(raw.get(key,0),0,2147483647):return false
+ var maxima:Dictionary={"fever":100,"fever_moves":5,"bombs":MAX_BOMBS,"bomb_milestone":BOMB_MILESTONES.size()}
+ for key in maxima:
+  if not _saved_integer(raw.get(key,0),0,int(maxima[key])):return false
+ if not raw.get("over",false) is bool:return false
+ # Mutations only start after all validation passes. Legacy 10x12 boards
+ # restart safely while retaining score, tray and earned milestone fields.
+ cells=board_value.duplicate(true)
+ if legacy:
+  cells=[]
+  for _y in ROWS:cells.append(_empty_row())
+ tray=decoded
+ tray_colors=stored_colors.map(func(value):return int(value))
+ score=int(raw.get("score",0))
+ best=maxi(score,int(raw.get("best",score)))
+ combo=int(raw.get("combo",0))
+ moves=int(raw.get("moves",0))
+ fever=int(raw.get("fever",0))
+ fever_moves=int(raw.get("fever_moves",0))
+ total_lines=int(raw.get("total_lines",0))
+ bombs=int(raw.get("bombs",0))
+ bomb_milestone=int(raw.get("bomb_milestone",0))
  last_cleared=0
  last_gained=0
  last_groups=0
  last_bomb_award=0
- over = bool(raw.get("over", false))
+ over=false if legacy else bool(raw.get("over",false))
+ previous.clear()
  return true

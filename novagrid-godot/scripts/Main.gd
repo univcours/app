@@ -7,6 +7,10 @@ const AudioScript = preload("res://scripts/Audio.gd")
 const VisualsScript = preload("res://scripts/Visuals.gd")
 const ProgressionScript = preload("res://scripts/Progression.gd")
 
+const SaveStore = preload("res://scripts/SaveStore.gd")
+const SafeArea = preload("res://scripts/SafeArea.gd")
+const Campaign = preload("res://scripts/Campaign.gd")
+
 const GEM_COLORS = [
  Color("#192850"), Color("#ff287f"), Color("#ffbe17"), Color("#13c7fa"),
  Color("#963aff"), Color("#11db60"), Color("#ff751c"), Color("#127bff")
@@ -49,6 +53,13 @@ const GLOW_BLUE = Color("#39ebff")
 const GLOW_PINK = Color("#ff6df1")
 const GLOW_PURPLE = Color("#a55cff")
 const GLOW_GOLD = Color("#ffe48a")
+var entry:String="classic"
+var stage:int=1
+var campaign=Campaign.new()
+var challenge_run:Dictionary={}
+var classic_save:Dictionary={}
+var challenge_won:bool=false
+var settings_open:bool=false
 var puzzle
 var falling
 var audio
@@ -98,6 +109,7 @@ var flash := 0.0
 var shake := 0.0
 
 func _ready() -> void:
+ get_tree().quit_on_go_back=false
  puzzle = PuzzleScript.new()
  falling = FallingScript.new()
  audio = AudioScript.new()
@@ -107,24 +119,7 @@ func _ready() -> void:
  visuals = VisualsScript.new()
  add_child(visuals)
  visuals.configure(GEM_COLORS)
- if ResourceLoader.exists(EXACT_FALL_SKIN):
-  skin_fall = load(EXACT_FALL_SKIN) as Texture2D
- if ResourceLoader.exists(PUZZLE_COSMIC_SKIN):
-  skin_puzzle = load(PUZZLE_COSMIC_SKIN) as Texture2D
- if ResourceLoader.exists(EXACT_PUZZLE_CHROME):
-  skin_puzzle_chrome = load(EXACT_PUZZLE_CHROME) as Texture2D
- if ResourceLoader.exists(NEON_PUZZLE_SKIN):
-  skin_neon_puzzle = load(NEON_PUZZLE_SKIN) as Texture2D
- for gem_path in NEON_GEM_PATHS:
-  var neon_tex:Texture2D=null
-  if gem_path!="" and ResourceLoader.exists(gem_path):
-   neon_tex=load(gem_path) as Texture2D
-  neon_gem_textures.append(neon_tex)
- for path in REFERENCE_CANDY_PATHS:
-  var tex:Texture2D=null
-  if path!="" and ResourceLoader.exists(path):
-   tex=load(path) as Texture2D
-  exact_candy_textures.append(tex)
+ # All default screens are native responsive geometry, never flattened art.
  for gem in GEM_COLORS:
   var style := StyleBoxFlat.new()
   style.bg_color = gem.lightened(.10)
@@ -145,6 +140,9 @@ func _ready() -> void:
  var session:Node=get_node_or_null("/root/Session")
  if session!=null:
   mode=int(session.get("start_mode"))
+  entry=String(session.get("entry"))
+  stage=int(session.get("stage"))
+ _start_challenge()
  audio.select_music("puzzle" if mode==0 else "falling")
  get_viewport().size_changed.connect(queue_redraw)
  # The optional real AdMob Android bridge is installed before Gradle export.
@@ -218,7 +216,7 @@ func _process(delta:float) -> void:
 func _exit_tree() -> void:
  _save_game()
 
-func _layout() -> Dictionary:
+func _legacy_layout() -> Dictionary:
  var viewport:Vector2=get_viewport_rect().size
  var w:float=viewport.x
  var h:float=viewport.y-banner_height
@@ -272,89 +270,7 @@ func _layout() -> Dictionary:
   "next":next_rect,"hold":hold_rect}
 
 func _draw() -> void:
- var layout:Dictionary = _layout()
- var h:float=float(layout["height"])
- var w:float=float(layout["viewport"].x)
- var art:Texture2D=null
- var neon_puzzle:bool=mode==0 and skin_neon_puzzle!=null and h>=650.0
- var exact_puzzle:bool=mode==0 and skin_puzzle_chrome!=null and h>=760.0 and not neon_puzzle
- if mode==1 and skin_fall!=null and h>=760.0:
-  art=skin_fall
- elif neon_puzzle:
-  art=skin_neon_puzzle
- elif exact_puzzle:
-  art=skin_puzzle_chrome
- elif mode==0:
-  art=skin_puzzle
- if art!=null:
-  if neon_puzzle:
-   # Animated sky only in the letterbox: the exact art is kept undistorted.
-   draw_rect(Rect2(Vector2.ZERO,Vector2(w,h)),Color("#08092b"),true)
-   _draw_sky(layout)
-   draw_texture_rect(art,_neon_puzzle_frame(layout["viewport"],h),false)
-   _draw_neon_puzzle_values(layout)
-  elif exact_puzzle:
-   # Preserve authored proportions, even on phones with an AdMob dock.
-   var frame:Rect2=_puzzle_chrome_frame(layout["viewport"],h)
-   if skin_puzzle!=null:
-    draw_texture_rect(skin_puzzle,Rect2(Vector2.ZERO,Vector2(w,h)),false)
-   draw_texture_rect(art,frame,false)
-   draw_set_transform(frame.position,0.0,Vector2.ONE)
-   _reference_puzzle_hud(layout)
-   draw_set_transform(Vector2.ZERO,0.0,Vector2.ONE)
-  else:
-   draw_texture_rect(art,Rect2(Vector2.ZERO,Vector2(w,h)),false)
-   if mode==1:
-    _reference_live_hud(layout)
-   else:
-    draw_set_transform(Vector2.ZERO,0.0,Vector2(1.0,float(layout["header_scale"])))
-    _draw_header(layout)
-    draw_set_transform(Vector2.ZERO,0.0,Vector2.ONE)
- else:
-  _draw_sky(layout)
-  draw_set_transform(Vector2.ZERO,0.0,Vector2(1.0,float(layout["header_scale"])))
-  _draw_header(layout)
-  draw_set_transform(Vector2.ZERO,0.0,Vector2.ONE)
- if mode==1 and art!=null:
-  _draw_reference_progress(layout)
-  # Replace the baked noninteractive star with the real back chevron.
-  _draw_back_button(layout["mode_switch"])
-  if native_ads!=null:
-   var privacy_rect:Rect2=layout["privacy"]
-   _label("PRIVACY",privacy_rect.position+Vector2(0,12),9,Color("#c6eeff"))
- elif neon_puzzle:
-  # The reference has no fake GALAXY RANK ribbon. Keep its exact clean art.
-  pass
- elif exact_puzzle:
-  var art_frame:Rect2=_puzzle_chrome_frame(layout["viewport"],h)
-  draw_set_transform(art_frame.position,0.0,Vector2.ONE)
-  _draw_reference_puzzle_progress(layout)
-  draw_set_transform(Vector2.ZERO,0.0,Vector2.ONE)
-  if native_ads!=null:
-   var privacy_rect:Rect2=layout["privacy"]
-   _label("PRIVACY",privacy_rect.position+Vector2(0,12),9,Color("#c6eeff"))
- else:
-  _draw_tabs(layout)
-  _draw_progress_hud(layout)
- var impact := Vector2(sin(clock*67.0),cos(clock*79.0))*shake*9.0
- draw_set_transform(impact)
- if mode==0:
-  _draw_puzzle(layout)
- else:
-  _draw_falling(layout)
- draw_set_transform(Vector2.ZERO)
- _draw_shockwaves()
- _draw_fragments()
- if flash>0:
-  draw_rect(Rect2(Vector2.ZERO,layout["viewport"]),Color(0.6,0.9,1.0,flash*0.15),true)
- if paused and mode==0 and skin_neon_puzzle!=null and not puzzle.over:
-  _draw_neon_settings(layout)
- elif paused or (mode==0 and puzzle.over) or (mode==1 and falling.over):
-  _draw_modal(layout)
- if banner_height>0:
-  var r := Rect2(Vector2(0,layout["height"]),Vector2(float(layout["viewport"].x),banner_height))
-  draw_rect(r,Color("#080f26"),true)
-  draw_line(r.position,Vector2(r.end.x,r.position.y),Color("#78dfff"),2.0)
+ _draw_cosmic()
 
 func _neon_puzzle_frame(viewport:Vector2,h:float) -> Rect2:
  # Uniform scale = truly square cells and NO distortion of the approved art.
@@ -842,55 +758,14 @@ func _gem(rect:Rect2,color_id:int,ghost:bool=false) -> void:
  # Every occupied cell has a distinct, bright, glass-square footprint.
  if color_id<=0:
   return
- if mode==0 and skin_neon_puzzle!=null and color_id<neon_gem_textures.size():
-  if ghost:
-   var c:Color=GEM_COLORS[clampi(color_id,1,GEM_COLORS.size()-1)]
-   draw_rect(rect.grow(-1),Color(c.r,c.g,c.b,.25),true)
-   draw_rect(rect.grow(-1),Color(c.r,c.g,c.b,.80),false,1.7)
-   return
-  if neon_gem_textures[color_id]!=null:
-   # Exact faceted jewel shader baked from the approved image; each piece is
-   # an interactive sprite, not a static screenshot of a completed board.
-   var r:Rect2=rect.grow(-maxf(.2,rect.size.x*.01))
-   draw_texture_rect(neon_gem_textures[color_id],r,false)
-   return
- var tint:Color=GEM_COLORS[clampi(color_id,1,GEM_COLORS.size()-1)]
- var shortest:float=minf(rect.size.x,rect.size.y)
+ var tint:Color=GEM_COLORS[clampi(color_id,1,7)]
+ var tile:Rect2=rect.grow(-maxf(.7,rect.size.x*.025))
  if ghost:
-  var landing:Rect2=rect.grow(-maxf(1.2,shortest*.075))
-  draw_rect(landing,Color(tint.r,tint.g,tint.b,.23),true)
-  draw_rect(landing,Color(tint.r,tint.g,tint.b,.91),false,2.0)
-  return
- # Use just one cached style for each of the 7 pieces on all game modes.
- var style:StyleBoxFlat
- if not board_tile_styles.has(color_id):
-  style=StyleBoxFlat.new()
-  style.bg_color=tint.darkened(.38)
-  style.border_color=tint.lightened(.31)
-  style.set_border_width_all(2)
-  style.set_corner_radius_all(6)
-  style.shadow_color=Color(tint.r,tint.g,tint.b,.25)
-  style.shadow_size=4
-  style.shadow_offset=Vector2(0,1)
-  board_tile_styles[color_id]=style
+  draw_rect(tile,Color(tint.r,tint.g,tint.b,.22),true)
+  draw_rect(tile,tint.lightened(.3),false,1.8)
  else:
-  style=board_tile_styles[color_id]
- var margin:float=maxf(.9,shortest*.045)
- var tile:Rect2=rect.grow(-margin)
- draw_style_box(style,tile)
- # Top shine separates blue and purple sprites from the nebula/grid.
- draw_line(tile.position+Vector2(5.0,2.5),
-  Vector2(tile.end.x-5.0,tile.position.y+2.5),Color(1,1,1,.55),1.3,true)
- var texture:Texture2D=null
- if color_id<exact_candy_textures.size():
-  texture=exact_candy_textures[color_id]
- if texture==null and visuals:
-  texture=visuals.get_gem_texture(color_id)
- if texture!=null:
-  var inner:Rect2=tile.grow(-maxf(2.0,shortest*.075))
-  draw_texture_rect(texture,inner,false,Color.WHITE)
- else:
-  draw_circle(tile.get_center(),shortest*.28,tint.lightened(.42))
+  var texture:Texture2D=visuals.get_gem_texture(color_id)
+  if texture!=null:draw_texture_rect(texture,tile,false)
 
 func _board_back(board_rect:Rect2,cols:int,rows:int) -> float:
  # Identical luxury neon system in Puzzle and Blockfall, but each has its
@@ -984,7 +859,7 @@ func _draw_puzzle(layout:Dictionary) -> void:
    _gem(Rect2(offset+Vector2(p.x*micro,p.y*micro),
     Vector2(micro,micro)),gem_id)
  if not reference and layout["height"]>=760.0:
-  _label("✦  DRAG CANDIES  ·  CLEAR LINES  ·  COMBO BLAST  ✦",
+  _label("✦  DRAG CRYSTALS  ·  CLEAR LINES  ·  COMBO BLAST  ✦",
    Vector2(0,layout["height"]-117.0),10,Color("#c5f8ff"),
    HORIZONTAL_ALIGNMENT_CENTER,layout["viewport"].x)
  if dragging and selected>=0 and not puzzle.tray[selected].is_empty():
@@ -1122,6 +997,7 @@ func _draw_fragments() -> void:
   color.a=life
   var center:Vector2=f["pos"]
   var size:float=float(f["radius"])*life
+  if size<.35:continue # Avoid degenerate polygons as fragments fade out.
   var angle:float=float(f["rotation"])
   var axis:=Vector2(cos(angle),sin(angle))
   var across:=Vector2(-axis.y,axis.x)
@@ -1203,6 +1079,7 @@ func _input(event:InputEvent) -> void:
  elif event is InputEventKey and event.pressed and not event.echo:
   if event.keycode==KEY_ESCAPE:
    paused = not paused
+   settings_open=paused
   elif mode==1 and not paused:
    match event.keycode:
     KEY_LEFT: _fall_move(-1)
@@ -1258,8 +1135,22 @@ func _release(pos:Vector2) -> void:
  touching=false
  touch_at=pos
  var layout:Dictionary=_layout()
+ if settings_open:
+  _settings_action(pos,layout)
+  return
+ if challenge_won:
+  if layout["finish"].has_point(pos) or layout["mode_switch"].has_point(pos):
+   _save_game()
+   get_tree().change_scene_to_file("res://scenes/Welcome.tscn")
+  return
+ if not paused and layout["pause"].has_point(pos):
+  paused=true
+  settings_open=true
+  touching=false
+  audio.effect("tap")
+  return
  # The back button works during live gameplay, pause and game-over.
- if layout["mode_switch"].has_point(pos):
+ if layout["mode_switch"].has_point(pos) and layout["mode_switch"].has_point(pressed_at):
   audio.effect("tap")
   _save_game()
   var error:int=get_tree().change_scene_to_file("res://scenes/Welcome.tscn")
@@ -1303,7 +1194,7 @@ func _release(pos:Vector2) -> void:
    audio.effect("tap")
   queue_redraw()
   return
- if layout["progress"].has_point(pos):
+ if layout["progress"].has_point(pos) and layout["progress"].has_point(pressed_at):
   if progress.unlocked_themes()>1:
    visuals.set_theme(progress.active_theme+1 if progress.active_theme+1<progress.unlocked_themes() else 0)
    var theme_name:String=progress.cycle_theme()
@@ -1313,7 +1204,7 @@ func _release(pos:Vector2) -> void:
   else:
    _announce("NEXT GALAXY AT LEVEL 4",Vector2(layout["viewport"].x*.5,layout["height"]*.5),Color("#bdeaff"))
   return
- if mode==0 and layout["bomb"].has_point(pos):
+ if mode==0 and layout["bomb"].has_point(pos) and layout["bomb"].has_point(pressed_at):
   if puzzle.bombs>0:
    bomb_armed=not bomb_armed
    selected=-1
@@ -1325,17 +1216,17 @@ func _release(pos:Vector2) -> void:
   paused=true
   audio.effect("tap")
   return
- if layout["audio"].has_point(pos):
+ if layout["audio"].has_point(pos) and layout["audio"].has_point(pressed_at):
   audio.toggle_sound()
   return
- if layout["music"].has_point(pos):
+ if layout["music"].has_point(pos) and layout["music"].has_point(pressed_at):
   audio.toggle_music("puzzle" if mode==0 else "falling")
   return
- if native_ads!=null and layout["privacy"].has_point(pos):
+ if native_ads!=null and layout["privacy"].has_point(pos) and layout["privacy"].has_point(pressed_at):
   native_ads.call("show_privacy_options")
   return
 
- if mode==1 and layout["hold"].has_point(pos):
+ if mode==1 and layout["hold"].has_point(pos) and layout["hold"].has_point(pressed_at):
   if falling.hold_piece():
    fall_display=Vector2(falling.active)
    fall_drawn_drops=falling.drops
@@ -1357,6 +1248,7 @@ func _restart_mode() -> void:
   native_ads.call("maybe_show_interstitial")
  if mode==0:
   puzzle.reset()
+  if entry=="daily" or entry=="stage":_new_challenge()
   selected=-1
   bomb_armed=false
  else:
@@ -1381,12 +1273,12 @@ func _release_puzzle(pos:Vector2,layout:Dictionary) -> void:
     var impact:Vector2=board.position+Vector2((target.x+.5)*cell,(target.y+.5)*cell_y)
     audio.effect_for("puzzle","big_shatter")
     _burst(impact,55+removed*5,Color("#ff62db"))
-    _announce("CANDY BOMB!  %d SWEETS" % removed,impact-Vector2(0,45),Color("#ffe7ff"))
+    _announce("CRYSTAL BURST!  %d GEMS" % removed,impact-Vector2(0,45),Color("#ffe7ff"))
     flash=.78
     shake=.46
     _save_game()
    else:
-    _announce("TAP CANDY TO EXPLODE",board.get_center(),Color("#ffb6d8"))
+    _announce("TAP CRYSTALS TO BURST",board.get_center(),Color("#ffb6d8"))
   return
  var drop:Vector2 = pos-Vector2(0,52) if dragging else pos
  if selected>=0 and selected<puzzle.tray.size() and board.has_point(drop):
@@ -1394,6 +1286,7 @@ func _release_puzzle(pos:Vector2,layout:Dictionary) -> void:
   if not shape.is_empty():
    var origin:Vector2i = _origin_from_position(drop,dragging,board,shape)
    if puzzle.place(selected,origin):
+    _challenge_turn()
     var count:int = puzzle.last_cleared
     audio.effect_for("puzzle","big_shatter" if count>10 else "shatter" if count>0 else "place")
     progress.placed_piece()
@@ -1406,8 +1299,11 @@ func _release_puzzle(pos:Vector2,layout:Dictionary) -> void:
     if count>0:
      flash=.28 if count<20 else .7
      shake=.25
-     _burst(board.get_center(),18+count,Color("#7ceaff"))
-     var combo_message:String="CANDY COMBO x%d  +%d" % [puzzle.last_groups,puzzle.last_gained] if puzzle.last_groups>1 else "SWEET CLEAR  +%d" % puzzle.last_gained
+     for yy in 9:
+      for xx in 9:
+       if int(puzzle.previous.get("cells",puzzle.cells)[yy][xx])>0 and puzzle.cells[yy][xx]==0:
+        _burst(board.position+Vector2((xx+.5)*board.size.x/9.0,(yy+.5)*board.size.y/9.0),3,GEM_COLORS[int(puzzle.previous["cells"][yy][xx])])
+     var combo_message:String="COSMIC COMBO x%d  +%d" % [puzzle.last_groups,puzzle.last_gained] if puzzle.last_groups>1 else "CRYSTAL CLEAR  +%d" % puzzle.last_gained
      _announce(combo_message,board.get_center()+Vector2(0,-12),Color("#91f7ff"))
     if puzzle.fever_moves==5:
      audio.effect("fever")
@@ -1452,10 +1348,12 @@ func _fall_locked() -> void:
  progress.locked_falling_piece()
  if falling.last_lines>0:
   progress.cleared_lines(falling.last_lines,falling.combo)
-  flash=.54
-  shake=.31
+  flash=.22+falling.last_lines*.1
+  shake=.12+falling.last_lines*.06
   _burst(_layout()["board"].get_center(),20+falling.last_lines*9,Color("#86e8ff"))
+  var clear_names:Array=["","SINGLE","DOUBLE","TRIPLE","SUPERNOVA"]
   var falling_message:String="BLOCKFALL COMBO x%d  +%d" % [falling.last_lines,falling.last_gained] if falling.last_lines>1 else "QUANTUM CLEAR  +%d" % falling.last_gained
+  falling_message=String(clear_names[mini(4,falling.last_lines)])+"  +%d"%falling.last_gained
   _announce(falling_message,_layout()["board"].get_center(),Color("#b2f9ff"))
   audio.effect_for("falling","big_shatter" if falling.last_lines>=3 else "shatter")
  else:
@@ -1500,7 +1398,7 @@ func _burst(center:Vector2,count:int,color:Color) -> void:
   Color("#ff3d85"),Color("#ffce2c"),Color("#23eaf5"),
   Color("#a950ff"),Color("#75ff57"),Color("#ff9632"),
   Color("#ffffff")]
- for i in count:
+ for i in (mini(count,8) if visuals.reduced_effects else count):
   var angle:float=gen.randf_range(0,TAU)
   var velocity:Vector2=Vector2(cos(angle),sin(angle))*gen.randf_range(52,248)
   var visual_color:Color=candy_colors[gen.randi_range(0,candy_colors.size()-1)]
@@ -1515,24 +1413,218 @@ func _burst(center:Vector2,count:int,color:Color) -> void:
   fragments=fragments.slice(fragments.size()-230)
 
 func _load_game() -> void:
- if not FileAccess.file_exists("user://novagrid-godot-save.json"):
-  return
- var f := FileAccess.open("user://novagrid-godot-save.json",FileAccess.READ)
- if f==null:
-  return
- var data:Variant = JSON.parse_string(f.get_as_text())
- if not data is Dictionary:
-  return
- if data.has("puzzle"):
-  puzzle.load_state(data["puzzle"])
- if data.has("falling"):
-  falling.restore(data["falling"])
- if data.has("progression") and data["progression"] is Dictionary:
-  progress.restore(data["progression"])
+ var data:Dictionary=SaveStore.read()
+ var backup:Dictionary=SaveStore._read_path(SaveStore.PATH+".bak")
+ for key in ["puzzle","falling","progression","campaign"]:
+  if not data.has(key):continue
+  var model=puzzle if key=="puzzle" else falling if key=="falling" else progress if key=="progression" else campaign
+  var method:String="load_state" if key=="puzzle" else "restore"
+  var restored:bool=data[key] is Dictionary and bool(model.call(method,data[key]))
+  if not restored and backup.get(key) is Dictionary:
+   model.call(method,backup[key])
 
 func _save_game() -> void:
- if puzzle==null or falling==null:
+ if puzzle==null or falling==null:return
+ var data:Dictionary=SaveStore.read()
+ if entry=="daily" or entry=="stage":
+  var challenge:Dictionary={"entry":entry,"stage":stage,"day":progress._today(),
+   "puzzle":puzzle.save_state(),"run":challenge_run,"won":challenge_won,
+   "rng_state":str(puzzle.rng.state)}
+  data["challenge_"+entry]=challenge
+  data["puzzle"]=classic_save
+ else:
+  data["puzzle"]=puzzle.save_state()
+ data["falling"]=falling.snapshot()
+ data["progression"]=progress.snapshot()
+ data["campaign"]=campaign.snapshot()
+ var result:Error=SaveStore.write(data)
+ if result!=OK:push_error("NovaGrid save failed: %s"%error_string(result))
+
+func _layout() -> Dictionary:
+ var viewport:Vector2=get_viewport_rect().size
+ var safe:Rect2=SafeArea.content_rect(viewport)
+ safe.size.y=maxf(240.0,safe.size.y-banner_height)
+ var w:float=safe.size.x
+ var h:float=safe.size.y
+ var margin:float=16.0
+ var header:float=clampf(h*.22,132.0,194.0)
+ var side:float=clampf(w*.205,66.0,96.0)
+ var board:Rect2
+ var tray:Array=[]
+ if mode==0:
+  var tray_h:float=clampf(h*.10,58.0,112.0)
+  var dimension:float=minf(w-2*margin,h-header-tray_h-132.0)
+  board=Rect2(safe.position+Vector2((w-dimension)*.5,header),Vector2.ONE*dimension)
+  var tray_w:float=(w-2*margin-24)/3.0
+  for i in 3:
+   tray.append(Rect2(Vector2(safe.position.x+margin+i*(tray_w+12),board.end.y+(16 if h<730 else 26)),Vector2(tray_w,tray_h)))
+ else:
+  var cell:float=minf((w-3*margin-side)/10.0,(h-header-166.0)/18.0)
+  board=Rect2(safe.position+Vector2(margin,header),Vector2(10,18)*cell)
+ var next:=Rect2(Vector2(board.end.x+12,board.position.y+24),Vector2(side,88))
+ var hold:=Rect2(Vector2(next.position.x,next.end.y+48),Vector2(side,88))
+ var back:=Rect2(safe.position+Vector2(16,16),Vector2(44,44))
+ var pause_button:=Rect2(Vector2(safe.end.x-60,safe.position.y+16),Vector2(44,44))
+ return {"viewport":viewport,"safe":safe,"height":safe.end.y,"gutter":margin,"header_scale":1.0,
+  "board":board,"tray":tray,"buttons":[],"tabs":[],"next":next,"hold":hold,
+  "mode_switch":back,"pause":pause_button,"pause_visual":pause_button,
+  "audio":Rect2(safe.position.x+16,safe.end.y-102,44,44),
+  "music":Rect2(safe.position.x+72,safe.end.y-102,44,44),
+  "privacy":Rect2(safe.position.x+128,safe.end.y-102,74,44),
+  "bomb":Rect2(safe.end.x-100,safe.end.y-102,84,44),
+  "bomb_visual":Rect2(safe.end.x-100,safe.end.y-102,84,44),
+  "progress":Rect2(safe.position.x+16,safe.end.y-44,w-32,30),
+  "finish":Rect2(safe.position.x+46,safe.position.y+h*.5+28,w-92,48)}
+
+func _draw_cosmic() -> void:
+ var layout:Dictionary=_layout()
+ var safe:Rect2=layout["safe"]
+ var w:float=safe.size.x
+ _draw_sky(layout)
+ draw_rect(Rect2(Vector2.ZERO,layout["viewport"]),Color("#03051d",.36),true)
+ _draw_back_button(layout["mode_switch"])
+ _button(layout["pause"],"Ⅱ",true)
+ var title:String="Classic" if mode==0 else "Blockfall"
+ if entry=="daily":title="Daily Challenge"
+ if entry=="stage":title="Stage %d"%stage
+ _premium_title(title,Vector2(safe.position.x,safe.position.y+47),27,w,GLOW_PURPLE)
+ var subtitle:String="9 × 9  ·  Crystal Puzzle" if mode==0 else "10 × 18  ·  Falling Crystals"
+ if entry=="daily":subtitle=progress._today()+" UTC  ·  Clear 6 groups"
+ if entry=="stage":subtitle=String(campaign.stage_config(stage)["name"])
+ _label(subtitle,Vector2(safe.position.x,safe.position.y+73),12,Color("#b2bfff"),HORIZONTAL_ALIGNMENT_CENTER,w)
+ var card_y:float=safe.position.y+89
+ var card_h:float=maxf(38,minf(72,layout["board"].position.y-card_y-20))
+ for i in 2:
+  var card:=Rect2(safe.position.x+34+i*(w*.5-22),card_y,w*.5-46,card_h)
+  _glass_panel(card,Color("#10143b") if i==0 else Color("#251044"),GLOW_BLUE if i==0 else GLOW_PURPLE)
+  _label("Score" if i==0 else ("Best" if mode==0 else "Level"),card.position+Vector2(0,17),12,Color("#d9deff"),HORIZONTAL_ALIGNMENT_CENTER,card.size.x)
+  var value:int=(puzzle.score if mode==0 else falling.score) if i==0 else (puzzle.best if mode==0 else falling.level)
+  _label(str(value),card.position+Vector2(0,card_h-10),clampi(int(card_h*.41),16,28),Color.WHITE,HORIZONTAL_ALIGNMENT_CENTER,card.size.x)
+ if mode==0:_draw_puzzle(layout)
+ else:_draw_falling(layout)
+ _button(layout["audio"],"♪" if audio.sounds_enabled else "×",false)
+ _button(layout["music"],"♫" if audio.music_enabled else "○",false)
+ if native_ads!=null:_button(layout["privacy"],"PRIVACY",false,true)
+ if mode==0:
+  _button(layout["bomb"],"✦ %d"%puzzle.bombs,bomb_armed)
+  _label("EARNED BURSTS",Vector2(layout["bomb"].position.x,layout["bomb"].end.y+12),8,Color("#c5bcff"),HORIZONTAL_ALIGNMENT_CENTER,layout["bomb"].size.x)
+ _draw_progress_hud(layout)
+ if entry=="stage":
+  var cfg:Dictionary=campaign.stage_config(stage)
+  _label("%d/%d clears · %d/%d score · %d/%d moves"%[int(challenge_run.get("specials",0)),int(cfg["special_target"]),puzzle.score,int(cfg["score_target"]),puzzle.moves,int(cfg["min_moves"])],Vector2(safe.position.x,layout["board"].position.y-7),10,GLOW_GOLD,HORIZONTAL_ALIGNMENT_CENTER,w)
+ _draw_shockwaves()
+ _draw_fragments()
+ if flash>0:draw_rect(layout["board"],Color(.65,.9,1,flash*.12),true)
+ if settings_open:_draw_cosmic_settings(layout)
+ elif challenge_won:
+  draw_rect(Rect2(Vector2.ZERO,layout["viewport"]),Color("#02051b",.85),true)
+  var stars:int=campaign.rank_result(stage,puzzle,challenge_run) if entry=="stage" else 3
+  _premium_title("STAGE COMPLETE" if entry=="stage" else "DAILY COMPLETE",Vector2(safe.position.x,safe.position.y+safe.size.y*.43),24,w,GLOW_PINK)
+  _label("★".repeat(stars),Vector2(safe.position.x,safe.position.y+safe.size.y*.5),40,GLOW_GOLD,HORIZONTAL_ALIGNMENT_CENTER,w)
+  _button(layout["finish"],"GALAXY HOME",true)
+ elif paused or (puzzle.over if mode==0 else falling.over):_draw_modal(layout)
+
+func _settings_boxes(layout:Dictionary) -> Array[Rect2]:
+ var safe:Rect2=layout["safe"]
+ var top:float=safe.position.y+safe.size.y*.28
+ var result:Array[Rect2]=[]
+ for i in 5:result.append(Rect2(safe.position.x+48,top+i*57,safe.size.x-96,45))
+ return result
+
+func _draw_cosmic_settings(layout:Dictionary) -> void:
+ draw_rect(Rect2(Vector2.ZERO,layout["viewport"]),Color("#03051c",.93),true)
+ var boxes:Array[Rect2]=_settings_boxes(layout)
+ _premium_title("SETTINGS",Vector2(0,boxes[0].position.y-33),28,layout["viewport"].x,GLOW_PURPLE)
+ var labels:Array=["SOUND: "+("ON" if audio.sounds_enabled else "OFF"),"MUSIC: "+("ON" if audio.music_enabled else "OFF"),"EFFECTS: "+("LOW" if visuals.reduced_effects else "FULL"),"RESUME","NEW RUN"]
+ for i in boxes.size():_button(boxes[i],labels[i],i==3)
+ _draw_back_button(layout["mode_switch"])
+
+func _settings_action(pos:Vector2,layout:Dictionary) -> void:
+ if layout["mode_switch"].has_point(pos):
+  settings_open=false
+  paused=false
   return
- var f := FileAccess.open("user://novagrid-godot-save.json",FileAccess.WRITE)
- if f:
-  f.store_string(JSON.stringify({"puzzle":puzzle.save_state(),"falling":falling.snapshot(),"progression":progress.snapshot()}))
+ var boxes:Array[Rect2]=_settings_boxes(layout)
+ for i in boxes.size():
+  if not boxes[i].has_point(pos) or not boxes[i].has_point(pressed_at):continue
+  match i:
+   0:audio.toggle_sound()
+   1:audio.toggle_music("puzzle" if mode==0 else "falling")
+   2:
+    visuals.reduced_effects=not visuals.reduced_effects
+    var cfg:=ConfigFile.new()
+    cfg.load("user://novagrid-visual.cfg")
+    cfg.set_value("graphics","reduced_effects",visuals.reduced_effects)
+    cfg.save("user://novagrid-visual.cfg")
+    visuals.sky_material.set_shader_parameter("reduced_effects",visuals.reduced_effects)
+    visuals.sky_material.set_shader_parameter("activity",.45 if visuals.reduced_effects else .75)
+    visuals.sky_material.set_shader_parameter("motion_speed",0.0 if visuals.reduced_effects else .08)
+   3:
+    settings_open=false
+    paused=false
+   4:
+    settings_open=false
+    paused=false
+    _restart_mode()
+
+func _start_challenge() -> void:
+ if entry!="daily" and entry!="stage":return
+ classic_save=puzzle.save_state()
+ if entry=="stage" and (stage<1 or stage>campaign.unlocked):
+  entry="classic"
+  return
+ var data:Dictionary=SaveStore.read()
+ var saved:Variant=data.get("challenge_"+entry,{})
+ if saved is Dictionary and saved.get("puzzle") is Dictionary and saved.get("run") is Dictionary:
+  var same:bool=String(saved.get("day",""))==progress._today() if entry=="daily" else int(saved.get("stage",0))==stage
+  if same and puzzle.load_state(saved["puzzle"]):
+   challenge_run=saved["run"]
+   challenge_won=bool(saved.get("won",false))
+   puzzle.rng.state=int(saved.get("rng_state",str(puzzle.rng.state)))
+   return
+ _new_challenge()
+
+func _new_challenge() -> void:
+ puzzle.reset()
+ puzzle.best=0
+ puzzle.rng.seed=("novagrid-daily-"+progress._today()).hash() if entry=="daily" else ("novagrid-stage-%d"%stage).hash()
+ puzzle.reset()
+ challenge_run={"specials":0,"max_combo":0}
+ challenge_won=false
+ if entry=="stage":puzzle.cells=campaign.initial_board(stage)
+
+func _challenge_turn() -> void:
+ if entry=="stage":
+  challenge_run=campaign.apply_turn(stage,puzzle,challenge_run)
+  if campaign.won(stage,puzzle,challenge_run):
+   challenge_won=true
+   campaign.record_result(stage,puzzle,challenge_run)
+ elif entry=="daily" and puzzle.total_lines>=6:
+  challenge_won=true
+  var data:Dictionary=SaveStore.read()
+  var daily:Dictionary=data.get("daily",{}) if data.get("daily",{}) is Dictionary else {}
+  if daily.get("reward_day","")!=progress._today():
+   progress.stars+=25
+   daily["reward_day"]=progress._today()
+  daily["best"]=maxi(int(daily.get("best",0)),puzzle.score)
+  data["daily"]=daily
+  SaveStore.write(data)
+ if challenge_won:
+  audio.effect("fever")
+  _burst(_layout()["board"].get_center(),72,GLOW_GOLD)
+
+func _notification(what:int) -> void:
+ if what==NOTIFICATION_WM_GO_BACK_REQUEST and puzzle!=null:
+  paused=true
+  settings_open=not settings_open
+  if not settings_open:paused=false
+  touching=false
+  dragging=false
+  _save_game()
+  queue_redraw()
+ if what==NOTIFICATION_APPLICATION_PAUSED or what==NOTIFICATION_APPLICATION_FOCUS_OUT:
+  if puzzle!=null:
+   paused=true
+   touching=false
+   dragging=false
+   _save_game()

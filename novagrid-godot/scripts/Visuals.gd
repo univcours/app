@@ -11,7 +11,12 @@ var tile_textures: Array[Texture2D] = []
 var tile_viewports: Array[SubViewport] = []
 const TILE_SIZE := 80
 
+var reduced_effects:bool=false
+
 func configure(palette: Array) -> void:
+ var settings:=ConfigFile.new()
+ if settings.load("user://novagrid-visual.cfg")==OK:
+  reduced_effects=bool(settings.get_value("graphics","reduced_effects",false))
  background = ColorRect.new()
  background.name = "AnimatedNebula"
  background.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -24,13 +29,11 @@ func configure(palette: Array) -> void:
  background.material = sky_material
  add_child(background)
 
- # Bake ACTUAL 3D jelly/candy models with PBR materials into shared textures.
- # The 9x9 and 10x18 boards reuse these textures for mobile performance.
- candy_renderer=CANDY3D.new()
- candy_renderer.name="Candy3D_Studio"
- add_child(candy_renderer)
- candy_renderer.build_candies(palette)
-
+ # Cosmic Edition uses faceted shader crystals, baked once per palette.
+ # The previous original 3D candy renderer remains available in source.
+ sky_material.set_shader_parameter("reduced_effects",reduced_effects)
+ sky_material.set_shader_parameter("activity",.45 if reduced_effects else .75)
+ sky_material.set_shader_parameter("motion_speed",0.0 if reduced_effects else .08)
  for gem in palette:
   var viewport := SubViewport.new()
   viewport.name = "CrystalShaderSource"

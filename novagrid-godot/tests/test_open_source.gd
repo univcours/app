@@ -48,14 +48,14 @@ func _run_tests()->void:
  verify(restored.rotation_state==f.rotation_state,"rotation state restored")
  var home=Welcome.new()
  var detached_cards:Array[Rect2]=home._rectangles()
- verify(detached_cards.size()==2 and detached_cards[0].size.y>100,
+ verify(detached_cards.size()==4 and detached_cards[0].size.y>=44,
   "welcome layout works safely before the scene is attached")
  root.add_child(home)
  await process_frame
  verify(home.is_inside_tree(),"Welcome scene is attached before layout inspection")
  var cards:Array[Rect2]=home._rectangles()
- verify(cards.size()==2,"new Galaxy home has two real selectable modes")
- verify(cards[0].size.y>100 and cards[1].position.y>cards[0].end.y,
+ verify(cards.size()==4,"Cosmic home has four functional destinations")
+ verify(cards[0].size.y>=44 and cards[1].position.y>cards[0].end.y,
   "two touch cards do not overlap")
  verify(Welcome.FALL_PREVIEW_COLS==10 and Welcome.FALL_PREVIEW_ROWS==18,
   "Blockfall preview reflects the real 10x18 playing field")
