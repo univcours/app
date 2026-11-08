@@ -55,6 +55,8 @@ func _run_tests()->void:
  verify(home.is_inside_tree(),"Welcome scene is attached before layout inspection")
  var cards:Array[Rect2]=home._rectangles()
  verify(cards.size()==2,"new Galaxy home has two real selectable modes")
+ verify(cards[0].position.x>=0.0 and cards[0].end.x<=432.0, "Classic launch card stays in portrait bounds")
+ verify(cards[1].position.x>=0.0 and cards[1].end.x<=432.0, "Blockfall launch card stays in portrait bounds")
  verify(cards[0].size.y>100 and cards[1].position.y>cards[0].end.y,
   "two touch cards do not overlap")
  verify(Welcome.FALL_PREVIEW_COLS==10 and Welcome.FALL_PREVIEW_ROWS==18,
