@@ -7,6 +7,9 @@
 param([switch]$SkipGitPull,[switch]$AdMobTest)
 $ErrorActionPreference = 'Stop'
 
+# Narrowly scoped, retrying cleanup for disposable QA folders only.
+. (Join-Path $PSScriptRoot 'qa-cleanup.ps1')
+
 function CheckExit([string]$step) {
     if ($LASTEXITCODE -ne 0) { throw "$step failed (exit $LASTEXITCODE)." }
 }
@@ -201,9 +204,12 @@ try {
         InvokeGodotChecked @('--headless','--audio-driver','Dummy','--path',$qaProject,'--script',"res://tests/test_$suite.gd") "Godot $suite tests"
     }
 } finally {
-    if (Test-Path -LiteralPath $qaProject) { Remove-Item -LiteralPath $qaProject -Recurse -Force }
+    # All test exits remain fatal; a transient Windows/antivirus directory lock
+    # during disposable QA cleanup must NOT convert passing tests into a failed
+    # Android build. Cleanup is restricted to this run's random QA paths.
     $qaData = Join-Path $env:APPDATA ("Godot\app_userdata\" + $qaId)
-    if (Test-Path -LiteralPath $qaData) { Remove-Item -LiteralPath $qaData -Recurse -Force }
+    [void](Remove-NovaGridTemporaryQAPath -LiteralPath $qaProject)
+    [void](Remove-NovaGridTemporaryQAPath -LiteralPath $qaData)
 }
 
 
