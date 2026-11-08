@@ -9,6 +9,7 @@ const ProgressionScript = preload("res://scripts/Progression.gd")
 
 const SaveStore = preload("res://scripts/SaveStore.gd")
 const SafeArea = preload("res://scripts/SafeArea.gd")
+const BannerDock = preload("res://scripts/BannerDock.gd")
 const Campaign = preload("res://scripts/Campaign.gd")
 const Typography = preload("res://scripts/Typography.gd")
 const NeonSkin = preload("res://scripts/NeonSkin.gd")
@@ -89,7 +90,7 @@ var fall_drawn_drops := -1
 var fall_accum := 0.0
 var save_clock := 0.0
 var clock := 0.0
-var banner_height := 0.0 # Reserved only after an actual native banner reports its measured height.
+var banner_height := 0.0 # Dedicated ad dock, never part of gameplay safe rectangle.
 var native_ads: Node = null
 var skin_fall:Texture2D = null
 var skin_puzzle:Texture2D = null
@@ -99,9 +100,39 @@ var neon_gem_textures:Array[Texture2D]=[]
 var exact_candy_textures:Array[Texture2D]=[]
 
 func set_native_banner_height(px:float) -> void:
- # Reserved for the native AdMob bridge: do not simulate real ad filling here.
- banner_height=clampf(px,0.0,130.0)
+ # Logical dock height; set to zero on no-fill/consent denial.
+ banner_height=maxf(0.0,px)
  queue_redraw()
+
+func reserve_native_banner_pixels(physical_px:int) -> bool:
+ # Reserve BEFORE requesting/showing the native banner to avoid one-frame
+ # overlap. Reject unsupported tiny screens instead of hiding game controls.
+ var view:Vector2=get_viewport_rect().size
+ var native_window:Vector2=Vector2(DisplayServer.window_get_size())
+ var safe:Rect2=SafeArea.content_rect(view)
+ var needed:float=BannerDock.logical_reservation(float(physical_px),view,native_window)
+ if not BannerDock.can_reserve(safe,needed):
+  set_native_banner_height(0.0)
+  return false
+ set_native_banner_height(needed)
+ return true
+
+func _native_ad_dock_changed() -> void:
+ if native_ads!=null and native_ads.has_method("refresh_banner_dock"):
+  native_ads.call("refresh_banner_dock")
+ queue_redraw()
+
+func _draw_native_ad_dock(layout:Dictionary) -> void:
+ # This solid background and neon separator are behind Android's native
+ # AdView; no Godot button/board/popup can occupy this dedicated area.
+ if banner_height<=0.0:return
+ var safe_whole:Rect2=SafeArea.content_rect(layout["viewport"])
+ var dock:Rect2=BannerDock.dock_rect(safe_whole,banner_height)
+ draw_rect(dock,Color("#03091b"),true)
+ draw_line(dock.position+Vector2(0,1),dock.position+Vector2(dock.size.x,1),
+  Color("#10bde3",.42),4.0,true)
+ draw_line(dock.position,dock.position+Vector2(dock.size.x,0),
+  Color("#52eaff",.90),1.3,true)
 var stars: Array = []
 var fragments: Array = []
 var shockwaves: Array = []
@@ -144,7 +175,7 @@ func _ready() -> void:
   stage=int(session.get("stage"))
  _start_challenge()
  audio.select_music("puzzle" if mode==0 else "falling")
- get_viewport().size_changed.connect(queue_redraw)
+ get_viewport().size_changed.connect(_native_ad_dock_changed)
  # The optional real AdMob Android bridge is installed before Gradle export.
  if OS.get_name()=="Android" and ResourceLoader.exists("res://ads/AdMobRuntime.gd"):
   var ad_script:Script=load("res://ads/AdMobRuntime.gd")
@@ -218,6 +249,7 @@ func _exit_tree() -> void:
 
 func _draw() -> void:
  _draw_cosmic()
+ _draw_native_ad_dock(_layout())
 
 func _neon_puzzle_frame(viewport:Vector2,h:float) -> Rect2:
  # Uniform scale = truly square cells and NO distortion of the approved art.
@@ -708,6 +740,8 @@ func _input(event:InputEvent) -> void:
   queue_redraw()
 
 func _press(pos:Vector2) -> void:
+ if banner_height>0.0 and not _layout()["safe"].has_point(pos):
+  return # Native ad dock is never a Godot interaction area.
  touching = true
  pressed_at = pos
  touch_at = pos
@@ -732,6 +766,8 @@ func _press(pos:Vector2) -> void:
 func _move_pointer(pos:Vector2) -> void:
  if not touching:
   return
+ if banner_height>0.0 and not _layout()["safe"].has_point(pos):
+  return # Never drag gameplay beneath the live ad.
  touch_at=pos
  if pos.distance_to(pressed_at)>11.0:
   dragging=true
@@ -753,6 +789,10 @@ func _release(pos:Vector2) -> void:
  touching=false
  touch_at=pos
  var layout:Dictionary=_layout()
+ if banner_height>0.0 and not layout["safe"].has_point(pos):
+  dragging=false
+  queue_redraw()
+  return # Cancel a gesture ending in the ad dock.
  if settings_open:
   _settings_action(pos,layout)
   return
@@ -1062,7 +1102,7 @@ func _save_game() -> void:
 func _layout() -> Dictionary:
  var viewport:Vector2=get_viewport_rect().size
  var safe:Rect2=SafeArea.content_rect(viewport)
- safe.size.y=maxf(240.0,safe.size.y-banner_height)
+ safe.size.y=maxf(0.0,safe.size.y-banner_height)
  var w:float=safe.size.x
  var h:float=safe.size.y
  var margin:float=16.0

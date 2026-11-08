@@ -2,7 +2,7 @@ extends Node
 ## NovaGrid Godot 4.5.1 native Android AdMob controller for Poing Studios 5.1.0.
 ## Installed by scripts/install-admob.ps1 ONLY AFTER the compatible plugin is added.
 ## All Preview builds use Google's demo app/ad IDs; this never requests live ads.
-## Banner appears at the very bottom; gameplay reserves measured banner height.
+## Banner is hidden until its dedicated safe-area bottom dock is pre-reserved.
 ## Interstitial is offered only after completed rounds, with strong throttling.
 const BANNER_TEST = "ca-app-pub-3940256099942544/9214589741"
 const INTERSTITIAL_TEST = "ca-app-pub-3940256099942544/1033173712"
@@ -14,6 +14,7 @@ const INTERSTITIAL_LIVE = "ca-app-pub-7945572016731367/2422920606"
 const MIN_SECONDS_BETWEEN_FULL_SCREEN = 180.0
 var game: Node2D
 var banner: AdView
+var banner_ready := false
 var banner_listener := AdListener.new()
 var interstitial: InterstitialAd
 var interstitial_loader := InterstitialAdLoadCallback.new()
@@ -96,27 +97,45 @@ func _initialized(_status: InitializationStatus) -> void:
  _load_interstitial()
 
 func _load_banner() -> void:
- if not consent_ready or banner != null:
+ if not consent_ready or banner != null or not is_instance_valid(game):
   return
  var ad_size := AdSize.get_current_orientation_anchored_adaptive_banner_ad_size(AdSize.FULL_WIDTH)
  banner = AdView.new(BANNER_LIVE if live_build else BANNER_TEST,ad_size,AdPosition.BOTTOM)
- banner.ad_listener = banner_listener
+ # Poing AdView.get_height_in_pixels() queries the configured native AdSize
+ # even before the ad loads. Hide immediately, reserve the exact dock first.
+ banner.hide()
+ banner_ready=false
+ var px:int=banner.get_height_in_pixels()
+ if px<=0 or not game.reserve_native_banner_pixels(px):
+  print("NovaGrid AdMob: no safe, separate bottom dock; banner omitted")
+  _destroy_banner()
+  return
+ banner.ad_listener=banner_listener
  banner.load_ad(AdRequest.new())
 
 func _banner_loaded() -> void:
- if banner == null or not is_instance_valid(game):
+ if banner==null or not is_instance_valid(game):
   return
- var px := banner.get_height_in_pixels()
- if px <= 0:
-  # Never reserve an arbitrary ad block before a measured native banner exists.
+ # Recheck exact native dimensions before any view can become visible.
+ var px:int=banner.get_height_in_pixels()
+ if px<=0 or not game.reserve_native_banner_pixels(px):
+  print("NovaGrid AdMob: banner would cover controls; omitting ad")
+  _destroy_banner()
   return
- var physical_height := float(DisplayServer.window_get_size().y)
- var logical_height := game.get_viewport_rect().size.y
- if physical_height <= 1.0 or logical_height <= 1.0:
+ banner_ready=true
+ banner.show()
+ print("NovaGrid AdMob: bottom dock ready; native banner kept outside gameplay")
+
+func refresh_banner_dock() -> void:
+ if banner==null or not is_instance_valid(game):
   return
- var reserve := float(px) * logical_height / physical_height + 4.0
- game.set_native_banner_height(reserve)
- print("NovaGrid AdMob: native banner loaded; game dock=",reserve)
+ banner.hide()
+ var px:int=banner.get_height_in_pixels()
+ if px<=0 or not game.reserve_native_banner_pixels(px):
+  _destroy_banner()
+  return
+ if banner_ready:
+  banner.show()
 
 func _banner_failed(error: LoadAdError) -> void:
  print("NovaGrid AdMob: banner failed: ",error.message)
@@ -130,11 +149,13 @@ func _banner_closed() -> void:
   _destroy_banner()
 
 func _destroy_banner() -> void:
+ banner_ready=false
+ if banner!=null:
+  banner.hide()
+  banner.destroy()
+  banner=null
  if is_instance_valid(game):
   game.set_native_banner_height(0.0)
- if banner != null:
-  banner.destroy()
-  banner = null
 
 func _load_interstitial() -> void:
  if not consent_ready or loading_interstitial or interstitial != null:
