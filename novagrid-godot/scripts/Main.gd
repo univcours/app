@@ -560,21 +560,11 @@ func _reference_live_hud(layout:Dictionary) -> void:
  draw_rect(strip,Color("#100d39",.96),true)
  _label("COMBO x%d   ✦   LINES %d" % [falling.combo,falling.lines],
   Vector2(strip.position.x,310.0*sy),13,Color("#ffdcf7"))
- # The illustration contains a baked and blurred x0. Cover the WHOLE
- # preillustrated Combo panel, not an ugly rectangular patch in its middle.
- # Redraw one glossy, rounded Godot panel and its single dynamic counter.
- var combo_panel:=Rect2(Vector2(701.0*sx,897.0*sy),
-  Vector2(214.0*sx,210.0*sy))
- _glass_panel(combo_panel,Color("#260943"),GLOW_PINK)
- var title_baseline:float=combo_panel.position.y+64.0*sy
- _label("COMBO",Vector2(combo_panel.position.x,title_baseline),15,
-  Color("#fff2ff"),HORIZONTAL_ALIGNMENT_CENTER,combo_panel.size.x)
- var inside_left:Vector2=combo_panel.position+Vector2(25.0*sx,82.0*sy)
- var inside_right:Vector2=combo_panel.position+Vector2(172.0*sx,82.0*sy)
- draw_line(inside_left,inside_right,Color("#e18cff",.48),1.0,true)
+ # Original painted Combo frame, golden laurels and COMBO title remain as art.
+ # This updated texture has the baked x0 erased. Draw only the live counter.
+ # Never overlay a solid rectangle or a second UI panel over the art.
  _premium_numeric("x%d" % falling.combo,
-  Vector2(combo_panel.position.x,combo_panel.position.y+151.0*sy),
-  27,combo_panel.size.x)
+  Vector2(704.0*sx,1040.0*sy),29,208.0*sx)
  _sparkle(Vector2(431.0*sx,294.0*sy),GLOW_BLUE,2.5)
 
 
