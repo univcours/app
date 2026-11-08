@@ -53,15 +53,27 @@ def prepare(project, version):
         release=replace_one(release,before,after)
     config=project/"project.godot"
     project_content=config.read_text(encoding="utf-8")
-    if "[admob]" not in project_content or "[novagrid_ads]" not in project_content:
-        raise ValueError("Godot AdMob settings not found")
-    project_content=replace_one(project_content,
-        'general/android/app_id="'+TEST_APP+'"',
-        'general/android/app_id="'+LIVE_APP+'"')
-    project_content=replace_one(project_content,
-        'production_release=false','production_release=true')
-    if TEST_APP in project_content:
-        raise ValueError("Test AdMob ID in production configuration")
+    # The Poing editor plugin may normalize settings during its import.
+    # Restore missing release-specific sections, but never overwrite another
+    # publisher's AdMob App ID or an unexpected production configuration.
+    if "[admob]" in project_content:
+        project_content=replace_one(project_content,
+            'general/android/app_id="'+TEST_APP+'"',
+            'general/android/app_id="'+LIVE_APP+'"')
+    else:
+        if 'general/android/app_id=' in project_content:
+            raise ValueError("AdMob App ID exists outside its canonical section")
+        project_content+='\n[admob]\ngeneral/android/enabled=true\n'
+        project_content+='general/android/app_id="'+LIVE_APP+'"\n'
+    if "[novagrid_ads]" in project_content:
+        project_content=replace_one(project_content,
+            'production_release=false','production_release=true')
+    else:
+        if 'production_release=' in project_content:
+            raise ValueError("Unscoped release flag detected")
+        project_content+='\n[novagrid_ads]\nproduction_release=true\n'
+    if TEST_APP in project_content or "[admob]" not in project_content or "[novagrid_ads]" not in project_content:
+        raise ValueError("Unable to verify safe production-only AdMob settings")
     presets.write_text(content+"\n"+release+"\n",encoding="utf-8")
     config.write_text(project_content,encoding="utf-8")
     print("NOVAGRID_PLAY_PREPARED package="+PACKAGE+

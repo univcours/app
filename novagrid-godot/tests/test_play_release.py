@@ -56,6 +56,22 @@ class PlayReleaseTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 module.prepare(self.root,version)
         self.assertEqual(before,(self.root/"export_presets.cfg").read_bytes())
+    def test_restores_plugin_settings_stripped_by_editor_import(self):
+        (self.root/"project.godot").write_text(
+            '[application]\nconfig/name="NovaGrid"\n',encoding="utf-8")
+        module.prepare(self.root,2000119)
+        cfg=(self.root/"project.godot").read_text()
+        self.assertIn('[admob]',cfg)
+        self.assertIn(module.LIVE_APP,cfg)
+        self.assertIn('[novagrid_ads]',cfg)
+        self.assertIn('production_release=true',cfg)
+        self.assertNotIn(module.TEST_APP,cfg)
+    def test_rejects_unknown_admob_id(self):
+        p=self.root/"project.godot"
+        cfg=p.read_text()
+        p.write_text(cfg.replace(module.TEST_APP,'ca-app-pub-1234567890123456~9999999999'))
+        with self.assertRaises(ValueError):
+            module.prepare(self.root,2000119)
     def test_requires_plugin(self):
         (self.root/"addons/admob/plugin.cfg").unlink()
         with self.assertRaises(FileNotFoundError):
