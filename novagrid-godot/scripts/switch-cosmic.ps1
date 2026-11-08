@@ -84,7 +84,12 @@ try {
         foreach ($path in $moved) {
             $original = Join-Path $Root $path
             if (!(Test-Path -LiteralPath $original)) {
-                Copy-Item -LiteralPath (Join-Path $backup $path) -Destination $original
+                try {
+                    [IO.File]::Copy((Join-Path $backup $path),$original,$false)
+                } catch [IO.IOException] {
+                    # A running editor may have regenerated it since Test-Path.
+                    if (!(Test-Path -LiteralPath $original)) { throw }
+                }
             }
         }
     }
