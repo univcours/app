@@ -876,13 +876,14 @@ func _release(pos:Vector2) -> void:
   else:
    _announce("NEXT GALAXY AT LEVEL 4",Vector2(layout["viewport"].x*.5,layout["height"]*.5),Color("#bdeaff"))
   return
- if mode==0 and layout["bomb"].has_point(pos) and layout["bomb"].has_point(pressed_at):
-  if puzzle.bombs>0:
-   bomb_armed=not bomb_armed
+ if layout["bomb"].has_point(pos) and layout["bomb"].has_point(pressed_at):
+  var charges:int=puzzle.bombs if mode==0 else falling.rescues
+  if charges>0:
+   bomb_armed=true if mode==1 and falling.rescue_pending else not bomb_armed
    selected=-1
    audio.effect("tap")
   else:
-   _announce("BOMB: 5000 SCORE + 18 LINES",layout["board"].get_center(),Color("#ffe0a7"))
+   _announce("CLEAR 4 LINES TO EARN A BLAST",layout["board"].get_center(),Color("#ffe0a7"))
   return
  if layout["pause"].has_point(pos):
   paused=true
@@ -900,6 +901,9 @@ func _release(pos:Vector2) -> void:
 
  if mode==1 and layout["hold"].has_point(pos) and layout["hold"].has_point(pressed_at):
   if falling.hold_piece():
+   if falling.rescue_pending:
+    bomb_armed=true
+    _announce("BLOCKED! TAP BOARD TO BLAST",layout["board"].get_center(),GLOW_PINK)
    fall_display=Vector2(falling.active)
    fall_drawn_drops=falling.drops
    audio.effect_for("falling","rotate")
@@ -994,6 +998,10 @@ func _release_puzzle(pos:Vector2,layout:Dictionary) -> void:
      audio.effect("fever")
      _burst(board.get_center(),33,Color("#ff7aff"))
      _announce("NOVA FEVER!",board.get_center(),Color("#ff95e7"))
+    if puzzle.needs_rescue():
+     bomb_armed=true
+     _announce("NO MOVE  -  USE YOUR EARNED BLAST",
+      board.get_center()-Vector2(0,36),GLOW_PINK)
     if puzzle.over:
      audio.effect("lose")
     selected=-1
@@ -1031,6 +1039,9 @@ func _fall_hard_drop() -> void:
 
 func _fall_locked() -> void:
  progress.locked_falling_piece()
+ if falling.last_rescue_award>0:
+  _announce("BLAST EARNED!",_layout()["board"].get_center()-Vector2(0,72),GLOW_GOLD)
+  audio.effect("reward")
  if falling.last_lines>0:
   progress.cleared_lines(falling.last_lines,falling.combo)
   flash=.22+falling.last_lines*.1
@@ -1044,7 +1055,10 @@ func _fall_locked() -> void:
  else:
   audio.effect_for("falling","lock")
  _reward_feedback(_layout()["board"].get_center())
- if falling.over:
+ if falling.rescue_pending:
+  bomb_armed=true
+  _announce("NO ROOM  -  TAP BOARD TO RESCUE",_layout()["board"].get_center(),GLOW_PINK)
+ elif falling.over:
   audio.effect("lose")
  _save_game()
 
@@ -1052,6 +1066,24 @@ func _release_falling(pos:Vector2,layout:Dictionary) -> void:
  if not falling_touch_valid or falling.over:
   return
  var board:Rect2=layout["board"]
+ if falling.rescue_pending or bomb_armed:
+  if board.has_point(pos) and falling.can_rescue():
+   var dim:Vector2=board.size/Vector2(10,18)
+   var target:=Vector2i(clampi(int((pos.x-board.position.x)/dim.x),0,9),
+    clampi(int((pos.y-board.position.y)/dim.y),0,17))
+   var removed:int=falling.detonate_rescue(target)
+   if removed>0:
+    bomb_armed=falling.rescue_pending
+    audio.effect("falling_big_shatter")
+    var impact:Vector2=board.position+Vector2((target.x+.5)*dim.x,(target.y+.5)*dim.y)
+    _burst(impact,24+removed*4,GLOW_PINK)
+    _announce("CANDY RESCUE!",impact-Vector2(0,33),GLOW_BLUE)
+    flash=.58
+    if falling.over:audio.effect("lose")
+    _save_game()
+   else:
+    _announce("TAP OCCUPIED CELLS TO BLAST",board.get_center(),GLOW_PINK)
+  return
  var displacement:Vector2=pos-pressed_at
  var elapsed:float=maxf(.01,clock-press_clock)
  var cell:float=board.size.x/10.0
