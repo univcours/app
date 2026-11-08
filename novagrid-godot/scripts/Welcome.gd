@@ -69,26 +69,17 @@ func _process(delta:float) -> void:
    chosen=-1
  queue_redraw()
 
-func _rectangles() -> Array[Rect2]:
+# Logical 432x960 reference layout. Playable actions are Classic and Blockfall.
+# Daily and Galaxy are visibly disabled until their native gameplay exists.
+func _menu_scale() -> Vector2:
  var size:Vector2=get_viewport_rect().size if is_inside_tree() else Vector2(432.0,960.0)
- # For the reference image, the WHOLE card is touchable despite being a
- # flattened, pixel-identical artwork. No transparent dead PLAY buttons.
- if exact_menu_texture != null:
-  var ratio:=Vector2(size.x/EXACT_MENU_CANVAS.x,size.y/EXACT_MENU_CANVAS.y)
-  return [
-   Rect2(EXACT_PUZZLE_HIT.position*ratio,EXACT_PUZZLE_HIT.size*ratio),
-   Rect2(EXACT_FALL_HIT.position*ratio,EXACT_FALL_HIT.size*ratio)
-  ]
- var margin:float=clampf(size.x*.052,14.0,28.0)
- var card_height:float=clampf(size.y*.235,146.0,226.0)
- var gap:float=clampf(size.y*.018,11.0,19.0)
- var top:float=clampf(size.y*.267,158.0,273.0)
- # Keep two complete cards + progression footer on small Android screens.
- if top+2.0*card_height+gap>size.y-126.0:
-  top=maxf(138.0,size.y-126.0-2.0*card_height-gap)
+ return Vector2(size.x/432.0,size.y/960.0)
+
+func _rectangles() -> Array[Rect2]:
+ var ratio:Vector2=_menu_scale()
  return [
-  Rect2(margin,top,size.x-2.0*margin,card_height),
-  Rect2(margin,top+card_height+gap,size.x-2.0*margin,card_height)
+  Rect2(Vector2(20,548)*ratio,Vector2(392,81)*ratio),
+  Rect2(Vector2(20,718)*ratio,Vector2(392,81)*ratio)
  ]
 
 func _label(message:String,pos:Vector2,size:int,color:Color=Color.WHITE,
@@ -335,88 +326,117 @@ func _card(rect:Rect2,index:int) -> void:
    Color(accent.r,accent.g,accent.b,.60),3.0,true)
  draw_set_transform(Vector2.ZERO,0.0,Vector2.ONE)
 
+# Follows the approved reference image's actual screen structure:
+# top HUD, luminous NovaGrid title, floating crystal pile, four large
+# stacked mode rows, and bottom navigation. No flattened fake hit targets.
+func _hero_cube(x:float,y:float,side:float,color:Color) -> void:
+ var c:Color=color
+ var front:=PackedVector2Array([
+  Vector2(x,y),Vector2(x+side,y),Vector2(x+side,y+side),Vector2(x,y+side)])
+ var top:=PackedVector2Array([
+  Vector2(x,y),Vector2(x+side*.21,y-side*.19),
+  Vector2(x+side*1.21,y-side*.19),Vector2(x+side,y)])
+ var right:=PackedVector2Array([
+  Vector2(x+side,y),Vector2(x+side*1.21,y-side*.19),
+  Vector2(x+side*1.21,y+side*.81),Vector2(x+side,y+side)])
+ draw_colored_polygon(front,c)
+ draw_colored_polygon(top,c.lightened(.38))
+ draw_colored_polygon(right,c.darkened(.27))
+ draw_rect(Rect2(x+3,y+3,side-6,side-6),Color(1,1,1,.08),true)
+ draw_line(Vector2(x+2,y+2),Vector2(x+side-3,y+2),Color(1,1,1,.75),1.6,true)
+ draw_line(Vector2(x+2,y+2),Vector2(x+2,y+side-3),Color(1,1,1,.33),1.4,true)
+ draw_line(Vector2(x+side-1,y+2),Vector2(x+side-1,y+side-2),
+  Color(1,1,1,.35),1.2,true)
+
+func _reference_hero() -> void:
+ var center:=Vector2(220,364)
+ _planet(center+Vector2(1,65),128,Color("#1f1679"),Color("#a538ff"))
+ for ring in 4:
+  draw_arc(center+Vector2(0,75),148+ring*5,PI*.05,PI*.95,88,
+   Color(.3,.75,1.0,.16+ring*.025),2.0,true)
+ var bob:float=sin(clock*1.35)*3.0
+ draw_circle(center+Vector2(0,108),126,Color("#7718c4",.09))
+ # Faceted 3D-looking cube arrangement from the approved concept.
+ # All polygons are produced by Godot, so no fake screenshots are embedded.
+ _hero_cube(112,321+bob,58,Color("#b34dfb"))
+ _hero_cube(174,349+bob,57,Color("#9c3fff"))
+ _hero_cube(235,340+bob,56,Color("#17b8ff"))
+ _hero_cube(145,259+bob,57,Color("#d259fa"))
+ _hero_cube(208,292+bob,56,Color("#ffad24"))
+ _hero_cube(208,233+bob,53,Color("#ffc139"))
+ _hero_cube(267,312+bob,44,Color("#10aefb"))
+ for spark in [Vector2(93,320),Vector2(338,306),Vector2(180,241)]:
+  var radius:float=5.0+sin(clock*2.0+spark.x)*1.2
+  draw_line(spark-Vector2(radius,0),spark+Vector2(radius,0),
+   Color("#fbd2ff",.75),1.5,true)
+  draw_line(spark-Vector2(0,radius),spark+Vector2(0,radius),
+   Color("#fbd2ff",.75),1.5,true)
+
+func _menu_row(y:float,title:String,subtitle:String,accent:Color,
+ enabled:bool,number:int) -> void:
+ var rect:=Rect2(20,y,392,81)
+ var ink:Color=Color("#102253") if enabled else Color("#14152e")
+ _glass(rect,ink,accent if enabled else Color("#546088"),true)
+ # Gradient-like glow on the left and consistent illuminated game icon.
+ draw_rect(Rect2(23,y+11,5,59),Color(accent.r,accent.g,accent.b,.85 if enabled else .24),true)
+ var glyph:Rect2=Rect2(37,y+21,40,40)
+ _glass(glyph,Color("#102448"),accent)
+ if number==0:
+  for yy in 3:
+   for xx in 3:
+    draw_rect(Rect2(43+xx*10,y+27+yy*10,7,7),
+     Color("#52e4ff",.85),true)
+ elif number==1:
+  _label("D",Vector2(50,y+49),25,accent)
+ elif number==2:
+  for yy in 3:
+   _hero_cube(48+yy*5,y+28+yy*5,10,accent)
+ else:
+  _label("✦",Vector2(45,y+49),28,accent)
+ _label(title,Vector2(91,y+34),22,
+  Color("#f2f7ff") if enabled else Color("#9fa8d0"))
+ _label(subtitle,Vector2(91,y+55),11,Color("#b9cef2"))
+ if enabled:
+  _label("▶",Vector2(361,y+50),26,accent)
+ else:
+  _label("SOON",Vector2(343,y+46),13,Color("#bac4ea"))
+
 func _draw() -> void:
- var view:Vector2=get_viewport_rect().size
- if exact_menu_texture != null:
-  # Render the supplied image itself, no approximation via procedural panels.
-  # Stretch to the viewport so all CTA/buttons remain present on narrow phones.
-  draw_texture_rect(exact_menu_texture,Rect2(Vector2.ZERO,view),false)
-  if chosen>=0:
-   draw_rect(Rect2(Vector2.ZERO,view),
-    Color(.01,.02,.08,clampf(transition_elapsed/.28,0.0,1.0)),true)
-  return
- var cards:Array[Rect2]=_rectangles()
- var compact:bool=view.y<730.0
- # Dark atmospheric veil behind the brand prevents the nebula from
- # reducing readability; no fake imagery and no expensive blur shaders.
- draw_rect(Rect2(Vector2.ZERO,view),Color("#060b27",.48),true)
- _cosmic_backdrop(view)
- _starfield(view)
- var header_height:float=cards[0].position.y
- var title_y:float=header_height*.36
- var small:float=.83 if compact else 1.0
- _planet(Vector2(view.x*.84,header_height*.42),view.x*.115,
-  Color("#101a58"),Color("#6678ff"))
- _planet(Vector2(view.x*.13,header_height*.59),view.x*.067,
-  Color("#07375c"),Color("#4ee9f6"))
- # A restrained candy constellation frames the genuine brand and makes
- # the game visually identifiable from the first screen.
- var hero_gems:=[{"kind":1,"x":.045,"y":.29,"size":45.0},
-  {"kind":2,"x":.86,"y":.70,"size":48.0},
-  {"kind":5,"x":.055,"y":.72,"size":35.0}]
- for item in hero_gems:
-  var tex:Texture2D=visuals.get_gem_texture(int(item["kind"]))
-  if tex==null:
-   continue
-  var diameter:float=float(item["size"])*small
-  var offset:float=sin(clock*1.25+float(item["kind"]))*4.0
-  var p:=Vector2(view.x*float(item["x"]),header_height*float(item["y"])+offset)
-  var halo:Color=GEMS[int(item["kind"])]
-  draw_circle(p+Vector2(diameter*.5,diameter*.5),diameter*.62,
-   Color(halo.r,halo.g,halo.b,.10))
-  draw_texture_rect(tex,Rect2(p,Vector2(diameter,diameter)),false,Color.WHITE)
- # One coherent name instead of old NOVA / G.RID fragmentation.
- var brand_size:int=clampi(int(view.x*.112*small),33,50)
- _label("NovaGrid",Vector2(0,title_y+3),brand_size,Color("#148bff"),
-  HORIZONTAL_ALIGNMENT_CENTER,view.x)
- _label("NovaGrid",Vector2(0,title_y),brand_size,Color("#f8fdff"),
-  HORIZONTAL_ALIGNMENT_CENTER,view.x)
- var sub_y:float=title_y+27.0*small
- _label("C O S M I C   B L O C K   P U Z Z L E",Vector2(0,sub_y),
-  11 if not compact else 9,Color("#96f4ff"),HORIZONTAL_ALIGNMENT_CENTER,view.x)
- var trail_y:float=sub_y+15.0*small
- draw_line(Vector2(view.x*.33,trail_y),Vector2(view.x*.67,trail_y),
-  Color("#ab7fff",.82),2.0,true)
- _label("CRYSTAL BLOCKS  ·  COSMIC COMBOS",Vector2(0,trail_y+22.0*small),
-  11 if not compact else 9,Color("#e2d9ff"),HORIZONTAL_ALIGNMENT_CENTER,view.x)
- _label("CHOOSE YOUR ADVENTURE",Vector2(0,cards[0].position.y-13.0),
-  11,Color("#b4cbff"),HORIZONTAL_ALIGNMENT_CENTER,view.x)
- for i in 2:
-  _card(cards[i],i)
- var footer_top:float=cards[1].end.y+clampf(view.y*.020,11.0,20.0)
- var room:float=view.y-footer_top-57.0
- if room>42.0:
-  var footer_height:float=minf(room,87.0)
-  var footer:=Rect2(Vector2(cards[0].position.x,footer_top),
-   Vector2(cards[0].size.x,footer_height))
-  _glass(footer,Color("#10224a"),Color("#587bff"))
-  _label("★  YOUR COSMIC JOURNEY",footer.position+Vector2(18,25),
-   16 if not compact else 13,Color("#ffe49a"))
-  _label("LEVEL UP  ·  UNLOCK THEMES  ·  EARN STARS",
-   footer.position+Vector2(18,44),10 if not compact else 9,Color("#bde2ff"))
-  if footer_height>65.0:
-   var kinds:=[2,3,4,5,1]
-   for i in kinds.size():
-    _crystal(Rect2(footer.position+Vector2(19+i*28,49),
-     Vector2(25,25)),kinds[i])
-   _label("YOUR NEXT HIGH SCORE STARTS HERE",
-    footer.position+Vector2(155,66),9,Color("#d5cdff"))
- _label("ORIGINAL PUZZLE ARCADE   •   PLAY YOUR WAY",
-  Vector2(0,view.y-18.0),10 if not compact else 8,
-  Color(.76,.88,1.0,.8),HORIZONTAL_ALIGNMENT_CENTER,view.x)
+ var actual:Vector2=get_viewport_rect().size
+ draw_rect(Rect2(Vector2.ZERO,actual),Color("#06071d"),true)
+ # All tappable rectangles use the same viewport mapping.
+ draw_set_transform(Vector2.ZERO,0.0,_menu_scale())
+ draw_rect(Rect2(0,0,432,960),Color("#090b29"),true)
+ _cosmic_backdrop(Vector2(432,960))
+ _starfield(Vector2(432,960))
+ _planet(Vector2(403,103),64,Color("#18124a"),Color("#4e65ff"))
+ _planet(Vector2(29,264),25,Color("#231459"),Color("#b54dff"))
+ # Top HUD: decorative symbols only; do not fabricate spendable balances.
+ _glass(Rect2(18,21,70,44),Color("#11204a"),Color("#42dfff"))
+ _label("✦",Vector2(35,51),24,Color("#ffcf50"))
+ _label("★",Vector2(62,49),19,Color("#ffe7a2"))
+ _glass(Rect2(348,21,65,44),Color("#141d4c"),Color("#9c78ff"))
+ _label("⚙",Vector2(368,51),25,Color("#f4efff"))
+ _label("NovaGrid",Vector2(0,143),47,Color("#742bee"),
+  HORIZONTAL_ALIGNMENT_CENTER,432)
+ _label("NovaGrid",Vector2(0,140),47,Color("#f2f1ff"),
+  HORIZONTAL_ALIGNMENT_CENTER,432)
+ _label("Cosmic Block Puzzle",Vector2(0,169),15,Color("#b6d9ff"),
+  HORIZONTAL_ALIGNMENT_CENTER,432)
+ _reference_hero()
+ _menu_row(548,"Classic","9 × 9 Puzzle",Color("#39e6ff"),true,0)
+ _menu_row(633,"Daily Challenge","Coming soon",Color("#ffc15b"),false,1)
+ _menu_row(718,"Blockfall","Endless block action",Color("#df6dff"),true,2)
+ _menu_row(803,"Galaxy Stages","Coming soon",Color("#31dfff"),false,3)
+ var bottom:=Rect2(20,893,392,57)
+ _glass(bottom,Color("#161440"),Color("#684bba"))
+ _label("CLASSIC",Vector2(47,928),11,Color("#aeefff"))
+ _label("BLOCKFALL",Vector2(150,928),11,Color("#e5aaff"))
+ _label("NOVA",Vector2(300,928),11,Color("#bbceef"))
  if chosen>=0:
-  draw_rect(Rect2(Vector2.ZERO,view),
+  draw_rect(Rect2(0,0,432,960),
    Color(.01,.02,.09,clampf(transition_elapsed/.28,0.0,1.0)),true)
+ draw_set_transform(Vector2.ZERO,0.0,Vector2.ONE)
 
 func _launch(index:int) -> void:
  if chosen>=0:
