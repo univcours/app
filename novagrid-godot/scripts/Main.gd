@@ -18,6 +18,18 @@ const EXACT_FALL_SKIN = "res://assets/skins/blockfall_playable_chrome.png"
 const PUZZLE_COSMIC_SKIN = "res://assets/skins/blockpuzzle_cosmic_backdrop.png"
 # Dedicated live 9x9 playable art matching the reference Blockfall chrome.
 const EXACT_PUZZLE_CHROME = "res://assets/skins/blockpuzzle_playable_chrome.png"
+# User-approved 941x1672 Block Puzzle reference, with sample blocks removed.
+# The art retains the EXACT neon title, galaxy, glass interface and 3 tray frames.
+const NEON_PUZZLE_SKIN = "res://assets/skins/neon_exact/neon_block_puzzle_empty_941x1672.png"
+const NEON_CANVAS = Vector2(941.0,1672.0)
+const NEON_GEM_PATHS = ["",
+ "res://assets/skins/neon_exact/gem_1.png",
+ "res://assets/skins/neon_exact/gem_2.png",
+ "res://assets/skins/neon_exact/gem_3.png",
+ "res://assets/skins/neon_exact/gem_4.png",
+ "res://assets/skins/neon_exact/gem_5.png",
+ "res://assets/skins/neon_exact/gem_6.png",
+ "res://assets/skins/neon_exact/gem_7.png"]
 const PUZZLE_CHROME_CANVAS = Vector2(941.0,2091.0)
 const SKIN_CANVAS = Vector2(941.0,1672.0)
 # Exact seven candy faces cut from the approved AI-generated reference.
@@ -70,6 +82,8 @@ var native_ads: Node = null
 var skin_fall:Texture2D = null
 var skin_puzzle:Texture2D = null
 var skin_puzzle_chrome:Texture2D = null
+var skin_neon_puzzle:Texture2D = null
+var neon_gem_textures:Array[Texture2D]=[]
 var exact_candy_textures:Array[Texture2D]=[]
 
 func set_native_banner_height(px:float) -> void:
@@ -99,6 +113,13 @@ func _ready() -> void:
   skin_puzzle = load(PUZZLE_COSMIC_SKIN) as Texture2D
  if ResourceLoader.exists(EXACT_PUZZLE_CHROME):
   skin_puzzle_chrome = load(EXACT_PUZZLE_CHROME) as Texture2D
+ if ResourceLoader.exists(NEON_PUZZLE_SKIN):
+  skin_neon_puzzle = load(NEON_PUZZLE_SKIN) as Texture2D
+ for gem_path in NEON_GEM_PATHS:
+  var neon_tex:Texture2D=null
+  if gem_path!="" and ResourceLoader.exists(gem_path):
+   neon_tex=load(gem_path) as Texture2D
+  neon_gem_textures.append(neon_tex)
  for path in REFERENCE_CANDY_PATHS:
   var tex:Texture2D=null
   if path!="" and ResourceLoader.exists(path):
@@ -204,6 +225,8 @@ func _layout() -> Dictionary:
  var gutter:float=clampf(w*.031,9.0,18.0)
  if mode==1 and skin_fall!=null and h>=760.0:
   return _reference_blockfall_layout(viewport,h)
+ if mode==0 and skin_neon_puzzle!=null and h>=650.0:
+  return _neon_puzzle_layout(viewport,h)
  if mode==0 and skin_puzzle_chrome!=null and h>=760.0:
   return _reference_blockpuzzle_layout(viewport,h)
  var header_scale:float=clampf(h/840.0,.72,1.0)
@@ -253,15 +276,24 @@ func _draw() -> void:
  var h:float=float(layout["height"])
  var w:float=float(layout["viewport"].x)
  var art:Texture2D=null
- var exact_puzzle:bool=mode==0 and skin_puzzle_chrome!=null and h>=760.0
+ var neon_puzzle:bool=mode==0 and skin_neon_puzzle!=null and h>=650.0
+ var exact_puzzle:bool=mode==0 and skin_puzzle_chrome!=null and h>=760.0 and not neon_puzzle
  if mode==1 and skin_fall!=null and h>=760.0:
   art=skin_fall
+ elif neon_puzzle:
+  art=skin_neon_puzzle
  elif exact_puzzle:
   art=skin_puzzle_chrome
  elif mode==0:
   art=skin_puzzle
  if art!=null:
-  if exact_puzzle:
+  if neon_puzzle:
+   # Animated sky only in the letterbox: the exact art is kept undistorted.
+   draw_rect(Rect2(Vector2.ZERO,Vector2(w,h)),Color("#08092b"),true)
+   _draw_sky(layout)
+   draw_texture_rect(art,_neon_puzzle_frame(layout["viewport"],h),false)
+   _draw_neon_puzzle_values(layout)
+  elif exact_puzzle:
    # Preserve authored proportions, even on phones with an AdMob dock.
    var frame:Rect2=_puzzle_chrome_frame(layout["viewport"],h)
    if skin_puzzle!=null:
@@ -290,6 +322,9 @@ func _draw() -> void:
   if native_ads!=null:
    var privacy_rect:Rect2=layout["privacy"]
    _label("PRIVACY",privacy_rect.position+Vector2(0,12),9,Color("#c6eeff"))
+ elif neon_puzzle:
+  # The reference has no fake GALAXY RANK ribbon. Keep its exact clean art.
+  pass
  elif exact_puzzle:
   var art_frame:Rect2=_puzzle_chrome_frame(layout["viewport"],h)
   draw_set_transform(art_frame.position,0.0,Vector2.ONE)
@@ -312,12 +347,78 @@ func _draw() -> void:
  _draw_fragments()
  if flash>0:
   draw_rect(Rect2(Vector2.ZERO,layout["viewport"]),Color(0.6,0.9,1.0,flash*0.15),true)
- if paused or (mode==0 and puzzle.over) or (mode==1 and falling.over):
+ if paused and mode==0 and skin_neon_puzzle!=null and not puzzle.over:
+  _draw_neon_settings(layout)
+ elif paused or (mode==0 and puzzle.over) or (mode==1 and falling.over):
   _draw_modal(layout)
  if banner_height>0:
   var r := Rect2(Vector2(0,layout["height"]),Vector2(float(layout["viewport"].x),banner_height))
   draw_rect(r,Color("#080f26"),true)
   draw_line(r.position,Vector2(r.end.x,r.position.y),Color("#78dfff"),2.0)
+
+func _neon_puzzle_frame(viewport:Vector2,h:float) -> Rect2:
+ # Uniform scale = truly square cells and NO distortion of the approved art.
+ var scale:float=minf(viewport.x/NEON_CANVAS.x,h/NEON_CANVAS.y)
+ var size:Vector2=NEON_CANVAS*scale
+ return Rect2(Vector2((viewport.x-size.x)*.5,(h-size.y)*.5),size)
+
+
+func _neon_puzzle_layout(viewport:Vector2,h:float) -> Dictionary:
+ var picture:Rect2=_neon_puzzle_frame(viewport,h)
+ var s:float=picture.size.x/NEON_CANVAS.x
+ var a:Vector2=picture.position
+ var play:=Rect2(a+Vector2(58.0,422.0)*s,Vector2(827.0,844.0)*s)
+ var trays:Array=[]
+ for left in [40.0,334.0,628.0]:
+  trays.append(Rect2(a+Vector2(left,1315.0)*s,Vector2(268.0,230.0)*s))
+ var no_button:=Rect2(Vector2(-100,-100),Vector2.ZERO)
+ return {
+  "viewport":viewport,"height":h,"gutter":clampf(viewport.x*.03,9.0,18.0),
+  "header_scale":1.0,"board":play,"tray":trays,"buttons":[],"tabs":[],
+  "progress":no_button,"mode_switch":Rect2(a+Vector2(25,267)*s,Vector2(100,105)*s),
+  "pause_visual":Rect2(a+Vector2(806,267)*s,Vector2(102,105)*s),
+  "pause":Rect2(a+Vector2(806,267)*s,Vector2(102,105)*s),
+  "audio":no_button,"music":no_button,"privacy":no_button,
+  "bomb":no_button,"bomb_visual":no_button,"next":no_button,"hold":no_button
+ }
+
+
+func _draw_neon_puzzle_values(layout:Dictionary) -> void:
+ # SCORE + LEVEL decorative labels are from the exact art. Only numeric
+ # values are drawn by Godot; their sample values were erased from the PNG.
+ var pic:Rect2=_neon_puzzle_frame(layout["viewport"],float(layout["height"]))
+ var s:float=pic.size.x/NEON_CANVAS.x
+ var shadow:Color=Color("#184b9e")
+ var white:Color=Color("#f5fdff")
+ var left:Vector2=pic.position+Vector2(264.0,354.0)*s
+ var right:Vector2=pic.position+Vector2(638.0,354.0)*s
+ var textsize:int=maxi(12,int(round(43.0*s)))
+ var second:int=maxi(12,int(round(44.0*s)))
+ _label(str(puzzle.score),left+Vector2(0,1.2),textsize,shadow,
+  HORIZONTAL_ALIGNMENT_CENTER,206.0*s)
+ _label(str(puzzle.score),left,textsize,white,
+  HORIZONTAL_ALIGNMENT_CENTER,206.0*s)
+ _label(str(progress.level),right+Vector2(0,1.2),second,Color("#d057d8"),
+  HORIZONTAL_ALIGNMENT_CENTER,104.0*s)
+ _label(str(progress.level),right,second,white,
+  HORIZONTAL_ALIGNMENT_CENTER,104.0*s)
+
+
+func _draw_neon_settings(layout:Dictionary) -> void:
+ var w:float=layout["viewport"].x
+ var h:float=float(layout["height"])
+ var panel:=Rect2(Vector2(w*.1,h*.30),Vector2(w*.8,295))
+ draw_rect(Rect2(Vector2.ZERO,Vector2(w,h)),Color("#05051d",.72),true)
+ _glass_panel(panel,Color("#101b53"),GLOW_PINK)
+ _label("SETTINGS",Vector2(panel.position.x,panel.position.y+43),25,
+  Color("#f8f6ff"),HORIZONTAL_ALIGNMENT_CENTER,panel.size.x)
+ _button(Rect2(panel.position+Vector2(22,57),Vector2(panel.size.x-44,43)),
+  "SOUND: ON" if audio.sounds_enabled else "SOUND: OFF",audio.sounds_enabled)
+ _button(Rect2(panel.position+Vector2(22,109),Vector2(panel.size.x-44,43)),
+  "MUSIC: ON" if audio.music_enabled else "MUSIC: OFF",audio.music_enabled)
+ _button(Rect2(panel.position+Vector2(22,166),Vector2(panel.size.x-44,40)),"RESUME",true)
+ _button(Rect2(panel.position+Vector2(22,220),Vector2(panel.size.x-44,43)),"GALAXY HOME")
+
 
 func _puzzle_chrome_frame(viewport:Vector2,h:float) -> Rect2:
  # Uniform scale preserves square 9x9 cells, never stretches on tall/short phones.
@@ -382,8 +483,8 @@ func _reference_puzzle_hud(layout:Dictionary) -> void:
  _label(str(puzzle.total_lines),Vector2(460.0*sx,404.0*sy),15,
   Color("#a1eeff"),HORIZONTAL_ALIGNMENT_CENTER,88.0*sx)
  var count:String=str(puzzle.bombs) if puzzle.bombs>0 else "%d%%"%puzzle.bomb_charge()
- # Avoid collision with the illustrated BOMB label at the top.
- # On 432px phones, use a separate small counter below the artwork label.
+ # The illustrated BOMB header occupies the upper half. Keep the live
+ # counter on a separate baseline: no collision with the decorative text.
  _label(count,Vector2(708.0*sx,386.0*sy),11,GLOW_GOLD,
   HORIZONTAL_ALIGNMENT_CENTER,178.0*sx)
  if bomb_armed:
@@ -459,7 +560,8 @@ func _reference_live_hud(layout:Dictionary) -> void:
  draw_rect(strip,Color("#100d39",.96),true)
  _label("COMBO x%d   ✦   LINES %d" % [falling.combo,falling.lines],
   Vector2(strip.position.x,310.0*sy),13,Color("#ffdcf7"))
- # Mask the baked x0, leaving exactly one true live combo value.
+ # Completely cover the broken static "x0" left inside the original art.
+ # Only one actual live combo count must be visible.
  var combo_value:=Rect2(Vector2(734.0*sx,969.0*sy),
   Vector2(130.0*sx,90.0*sy))
  draw_rect(combo_value,Color("#2b104b",.99),true)
@@ -745,6 +847,18 @@ func _gem(rect:Rect2,color_id:int,ghost:bool=false) -> void:
  # Every occupied cell has a distinct, bright, glass-square footprint.
  if color_id<=0:
   return
+ if mode==0 and skin_neon_puzzle!=null and color_id<neon_gem_textures.size():
+  if ghost:
+   var c:Color=GEM_COLORS[clampi(color_id,1,GEM_COLORS.size()-1)]
+   draw_rect(rect.grow(-1),Color(c.r,c.g,c.b,.25),true)
+   draw_rect(rect.grow(-1),Color(c.r,c.g,c.b,.80),false,1.7)
+   return
+  if neon_gem_textures[color_id]!=null:
+   # Exact faceted jewel shader baked from the approved image; each piece is
+   # an interactive sprite, not a static screenshot of a completed board.
+   var r:Rect2=rect.grow(-maxf(.2,rect.size.x*.01))
+   draw_texture_rect(neon_gem_textures[color_id],r,false)
+   return
  var tint:Color=GEM_COLORS[clampi(color_id,1,GEM_COLORS.size()-1)]
  var shortest:float=minf(rect.size.x,rect.size.y)
  if ghost:
@@ -819,7 +933,8 @@ func _board_back(board_rect:Rect2,cols:int,rows:int) -> float:
 
 func _draw_puzzle(layout:Dictionary) -> void:
  var board:Rect2=layout["board"]
- var reference:bool=skin_puzzle_chrome!=null and float(layout["height"])>=760.0
+ var neon:bool=skin_neon_puzzle!=null and float(layout["height"])>=650.0
+ var reference:bool=neon or (skin_puzzle_chrome!=null and float(layout["height"])>=760.0)
  var cell:float=board.size.x/9.0 if reference else _board_back(board,9,9)
  var cell_y:float=board.size.y/9.0
  for y in 9:
@@ -857,8 +972,7 @@ func _draw_puzzle(layout:Dictionary) -> void:
   if not reference:
    _glass_panel(tray_rect,Color("#142151") if active else Color("#10183f"),
     GLOW_PINK if active else Color("#417bc7"))
-  if reference:
-   # Strong dark tray fill makes purple and sapphire candies readable.
+  if reference and not neon:
    draw_rect(tray_rect.grow(-5.0),Color(.014,.026,.105,.48),true)
   if active:
    draw_rect(tray_rect.grow(2.0),Color(highlight.r,highlight.g,highlight.b,.84),false,2.6)
@@ -887,7 +1001,9 @@ func _draw_puzzle(layout:Dictionary) -> void:
     Vector2(cell,cell_y)),int(colors[selected]),true)
 
 func _draw_clean_fall_well(board:Rect2) -> void:
- # Draw live empty grid OVER the original screenshot: no frozen demo candy.
+ # Draw the *real* empty 10x18 grid above the imported illustration.
+ # The source image contains partially erased demo blocks at the bottom.
+ # Masking only the interior preserves its original neon frame and planets.
  var dark:=Color("#08112e")
  draw_rect(board,dark,true)
  var dx:float=board.size.x/10.0
@@ -898,6 +1014,7 @@ func _draw_clean_fall_well(board:Rect2) -> void:
    draw_rect(cell.grow(-.75),
     Color("#101b47") if (row+col)%2==0 else Color("#0b1640"),true)
    draw_rect(cell,Color("#615bd4",.55),false,.75)
+ # A single inside rim, not two stacked borders from art and Godot.
  draw_rect(board,Color("#50dcff",.85),false,1.45)
 
 
@@ -929,7 +1046,8 @@ func _draw_falling(layout:Dictionary) -> void:
  var next_rect:Rect2=layout["next"]
  var hold_rect:Rect2=layout["hold"]
  if reference:
-  # Clean baked NEXT-demo fragment without covering the neon frame.
+  # Clean NEXT interior: the old image has a turquoise DEMO sprite fragment.
+  # Keep its illuminated border, paint just inside, add real next-piece gems.
   draw_rect(next_rect.grow(-7.0),Color("#081743",.98),true)
   _draw_side_piece(next_rect,falling.next_kind)
   if falling.hold_kind>=0:
@@ -1154,6 +1272,21 @@ func _release(pos:Vector2) -> void:
   var error:int=get_tree().change_scene_to_file("res://scenes/Welcome.tscn")
   if error!=OK:
    printerr("NovaGrid: cannot return to main menu: ",error)
+  return
+ if paused and mode==0 and skin_neon_puzzle!=null and not puzzle.over:
+  var w:float=layout["viewport"].x
+  var h:float=float(layout["height"])
+  var panel:=Rect2(Vector2(w*.1,h*.30),Vector2(w*.8,295))
+  if Rect2(panel.position+Vector2(22,57),Vector2(panel.size.x-44,43)).has_point(pos):
+   audio.toggle_sound()
+  elif Rect2(panel.position+Vector2(22,109),Vector2(panel.size.x-44,43)).has_point(pos):
+   audio.toggle_music("puzzle")
+  elif Rect2(panel.position+Vector2(22,166),Vector2(panel.size.x-44,40)).has_point(pos):
+   paused=false
+  elif Rect2(panel.position+Vector2(22,220),Vector2(panel.size.x-44,43)).has_point(pos):
+   _save_game()
+   get_tree().change_scene_to_file("res://scenes/Welcome.tscn")
+  queue_redraw()
   return
  if paused or (mode==0 and puzzle.over) or (mode==1 and falling.over):
   var viewport:Vector2=layout["viewport"]
