@@ -184,7 +184,7 @@ func _process(delta:float) -> void:
   var heading:Dictionary = headlines[idx]
   heading["age"] = float(heading["age"]) + delta
   heading["pos"] = Vector2(heading["pos"]) - Vector2(0,delta*44.0)
-  if float(heading["age"]) > 1.15:
+  if float(heading["age"]) > .92:
    headlines.remove_at(idx)
   else:
    headlines[idx] = heading
@@ -351,9 +351,11 @@ func _draw_progress_hud(layout:Dictionary) -> void:
   draw_rect(Rect2(track.position,Vector2(track.size.x*progress.level_progress(),
    track.size.y)),GLOW_BLUE,true)
   var task:Dictionary=progress.next_mission()
-  _label("%s %d/%d · %s"%[task["label"],task["progress"],
-   task["target"],progress.theme_name()],
-   rect.position+Vector2(9,35),8,Color("#c5e9ff"))
+  _label("%s %d/%d"%[task["label"],task["progress"],task["target"]],
+   rect.position+Vector2(9,35),11,Color("#c5e9ff"),
+   HORIZONTAL_ALIGNMENT_LEFT,rect.size.x-114)
+  _label(progress.theme_name(),rect.position+Vector2(rect.size.x-116,35),10,
+   Color("#a7d8ff"),HORIZONTAL_ALIGNMENT_RIGHT,106)
   return
  _label("✦ LV %d · %s" % [progress.level,progress.rank_name()],
   Vector2(rect.position.x+9,y+12),11,Color("#f0f9ff"))
@@ -583,24 +585,26 @@ func _draw_side_piece(panel:Rect2,kind_id:int) -> void:
   _gem(Rect2(start+Vector2(int(p[0])*micro,int(p[1])*micro),Vector2(micro,micro)),kind_id+1)
 
 func _draw_shockwaves() -> void:
+ # Compact, transparent neon rings: never flood a playable board.
  for ring in shockwaves:
-  var progress:float = float(ring["age"])/float(ring["duration"])
-  var radius:float = 7.0+float(ring["radius"])*pow(progress,.62)
-  var col:Color=ring["color"]
-  col.a = maxf(0.0,(1.0-progress)*.79)
-  draw_arc(ring["pos"],radius,0,TAU,52,col,4.4*(1.0-progress)+.6,true)
-  if progress<.62:
-   col.a *= .35
-   draw_arc(ring["pos"],radius*.67,0,TAU,45,col,2.2,true)
- for heading in headlines:
-  var pct:float = float(heading["age"])/1.15
-  var color:Color=heading["color"]
-  color.a=clampf((1.0-pct)*1.4,0,1)
-  var pos:Vector2=heading["pos"]
-  var message:String=heading["text"]
-  var label_at:=pos-Vector2(150.0,0.0)
-  _label(message,label_at+Vector2(1.6,2.0),20,Color(.14,.08,.27,color.a*.66),HORIZONTAL_ALIGNMENT_CENTER,300.0)
-  _label(message,label_at,20,color,HORIZONTAL_ALIGNMENT_CENTER,300.0)
+  var pct:float=clampf(float(ring["age"])/float(ring["duration"]),0.0,1.0)
+  var radius:float=6.0+minf(72.0,float(ring["radius"]))*pow(pct,.70)
+  var tint:Color=ring["color"]
+  tint.a=maxf(0.0,(1.0-pct)*.32)
+  draw_arc(ring["pos"],radius,0,TAU,44,tint,2.8*(1.0-pct)+.7,true)
+  if pct<.56:
+   tint.a*=.32
+   draw_arc(ring["pos"],radius*.68,0,TAU,36,tint,1.25,true)
+ for i in headlines.size():
+  var heading:Dictionary=headlines[i]
+  var age:float=clampf(float(heading["age"])/.92,0.0,1.0)
+  var tint:Color=heading["color"]
+  tint.a=pow(1.0-age,1.45)
+  var pos:Vector2=Vector2(heading["pos"])+Vector2(0,(i-(headlines.size()-1)*.5)*26.0)
+  var message:String=String(heading["text"])
+  _label(message,pos-Vector2(150,0)+Vector2(1,2),17,
+   Color(.05,.02,.19,tint.a*.5),HORIZONTAL_ALIGNMENT_CENTER,300)
+  _label(message,pos-Vector2(150,0),17,tint,HORIZONTAL_ALIGNMENT_CENTER,300)
 
 func _draw_fragments() -> void:
  # 4 distinct candy particles: glossy bubble / sprinkle / prism / sparkle.
@@ -998,13 +1002,14 @@ func _release_falling(pos:Vector2,layout:Dictionary) -> void:
   _fall_rotate()
 
 func _announce(message:String,at:Vector2,color:Color) -> void:
+ for i in range(headlines.size()-1,-1,-1):
+  if String(headlines[i].get("text",""))==message:headlines.remove_at(i)
  headlines.append({"text":message,"pos":at,"age":0.0,"color":color})
- if headlines.size()>5:
-  headlines.pop_front()
+ if headlines.size()>2:headlines.pop_front()
 
 func _burst(center:Vector2,count:int,color:Color) -> void:
- shockwaves.append({"pos":center,"color":color,"age":0.0,"duration":.68,"radius":160.0})
- if shockwaves.size()>9:
+ shockwaves.append({"pos":center,"color":color,"age":0.0,"duration":.52,"radius":72.0})
+ if shockwaves.size()>4:
   shockwaves.pop_front()
  var gen:=RandomNumberGenerator.new()
  gen.randomize()
@@ -1087,7 +1092,7 @@ func _layout() -> Dictionary:
   "privacy":Rect2(safe.position.x+128,safe.end.y-102,74,44),
   "bomb":Rect2(safe.end.x-100,safe.end.y-102,84,44),
   "bomb_visual":Rect2(safe.end.x-100,safe.end.y-102,84,44),
-  "progress":Rect2(safe.position.x+16,safe.end.y-44,w-32,30),
+  "progress":Rect2(safe.position.x+16,safe.end.y-50,w-32,42),
   "finish":Rect2(safe.position.x+46,safe.position.y+h*.5+28,w-92,48)}
 
 func _draw_cosmic() -> void:
@@ -1102,7 +1107,7 @@ func _draw_cosmic() -> void:
  var title:String="Classic" if mode==0 else "Blockfall"
  if entry=="daily":title="Daily Challenge"
  if entry=="stage":title="Stage %d"%stage
- _premium_title(title,Vector2(safe.position.x,safe.position.y+47),27,w,GLOW_PURPLE)
+ _premium_title(title,Vector2(safe.position.x,safe.position.y+47),29,w,GLOW_PURPLE)
  var subtitle:String="9 × 9  ·  Crystal Puzzle" if mode==0 else "10 × 18  ·  Falling Crystals"
  if entry=="daily":subtitle=progress._today()+" UTC  ·  Clear 6 groups"
  if entry=="stage":subtitle=String(campaign.stage_config(stage)["name"])
