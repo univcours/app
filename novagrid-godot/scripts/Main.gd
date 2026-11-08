@@ -45,6 +45,7 @@ var progress
 var font: Font
 var gem_styles: Array = []
 var panel_styles: Dictionary = {}
+var board_tile_styles: Dictionary = {}
 var mode := 0
 var paused := false
 var selected := -1
@@ -736,35 +737,47 @@ func _draw_tabs(layout:Dictionary) -> void:
 
 
 func _gem(rect:Rect2,color_id:int,ghost:bool=false) -> void:
+ # Premium 3D candy TILE, not a tiny floating ball on a nearly-black grid.
+ # Every occupied cell has a distinct, bright, glass-square footprint.
  if color_id<=0:
   return
- var base:Color=GEM_COLORS[clampi(color_id,1,GEM_COLORS.size()-1)]
- var middle:Vector2=rect.get_center()
+ var tint:Color=GEM_COLORS[clampi(color_id,1,GEM_COLORS.size()-1)]
+ var shortest:float=minf(rect.size.x,rect.size.y)
  if ghost:
-  # Candy-accurate transparent landing silhouette (not a full ghost cube).
-  draw_circle(middle,rect.size.x*.34,Color(base.r,base.g,base.b,.14))
-  draw_arc(middle,rect.size.x*.39,0,TAU,22,Color(base.r,base.g,base.b,.70),1.7,true)
+  var landing:Rect2=rect.grow(-maxf(1.2,shortest*.075))
+  draw_rect(landing,Color(tint.r,tint.g,tint.b,.23),true)
+  draw_rect(landing,Color(tint.r,tint.g,tint.b,.91),false,2.0)
   return
- var padding:float=.55 if rect.size.x>=19.0 else .20
- var candy_rect:=rect.grow(-padding)
- # Contact shadow below each physically rendered PBR 3D sweet.
- if rect.size.x>=12.0:
-  draw_circle(middle+Vector2(0,rect.size.y*.275),
-   rect.size.x*.34,Color(.01,.01,.07,.25))
- if rect.size.x>=20.0:
-  draw_circle(middle,rect.size.x*.42,Color(base.r,base.g,base.b,.10))
- var texture:Texture2D=null
- if (skin_fall!=null or skin_puzzle!=null) and color_id<exact_candy_textures.size():
-  texture=exact_candy_textures[color_id]
- if texture==null:
-  texture=visuals.get_gem_texture(color_id) if visuals else null
- if texture!=null:
-  draw_texture_rect(texture,candy_rect,false,Color.WHITE)
+ # Use just one cached style for each of the 7 pieces on all game modes.
+ var style:StyleBoxFlat
+ if not board_tile_styles.has(color_id):
+  style=StyleBoxFlat.new()
+  style.bg_color=tint.darkened(.38)
+  style.border_color=tint.lightened(.31)
+  style.set_border_width_all(2)
+  style.set_corner_radius_all(6)
+  style.shadow_color=Color(tint.r,tint.g,tint.b,.25)
+  style.shadow_size=4
+  style.shadow_offset=Vector2(0,1)
+  board_tile_styles[color_id]=style
  else:
-  draw_style_box(gem_styles[clampi(color_id,1,gem_styles.size()-1)],candy_rect)
- # 3D icing has real mesh highlights already; don't paint fake rectangular
- # edges on top of round candies, which would undo the Candy look.
-
+  style=board_tile_styles[color_id]
+ var margin:float=maxf(.9,shortest*.045)
+ var tile:Rect2=rect.grow(-margin)
+ draw_style_box(style,tile)
+ # Top shine separates blue and purple sprites from the nebula/grid.
+ draw_line(tile.position+Vector2(5.0,2.5),
+  Vector2(tile.end.x-5.0,tile.position.y+2.5),Color(1,1,1,.55),1.3,true)
+ var texture:Texture2D=null
+ if color_id<exact_candy_textures.size():
+  texture=exact_candy_textures[color_id]
+ if texture==null and visuals:
+  texture=visuals.get_gem_texture(color_id)
+ if texture!=null:
+  var inner:Rect2=tile.grow(-maxf(2.0,shortest*.075))
+  draw_texture_rect(texture,inner,false,Color.WHITE)
+ else:
+  draw_circle(tile.get_center(),shortest*.28,tint.lightened(.42))
 
 func _board_back(board_rect:Rect2,cols:int,rows:int) -> float:
  # Identical luxury neon system in Puzzle and Blockfall, but each has its
@@ -840,15 +853,18 @@ func _draw_puzzle(layout:Dictionary) -> void:
   if not reference:
    _glass_panel(tray_rect,Color("#142151") if active else Color("#10183f"),
     GLOW_PINK if active else Color("#417bc7"))
+  if reference:
+   # Strong dark tray fill makes purple and sapphire candies readable.
+   draw_rect(tray_rect.grow(-5.0),Color(.014,.026,.105,.48),true)
   if active:
-   draw_rect(tray_rect.grow(3.0),Color(highlight.r,highlight.g,highlight.b,.20),false,3.0)
+   draw_rect(tray_rect.grow(2.0),Color(highlight.r,highlight.g,highlight.b,.84),false,2.6)
   var shape:Array=puzzle.tray[i]
   if shape.is_empty():
    continue
   var bounds:Vector2i=puzzle.shape_size(shape)
   var micro:float=minf((tray_rect.size.x-13.0)/float(bounds.x),
    (tray_rect.size.y-9.0)/float(bounds.y))
-  micro=minf(micro,30.0)
+  micro=minf(micro,42.0)
   var offset:Vector2=tray_rect.position+(tray_rect.size-
    Vector2(micro*bounds.x,micro*bounds.y))*.5
   for p in shape:
