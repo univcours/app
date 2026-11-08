@@ -7,6 +7,7 @@ const CampaignScript = preload("res://scripts/Campaign.gd")
 const SaveStore = preload("res://scripts/SaveStore.gd")
 const SafeArea = preload("res://scripts/SafeArea.gd")
 const Typography = preload("res://scripts/Typography.gd")
+const NeonSkin = preload("res://scripts/NeonSkin.gd")
 const GEMS = [Color("#132255"),Color("#ff287f"),Color("#ffc323"),Color("#13e5ff"),Color("#a65cff"),Color("#53e620"),Color("#ff812b"),Color("#3688ff")]
 const CYAN = Color("#3de4ff")
 const PURPLE = Color("#b965ff")
@@ -99,6 +100,9 @@ func _targets() -> Dictionary:
   var cards:Array[Rect2]=_rectangles()
   for i in 4: result["mode"+str(i)]=cards[i]
   result["settings"]=_real_rect(Rect2(346,26,60,60))
+  result["nav_home"]=_real_rect(Rect2(28,883,125,46))
+  result["nav_map"]=_real_rect(Rect2(153,883,125,46))
+  result["nav_settings"]=_real_rect(Rect2(278,883,126,46))
  else:
   result["back"]=_real_rect(Rect2(26,30,58,58))
   if screen=="map":
@@ -119,23 +123,9 @@ func _text(message:String,pos:Vector2,size:int=18,color:Color=Color.WHITE,width:
 func _center(message:String,y:float,size:int=18,color:Color=Color.WHITE) -> void:
  _text(message,Vector2(0,y),size,color,432,HORIZONTAL_ALIGNMENT_CENTER)
 
-func _panel(rect:Rect2,accent:Color,fill:Color=Color("#0a1235"),radius:int=22) -> void:
- var key:String=accent.to_html()+fill.to_html()+str(radius)
- if not panel_cache.has(key):
-  var style:=StyleBoxFlat.new()
-  style.bg_color=fill
-  style.border_color=accent
-  style.set_border_width_all(2)
-  style.set_corner_radius_all(radius)
-  style.shadow_color=Color(accent,.24)
-  style.shadow_size=12
-  panel_cache[key]=style
- draw_style_box(panel_cache[key],rect)
- # A narrow specular strip and top glass gradient are independent of labels.
- for i in 12:
-  var alpha:float=.10*(1.0-float(i)/12.0)
-  draw_line(rect.position+Vector2(15,5+i),Vector2(rect.end.x-15,rect.position.y+5+i),Color(1,1,1,alpha),1)
- draw_line(rect.position+Vector2(19,2),Vector2(rect.end.x-19,rect.position.y+2),Color(1,1,1,.62),1.4,true)
+func _panel(rect:Rect2,accent:Color,fill:Color=Color("#071331"),radius:int=22) -> void:
+ NeonSkin.panel(self,rect,accent,fill,radius,clock,
+  pressed_key!="")
 
 func _sparkle(pos:Vector2,radius:float,color:Color) -> void:
  draw_line(pos-Vector2(radius,0),pos+Vector2(radius,0),Color(color,.7),1.2,true)
@@ -189,20 +179,24 @@ func _hero() -> void:
  _sparkle(Vector2(213,395+bob),9,CYAN)
 
 func _home() -> void:
- _panel(Rect2(28,28,145,54),Color("#6949bd"))
+ _panel(Rect2(28,28,145,54),Color("#ff31ed"))
  _text("★",Vector2(40,63),29,GOLD)
  _text(str(progress.stars),Vector2(78,62),23)
- _panel(Rect2(188,28,145,54),Color("#3c62c5"))
+ _panel(Rect2(188,28,145,54),CYAN)
  _text("LV "+str(progress.level),Vector2(205,62),22,Color("#d9e5ff"))
- _panel(Rect2(346,26,60,60),Color("#6668df"))
- _text("⚙",Vector2(357,65),31,Color("#dcefff"))
+ _panel(Rect2(346,26,60,60),Color("#ff31ed"))
+ NeonSkin.icon(self,"settings",Vector2(376,56),31,CYAN)
  _planet(Vector2(57,229),26,Color("#8566ff"))
  _planet(Vector2(386,157),40,Color("#5277fb"))
- var glow:float=.55+.15*sin(clock*1.5)
- for j in range(4,0,-1):
-  _text("NovaGrid",Vector2(-j*.6,157+j*.7),59,Color(.67,.19,1,.05*glow),432,HORIZONTAL_ALIGNMENT_CENTER)
- _center("NovaGrid",154,59,Color("#f8edff"))
- _center(_tr("Cosmic Block Puzzle","Puzzle cosmique"),187,21,Color("#b6c0ff"))
+ _panel(Rect2(26,96,380,89),Color("#ff31ed"),Color("#07123c"),39)
+ NeonSkin.star(self,Vector2(51,140),14,Color("#ff31ed"))
+ for ring in 3:
+  draw_arc(Vector2(219,143),143+ring*2,PI*1.10,PI*1.89,64,
+   Color(CYAN.r,CYAN.g,CYAN.b,.05+ring*.05),1.5,true)
+ var moving:float=115+fposmod(clock*27.0,194.0)
+ _sparkle(Vector2(moving,101),3.5+sin(clock*2.0),CYAN)
+ _center("NovaGrid",154,49,Color("#f8edff"))
+ _center(_tr("Cosmic Block Puzzle","Puzzle cosmique"),207,18,Color("#cbefff"))
  _hero()
  _center(_tr("YOUR NEXT ADVENTURE AWAITS","VOTRE AVENTURE COMMENCE"),440,11,Color("#aeb5e8"))
  var titles:Array=[_tr("Classic","Classique"),_tr("Daily Challenge","Défi du jour"),"Blockfall",_tr("Galaxy Stages","Étapes galactiques")]
@@ -212,35 +206,15 @@ func _home() -> void:
   var box:=Rect2(28,462+i*100,376,84)
   var hue:Color=hues[i]
   if pressed_key=="mode"+str(i): box=box.grow(-2)
-  _panel(box,hue,Color(hue.darkened(.83),.96),23)
-  var icon:=Vector2(64,box.position.y+42)
-  if i==0:
-   for y in 3:
-    for x in 3: draw_rect(Rect2(icon+Vector2(x*11-16,y*11-16),Vector2(9,9)),hue,false,1.5)
-  elif i==1:
-   draw_rect(Rect2(icon-Vector2(18,17),Vector2(36,36)),hue,false,2)
-   draw_line(icon-Vector2(18,7),icon+Vector2(18,-7),hue,2,true)
-   _sparkle(icon+Vector2(0,6),7,hue)
-  elif i==2:
-   for tile in [Vector2(0,-14),Vector2(-14,0),Vector2(0,0),Vector2(14,0)]:
-    _crystal(Rect2(icon+tile-Vector2(6,2),Vector2(13,15)),4)
-  else:
-   draw_arc(icon,17,-1.2,1.9,24,hue,2,true)
-   draw_line(icon-Vector2(12,-16),icon+Vector2(12,-16),Color.WHITE,3,true)
-   _sparkle(icon,8,GOLD)
-  _text(titles[i],Vector2(103,box.position.y+33),25)
-  _text(subtitles[i],Vector2(103,box.position.y+59),14,Color("#d0daf3"))
-  draw_colored_polygon(PackedVector2Array([Vector2(370,box.position.y+28),Vector2(383,box.position.y+42),Vector2(370,box.position.y+56)]),hue.lightened(.4))
+  NeonSkin.mode_button(self,box,titles[i],subtitles[i],
+   ["classic","daily","blockfall","galaxy"][i],hue,clock,
+   pressed_key=="mode"+str(i))
  var track:=Rect2(28,883,376,46)
- _panel(track,Color("#56478c"),Color("#0b1030"),15)
- _text(progress.rank_name(),Vector2(44,904),12,Color("#e4e6ff"))
- _text(_tr("GALAXY PROGRESS","PROGRÈS GALACTIQUE"),Vector2(44,920),9,Color("#9ba4d2"))
- draw_rect(Rect2(214,904,172,5),Color("#242b57"))
- draw_rect(Rect2(214,904,172*progress.level_progress(),5),CYAN)
+ NeonSkin.navigation(self,track,["HOME","STAGES","SETTINGS"],0,clock)
 
 func _heading(title:String,subtitle:String) -> void:
- _panel(Rect2(26,30,58,58),Color("#5664d7"))
- _text("‹",Vector2(41,72),43,Color("#e0f3ff"))
+ _panel(Rect2(26,30,58,58),CYAN)
+ NeonSkin.icon(self,"back",Vector2(55,59),30,CYAN)
  _text(title,Vector2(101,68),29)
  _center(subtitle,122,14,Color("#bfc8f1"))
 
@@ -279,7 +253,7 @@ func _map() -> void:
   var name:String=CampaignScript.NAMES[i]
   _text(name,center+Vector2(-82,65),14,Color("#e5eaff"),164,HORIZONTAL_ALIGNMENT_CENTER)
  var done:int=campaign.completed.size()
- _panel(Rect2(28,823,376,106),PURPLE)
+ _panel(Rect2(28,823,376,106),Color("#ff31ed"),Color("#081636"))
  _text(_tr("Your constellation","Votre constellation"),Vector2(48,858),24)
  _text(_tr("Missions completed","Missions terminées")+"  %d / 3"%done,Vector2(48,886),15,Color("#c6d4ff"))
  draw_rect(Rect2(48,903,336,6),Color("#262650"))
@@ -318,10 +292,10 @@ func _settings() -> void:
  var values:Array=[_tr("ON","OUI") if audio.sounds_enabled else _tr("OFF","NON"),_tr("ON","OUI") if audio.music_enabled else _tr("OFF","NON"),_tr("LOW","RÉDUITS") if reduced_effects else _tr("FULL","COMPLETS"),"FRANÇAIS" if language=="fr" else "ENGLISH"]
  for i in 4:
   var row:=Rect2(34,235+i*106,364,78)
-  _panel(row,CYAN if i<2 else PURPLE)
+  _panel(row,CYAN if i<2 else Color("#ff31ed"))
   _text(labels[i],row.position+Vector2(20,33),22)
   _text(values[i],row.position+Vector2(20,59),13,Color("#cbd8ff"))
-  _text("›",row.position+Vector2(326,49),29,CYAN)
+  NeonSkin.icon(self,"settings",row.position+Vector2(326,39),17,CYAN)
  _center(_tr("Every setting is saved on this device.","Vos préférences sont sauvegardées ici."),750,15,Color("#b4c2e6"))
  _center("NovaGrid · Cosmic Edition",884,17,Color("#8c9dce"))
 
@@ -363,6 +337,9 @@ func _activate(key:String) -> void:
   "mode2": _launch(1,"blockfall")
   "mode3": screen="map"
   "settings": screen="settings"
+  "nav_home": screen="home"
+  "nav_map": screen="map"
+  "nav_settings": screen="settings"
   "back": screen="home"
   "daily_play": _launch(0,"daily")
   "sound": audio.toggle_sound()
