@@ -30,10 +30,11 @@ var live_build := false
 func start(game_node: Node2D) -> void:
  game = game_node
  started_msec = Time.get_ticks_msec()
- # Two independent flags prevent live ads leaking into Godot Preview APK.
+ # Debug exports always use demo IDs, even with accidental release flags.
+ # Two independent flags also protect unsigned preview release configurations.
  # Production release must explicitly turn the flag on AND set the real App ID
  # in its signed production export. Tests intentionally keep it false.
- live_build = bool(ProjectSettings.get_setting("novagrid_ads/production_release",false)) and (
+ live_build = not OS.is_debug_build() and bool(ProjectSettings.get_setting("novagrid_ads/production_release",false)) and (
   str(ProjectSettings.get_setting("admob/general/android/app_id","")) == LIVE_APP)
  print("NovaGrid AdMob: ", "LIVE (official release)" if live_build else "GOOGLE DEMO TEST ONLY")
  # Never execute on desktop; the editor's mock ad is NOT paid inventory.

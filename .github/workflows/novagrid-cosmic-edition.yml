@@ -66,6 +66,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$PROJECT/build/reports"
+          touch "$PROJECT/build/.gdignore"
           timeout 120s godot --headless --editor --path "$PROJECT" --quit 2>&1 | tee "$PROJECT/build/reports/import.log"
           if grep -E 'SCRIPT ERROR|Parse Error|Parser Error|ERROR:' "$PROJECT/build/reports/import.log"; then exit 1; fi
           for script in "$PROJECT"/scripts/*.gd; do
@@ -110,7 +111,12 @@ jobs:
           test -d "$ANDROID_HOME/platforms/android-35"
           NOVAGRID_ANDROID_SDK="$ANDROID_HOME" NOVAGRID_JAVA_SDK="$JAVA_HOME" godot --headless --editor --path "$PROJECT" --script res://scripts/configure_android_editor.gd 2>&1 | tee "$PROJECT/build/reports/android-config.log"
           grep -F NOVAGRID_ANDROID_EDITOR_CONFIGURED "$PROJECT/build/reports/android-config.log"
-          if grep -E 'SCRIPT ERROR|Parse Error|Parser Error|ERROR:' "$PROJECT/build/reports/android-config.log"; then exit 1; fi
+          # Godot 4.5.1 custom editor SceneTree teardown emits these exact
+          # Dummy-renderer RID diagnostics even after its resource scan ends.
+          # Classify only this SDK-configuration shutdown; all other stages
+          # and all script/parse/export errors remain fatal.
+          known_shutdown="^ERROR: [0-9]+ RID allocations of type '(N16RendererViewport8ViewportE|PN13RendererDummy14TextureStorage12DummyTextureE|N17RendererSceneCull8ScenarioE|PN18TextServerAdvanced22ShapedTextDataAdvancedE|PN18TextServerAdvanced12FontAdvancedE)' were leaked at exit\.$"
+          if grep -E 'SCRIPT ERROR|Parse Error|Parser Error|ERROR:' "$PROJECT/build/reports/android-config.log" | grep -Ev "$known_shutdown"; then exit 1; fi
           keytool -genkeypair -keystore "$RUNNER_TEMP/novagrid-cosmic-debug.keystore" -alias androiddebugkey -storepass android -keypass android -keyalg RSA -keysize 2048 -validity 4000 -dname 'CN=NovaGrid Cosmic QA,O=Development,C=MA' -noprompt
       - name: Export no-ads Android preview APK
         env:
@@ -153,7 +159,7 @@ jobs:
           extra = current.replace('[preset.0]', '[preset.1]').replace('[preset.0.options]', '[preset.1.options]')
           extra = extra.replace('name="Android Preview"', 'name="Android AdMob Test"')
           extra = extra.replace('gradle_build/use_gradle_build=false', 'gradle_build/use_gradle_build=true')
-          extra = extra.replace('version/code=2', 'version/code=3').replace('version/name="0.2.0-native-preview"', 'version/name="0.3.0-cosmic-test"')
+          extra = extra.replace('version/name="0.4.0-cosmic-preview"', 'version/name="0.4.0-cosmic-test"')
           extra = extra.replace('package/name="NovaGrid Godot Preview"', 'package/name="NovaGrid Cosmic AdMob Test"')
           assert 'package/unique_name="com.novagrid.cosmicpuzzle.godotpreview"' in extra
           path.write_text(current+'\n'+extra)

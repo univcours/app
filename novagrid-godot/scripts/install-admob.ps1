@@ -66,8 +66,8 @@ if($current -notmatch 'name="Android AdMob Test"'){
  $extra=$extra.Replace('name="Android Preview"','name="Android AdMob Test"')
  $extra=$extra.Replace('gradle_build/use_gradle_build=false','gradle_build/use_gradle_build=true')
  $extra=$extra.Replace('build/NovaGrid-Godot-Preview.apk','build/NovaGrid-Godot-AdMob-TEST.apk')
- $extra=$extra.Replace('version/code=2','version/code=3')
- $extra=$extra.Replace('version/name="0.2.0-native-preview"','version/name="0.3.0-admob-test"')
+ # Both preview variants share the same monotonically increased debug code.
+ $extra=$extra.Replace('version/name="0.4.0-cosmic-preview"','version/name="0.4.0-cosmic-test"')
  $extra=$extra.Replace('package/name="NovaGrid Godot Preview"','package/name="NovaGrid Godot AdMob Test"')
  [IO.File]::AppendAllText($preset,[Environment]::NewLine+$extra,[Text.UTF8Encoding]::new($false))
 }

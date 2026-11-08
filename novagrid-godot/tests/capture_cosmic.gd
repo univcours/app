@@ -22,6 +22,8 @@ func _run() -> void:
  root.size=Vector2i(432,960)
  root.content_scale_size=root.size
  DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://build"))
+ var ignore:=FileAccess.open("res://build/.gdignore",FileAccess.WRITE)
+ ignore.close()
  var home=load("res://scenes/Welcome.tscn").instantiate()
  root.add_child(home)
  await create_timer(.5).timeout
@@ -104,8 +106,13 @@ func _run() -> void:
  var begin:int=Time.get_ticks_usec()
  for i in 60:await process_frame
  var ms:float=float(Time.get_ticks_usec()-begin)/60000.0
+ app.visuals.sky_material.set_shader_parameter("reduced_effects",true)
+ await process_frame
+ var low_begin:int=Time.get_ticks_usec()
+ for i in 60:await process_frame
+ var low_ms:float=float(Time.get_ticks_usec()-low_begin)/60000.0
  var report:Dictionary={"engine":Engine.get_version_info()["string"],"viewport":[432,960],
-  "renderer":RenderingServer.get_video_adapter_name(),"software_frame_ms":ms,
+  "renderer":RenderingServer.get_video_adapter_name(),"software_frame_ms":ms,"software_low_effects_frame_ms":low_ms,
   "screenshots":7,"failed":failures}
  var file:=FileAccess.open("res://build/render-report.json",FileAccess.WRITE)
  file.store_string(JSON.stringify(report,"  "))

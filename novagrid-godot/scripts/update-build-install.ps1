@@ -12,11 +12,27 @@ function CheckExit([string]$step) {
 }
 
 # Godot may print a GDScript error and still return zero. Reject both signals.
-function InvokeGodotChecked([string[]]$Arguments, [string]$Step) {
-    $output = @(& $godot @Arguments 2>&1)
-    $exitCode = $LASTEXITCODE
+function InvokeGodotChecked([string[]]$Arguments, [string]$Step, [switch]$AllowEditorShutdownLeaks) {
+    # Windows PowerShell 5.1 wraps redirected native stderr as ErrorRecord.
+    # Capture it for explicit validation instead of terminating before classification.
+    $previousPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        $output = @(& $godot @Arguments 2>&1)
+        $exitCode = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $previousPreference
+    }
     $output | ForEach-Object { Write-Host $_ }
-    if ($exitCode -ne 0 -or ($output -match 'SCRIPT ERROR|Parse Error|Parser Error|ERROR:')) {
+    $errors = @($output | Where-Object { $_ -match 'SCRIPT ERROR|Parse Error|Parser Error|ERROR:' })
+    if ($AllowEditorShutdownLeaks) {
+        # Restrict the Godot 4.5.1 editor-only teardown exception to the SDK
+        # helper and five verified Dummy-renderer RID allocation types.
+        $knownShutdown = "^ERROR: [0-9]+ RID allocations of type '(N16RendererViewport8ViewportE|PN13RendererDummy14TextureStorage12DummyTextureE|N17RendererSceneCull8ScenarioE|PN18TextServerAdvanced22ShapedTextDataAdvancedE|PN18TextServerAdvanced12FontAdvancedE)' were leaked at exit\.$"
+        $errors = @($errors | Where-Object { $_ -notmatch $knownShutdown })
+        if (!($output -match '^NOVAGRID_ANDROID_EDITOR_CONFIGURED$')) { throw 'Android SDK configuration did not complete.' }
+    }
+    if ($exitCode -ne 0 -or $errors.Count) {
         throw "$Step failed (exit $exitCode). See Godot output above."
     }
 }
@@ -192,7 +208,7 @@ try {
 
 
 Write-Host 'Configuring Godot Android SDK and Java SDK paths...' -ForegroundColor Cyan
-InvokeGodotChecked @('--headless','--editor','--path',$project,'--script','res://scripts/configure_android_editor.gd') 'Godot editor SDK configuration'
+InvokeGodotChecked @('--headless','--editor','--path',$project,'--script','res://scripts/configure_android_editor.gd') 'Godot editor SDK configuration' -AllowEditorShutdownLeaks
 
 $templates = Join-Path $env:APPDATA 'Godot\export_templates\4.5.1.stable'
 if (!(Test-Path (Join-Path $templates 'android_debug.apk'))) {

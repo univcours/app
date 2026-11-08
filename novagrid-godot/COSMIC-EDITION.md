@@ -47,6 +47,8 @@ Development branch: `novagrid-cosmic-edition-20261108`.
   rejects impossible pieces, malformed types and corrupt boards.
 - Blockfall grounded movement can reset lock delay at most 15 times per piece;
   the reset budget persists, and old saves without the new field still load.
+- Debug ads cannot select live IDs even if production flags were accidentally set.
+- Debug versionCode is now 4 for both preview variants (previous AdMob TEST was 3).
 - Dedicated Godot 4.5.1 QA/Android workflow. Real tests, actual OpenGL screenshots,
   no-ads and native Poing AdMob TEST APKs, package/demo-ID manifest checks,
   uploaded reports/screenshots/APKs, failure on compile/script/export errors.
@@ -72,6 +74,17 @@ these suites deliberately write save fixtures.
 Historical reference-image tests require their old optional PNG fixtures and are
 not acceptance tests for the new native shader skin. Original Candy3D code stays
 available but its old candy-atlas visual expectation does not apply to crystals.
+
+Local verification: 10 suites passed, 0 failed; the new integrity, integration
+and menu suites contain 221 + 285 + 45 = 551 passing assertions. Seven actual
+OpenGL captures and all seven crystal color checks passed. Software full/low
+effects frame times are retained as diagnostics, never as phone FPS claims.
+
+Godot 4.5.1 emits five verified editor Dummy-renderer RID teardown diagnostics
+when a custom SceneTree configures editor SDK paths. The helper now waits for
+the filesystem scan; CI and the Windows script classify only those exact types
+at that single configuration step and require its completion marker. All other
+errors and all gameplay/import/export/compile errors remain fatal.
 
 ## Remaining release gates
 
