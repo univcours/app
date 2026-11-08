@@ -136,9 +136,13 @@ func _score(kind:String)->AudioStreamWAV:
  var frames:int=int(RATE*length)
  var pcm:=PackedByteArray()
  pcm.resize(frames*2)
- var roots:Array=[174.61,155.56,146.83,164.81] if kind=="menu" else (
-  [220.0,196.0,174.61,196.0] if kind=="puzzle" else
-  [174.61,164.81,146.83,155.56])
+ # Explicit packed numeric arrays: Godot cannot assign an ordinary
+ # Array returned by a conditional expression to a typed Array[float].
+ var roots:PackedFloat64Array=PackedFloat64Array([174.61,155.56,146.83,164.81])
+ if kind=="puzzle":
+  roots=PackedFloat64Array([220.0,196.0,174.61,196.0])
+ elif kind=="falling":
+  roots=PackedFloat64Array([174.61,164.81,146.83,155.56])
  var arp:Array[int]=[0,2,1,3,1,2,0,1]
  for i in frames:
   var t:float=float(i)/RATE

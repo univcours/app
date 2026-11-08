@@ -3,6 +3,7 @@ extends SceneTree
 ## reusable original music/sound samples do not regenerate on every home/game hop.
 const Audio = preload("res://scripts/Audio.gd")
 var failures:Array[String]=[]
+const RATE_MIN_BYTES:int=50000
 
 func verify(condition:bool,description:String)->void:
  if not condition:
@@ -21,6 +22,12 @@ func _run()->void:
   "separate puzzle and falling effects exist")
  verify(first.music_tracks["menu"]!=first.music_tracks["puzzle"] and first.music_tracks["puzzle"]!=first.music_tracks["falling"],
   "menu, puzzle and blockfall have distinct original tracks")
+ for track in ["menu","puzzle","falling"]:
+  var audio_stream:AudioStreamWAV=first.music_tracks.get(track)
+  verify(audio_stream!=null,"original audio track generated for "+track)
+  if audio_stream!=null:
+   verify(audio_stream.data.size()>RATE_MIN_BYTES and audio_stream.loop_mode==AudioStreamWAV.LOOP_FORWARD,
+    "track "+track+" contains a substantial loopable original PCM score")
  verify(first.sounds.has("victory") and first.sounds.has("unlock") and first.sounds.has("popup"),
   "victory, unlock and premium UI FX are real samples")
  verify((first.sounds["tap"] as AudioStreamWAV).mix_rate==32000,
