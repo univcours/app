@@ -1577,7 +1577,8 @@ func _start_challenge() -> void:
  var saved:Variant=data.get("challenge_"+entry,{})
  if saved is Dictionary and saved.get("puzzle") is Dictionary and saved.get("run") is Dictionary:
   var same:bool=String(saved.get("day",""))==progress._today() if entry=="daily" else int(saved.get("stage",0))==stage
-  if same and puzzle.load_state(saved["puzzle"]):
+  var replay_completed_stage:bool=entry=="stage" and bool(saved.get("won",false))
+  if same and not replay_completed_stage and puzzle.load_state(saved["puzzle"]):
    challenge_run=saved["run"]
    challenge_won=bool(saved.get("won",false))
    puzzle.rng.state=int(saved.get("rng_state",str(puzzle.rng.state)))
