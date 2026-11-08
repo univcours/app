@@ -10,6 +10,7 @@ const ProgressionScript = preload("res://scripts/Progression.gd")
 const SaveStore = preload("res://scripts/SaveStore.gd")
 const SafeArea = preload("res://scripts/SafeArea.gd")
 const Campaign = preload("res://scripts/Campaign.gd")
+const Typography = preload("res://scripts/Typography.gd")
 
 const GEM_COLORS = [
  Color("#192850"), Color("#ff287f"), Color("#ffbe17"), Color("#13c7fa"),
@@ -65,7 +66,6 @@ var falling
 var audio
 var visuals
 var progress
-var font: Font
 var gem_styles: Array = []
 var panel_styles: Dictionary = {}
 var board_tile_styles: Dictionary = {}
@@ -115,7 +115,6 @@ func _ready() -> void:
  audio = AudioScript.new()
  add_child(audio)
  progress = ProgressionScript.new()
- font = ThemeDB.fallback_font
  visuals = VisualsScript.new()
  add_child(visuals)
  visuals.configure(GEM_COLORS)
@@ -572,7 +571,7 @@ func _draw_cosmic_planet(center:Vector2,radius:float,base:Color,light:Color) -> 
 
 func _label(text:String,pos:Vector2,size:int=16,color:Color=Color.WHITE,
  alignment:HorizontalAlignment=HORIZONTAL_ALIGNMENT_LEFT,width:float=-1.0) -> void:
- draw_string(font,pos,text,alignment,width,size,color)
+ Typography.draw_neon(self,text,pos,size,color,alignment,width)
 
 func _sparkle(pos:Vector2,tint:Color,extent:float=5.0) -> void:
  draw_circle(pos,extent*1.8,Color(tint.r,tint.g,tint.b,.11))

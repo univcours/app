@@ -6,6 +6,7 @@ const ProgressionScript = preload("res://scripts/Progression.gd")
 const CampaignScript = preload("res://scripts/Campaign.gd")
 const SaveStore = preload("res://scripts/SaveStore.gd")
 const SafeArea = preload("res://scripts/SafeArea.gd")
+const Typography = preload("res://scripts/Typography.gd")
 const GEMS = [Color("#132255"),Color("#ff287f"),Color("#ffc323"),Color("#13e5ff"),Color("#a65cff"),Color("#53e620"),Color("#ff812b"),Color("#3688ff")]
 const CYAN = Color("#3de4ff")
 const PURPLE = Color("#b965ff")
@@ -19,7 +20,6 @@ var visuals
 var audio
 var progress
 var campaign
-var font:Font
 var clock:float=0.0
 var screen:String="home"
 var language:String="en"
@@ -34,7 +34,6 @@ var stars:Array=[]
 
 func _ready() -> void:
  get_tree().quit_on_go_back=false
- font=ThemeDB.fallback_font
  visuals=VisualsScript.new()
  add_child(visuals)
  visuals.configure(GEMS)
@@ -115,7 +114,7 @@ func _tr(en:String,fr:String) -> String:
  return fr if language=="fr" else en
 
 func _text(message:String,pos:Vector2,size:int=18,color:Color=Color.WHITE,width:float=-1,align:HorizontalAlignment=HORIZONTAL_ALIGNMENT_LEFT) -> void:
- draw_string(font,pos,message,align,width,size,color)
+ Typography.draw_neon(self,message,pos,size,color,align,width)
 
 func _center(message:String,y:float,size:int=18,color:Color=Color.WHITE) -> void:
  _text(message,Vector2(0,y),size,color,432,HORIZONTAL_ALIGNMENT_CENTER)
@@ -327,7 +326,7 @@ func _settings() -> void:
  _center("NovaGrid · Cosmic Edition",884,17,Color("#8c9dce"))
 
 func _draw() -> void:
- if font==null or visuals==null: return
+ if visuals==null: return
  var view:Vector2=get_viewport_rect().size
  draw_rect(Rect2(Vector2.ZERO,view),Color(.012,.012,.055,.42))
  var frame:Rect2=_frame()
