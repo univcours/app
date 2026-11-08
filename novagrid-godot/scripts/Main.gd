@@ -1164,7 +1164,7 @@ func _release(pos:Vector2) -> void:
    visuals.set_theme(progress.active_theme+1 if progress.active_theme+1<progress.unlocked_themes() else 0)
    var theme_name:String=progress.cycle_theme()
    _announce(theme_name+" GALAXY",Vector2(layout["viewport"].x*.5,layout["height"]*.5),Color("#c4f8ff"))
-   audio.effect("fever")
+   audio.effect("reward")
    _save_game()
   else:
    _announce("NEXT GALAXY AT LEVEL 4",Vector2(layout["viewport"].x*.5,layout["height"]*.5),Color("#bdeaff"))

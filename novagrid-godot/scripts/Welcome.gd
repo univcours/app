@@ -40,7 +40,7 @@ func _ready() -> void:
  visuals.configure(GEMS)
  audio=AudioScript.new()
  add_child(audio)
- audio.select_music("puzzle")
+ audio.select_music("menu")
  progress=ProgressionScript.new()
  campaign=CampaignScript.new()
  save_data=SaveStore.read()
@@ -343,7 +343,7 @@ func _activate(key:String) -> void:
   "back": screen="home"
   "daily_play": _launch(0,"daily")
   "sound": audio.toggle_sound()
-  "music": audio.toggle_music("puzzle")
+  "music": audio.toggle_music("menu")
   "quality":
    reduced_effects=not reduced_effects
    _save_preferences()

@@ -15,12 +15,16 @@ func _initialize()->void:
 func _run()->void:
  var first=Audio.new()
  root.add_child(first)
- verify(first.fx_players.size()==6,"six overlapping FX channels exist")
- verify(first.music_tracks.size()==2,"two distinct soundtracks exist")
+ verify(first.fx_players.size()==8,"eight overlapping, polyphonic FX channels exist")
+ verify(first.music_tracks.size()==4,"menu, classic, blockfall and settings music routing exists")
  verify(first.sounds.has("puzzle_shatter") and first.sounds.has("falling_shatter"),
   "separate puzzle and falling effects exist")
- verify(first.music_tracks["puzzle"]!=first.music_tracks["falling"],
-  "musical modes have distinct original assets")
+ verify(first.music_tracks["menu"]!=first.music_tracks["puzzle"] and first.music_tracks["puzzle"]!=first.music_tracks["falling"],
+  "menu, puzzle and blockfall have distinct original tracks")
+ verify(first.sounds.has("victory") and first.sounds.has("unlock") and first.sounds.has("popup"),
+  "victory, unlock and premium UI FX are real samples")
+ verify((first.sounds["tap"] as AudioStreamWAV).mix_rate==32000,
+  "all premium sounds use the upgraded 32kHz synthesis rate")
  var original_sound:bool=first.sounds_enabled
  var original_music:bool=first.music_enabled
  first.toggle_sound()
