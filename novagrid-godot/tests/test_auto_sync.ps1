@@ -16,6 +16,12 @@ function Require([bool]$ok,[string]$message) {
  if (!$ok) { throw "NOVAGRID AUTO SYNC FAILURE: $message" }
 }
 try {
+ # Check that the Windows Task Scheduler trigger can be constructed without
+ # actually registering a task or altering the GitHub Actions runner.
+ $schedule=New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes 1) -RepetitionDuration (New-TimeSpan -Days 3650)
+ $principal=New-ScheduledTaskPrincipal -UserId ([Security.Principal.WindowsIdentity]::GetCurrent().Name) -LogonType Interactive -RunLevel Limited
+ $settings=New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 2) -StartWhenAvailable
+ Require ($null -ne $schedule -and $null -ne $principal -and $null -ne $settings) 'per-user one-minute schedule constructs correctly'
  Invoke-FixtureGit @('init','--bare',$origin)
  Invoke-FixtureGit @('clone',$origin,$seed)
  Invoke-FixtureGit @('-C',$seed,'checkout','-b',$branch)
