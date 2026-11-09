@@ -5,6 +5,11 @@ on:
     paths:
       - 'novagrid-godot/**'
       - '.github/workflows/novagrid-cosmic-edition.yml'
+  pull_request:
+    branches: [novagrid-cosmic-edition-20261108]
+    paths:
+      - 'novagrid-godot/**'
+      - '.github/workflows/novagrid-cosmic-edition.yml'
   workflow_dispatch:
 permissions:
   contents: read
@@ -104,7 +109,7 @@ jobs:
         run: |
           set -euo pipefail
           passed=0
-          for suite in game progression touch layout audio back_navigation cosmic integrity open_source menu typography legacy_cleanup visual_feedback rescue branding; do
+          for suite in game progression touch layout audio back_navigation cosmic integrity open_source menu typography legacy_cleanup visual_feedback rescue branding hint; do
             qa_data="$RUNNER_TEMP/novagrid-test-$suite"
             mkdir -p "$qa_data"
             XDG_DATA_HOME="$qa_data" timeout 120s godot --headless --audio-driver Dummy --path "$PROJECT" --script "res://tests/test_$suite.gd" 2>&1 | tee "$PROJECT/build/reports/$suite.log"

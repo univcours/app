@@ -2,6 +2,7 @@ extends Node2D
 ## NovaGrid native Godot 4.5 game UI.
 ## Gameplay, glass blocks, drag/drop, visual FX, saves and sounds run on Godot.
 const PuzzleScript = preload("res://scripts/Puzzle.gd")
+const HintSolver = preload("res://scripts/HintSolver.gd")
 const FallingScript = preload("res://scripts/Falling.gd")
 const AudioScript = preload("res://scripts/Audio.gd")
 const VisualsScript = preload("res://scripts/Visuals.gd")
@@ -74,6 +75,7 @@ var board_tile_styles: Dictionary = {}
 var mode := 0
 var paused := false
 var selected := -1
+var active_hint:Dictionary = {}
 var bomb_armed := false
 var restart_confirm := false
 var reward_offer_open := false
@@ -503,6 +505,20 @@ func _draw_puzzle(layout:Dictionary) -> void:
    var id:int=int(puzzle.cells[y][x])
    if id>0:
     _gem(Rect2(board.position+Vector2(x*cell,y*cell_y),Vector2(cell,cell_y)),id)
+ # The hint is a preview, never a move: only a deliberate tap places a piece.
+ if not active_hint.is_empty() and selected==int(active_hint.get("slot",-1)) and not dragging:
+  var hint_origin:Vector2i=active_hint.get("origin",Vector2i(-1,-1))
+  var hinted_shape:Array=puzzle.tray[selected]
+  if puzzle.fits(hinted_shape,hint_origin):
+   var hinted_color:int=int(puzzle.tray_colors[selected])
+   for point in hinted_shape:
+    var target:Vector2i=hint_origin+point
+    var hint_tile:=Rect2(board.position+Vector2(target.x*cell,target.y*cell_y),
+     Vector2(cell,cell_y))
+    _gem(hint_tile,hinted_color,true)
+    draw_rect(hint_tile.grow(-2.5),GLOW_GOLD,false,2.4)
+   _label("HINT  ·  TAP GOLD CELLS",board.position+Vector2(0,19),11,
+    GLOW_GOLD,HORIZONTAL_ALIGNMENT_CENTER,board.size.x)
  if bomb_armed and board.has_point(touch_at):
   var target:=Vector2i(clampi(int((touch_at.x-board.position.x)/cell),0,8),
    clampi(int((touch_at.y-board.position.y)/cell_y),0,8))
@@ -826,6 +842,7 @@ func _press(pos:Vector2) -> void:
   for i in layout["tray"].size():
    if layout["tray"][i].has_point(pos) and not puzzle.tray[i].is_empty():
     bomb_armed=false
+    active_hint.clear()
     selected = i
     audio.effect("pick")
     return
@@ -970,7 +987,11 @@ func _release(pos:Vector2) -> void:
   else:
    _announce("NEXT GALAXY AT LEVEL 4",Vector2(layout["viewport"].x*.5,layout["height"]*.5),Color("#bdeaff"))
   return
+ if mode==0 and layout["hint"].has_point(pos) and layout["hint"].has_point(pressed_at):
+  _toggle_hint()
+  return
  if layout["bomb"].has_point(pos) and layout["bomb"].has_point(pressed_at):
+  active_hint.clear()
   var charges:int=puzzle.bombs if mode==0 else falling.rescues
   if charges>0:
    bomb_armed=true if ((mode==1 and falling.rescue_pending) or (mode==0 and puzzle.needs_rescue())) else not bomb_armed
@@ -1019,11 +1040,32 @@ func _release(pos:Vector2) -> void:
   _release_falling(pos,layout)
  queue_redraw()
 
+func _toggle_hint() -> void:
+ # A transparent, free suggestion; no random draws, rewards, score or save.
+ if mode!=0 or paused or puzzle.over or challenge_won:
+  return
+ if not active_hint.is_empty():
+  active_hint.clear()
+  selected=-1
+ else:
+  bomb_armed=false
+  active_hint=HintSolver.best_move(puzzle,selected)
+  if active_hint.is_empty():
+   _announce("NO LEGAL MOVE · USE A BLAST",_layout()["board"].get_center(),GLOW_PINK)
+  else:
+   selected=int(active_hint["slot"])
+   var groups:int=int(active_hint["groups"])
+   var message:String="HINT · PIECE %d · %d CLEARS"%[selected+1,groups] if groups>0 else "HINT · PIECE %d"%[selected+1]
+   _announce(message,_layout()["board"].get_center()-Vector2(0,45),GLOW_GOLD)
+  audio.effect("tap")
+ queue_redraw()
+
 func _restart_mode() -> void:
  # Replay changes only this run. The permanent record and earned XP survive.
  paused=false
  settings_open=false
  restart_confirm=false
+ active_hint.clear()
  reward_offer_open=false
  reward_ad_in_progress=false
  reward_credit_given=false
@@ -1062,6 +1104,7 @@ func _release_puzzle(pos:Vector2,layout:Dictionary) -> void:
     clampi(int((pos.y-board.position.y)/cell_y),0,8))
    var removed:int=puzzle.detonate_bomb(target)
    if removed>0:
+    active_hint.clear()
     bomb_armed=false
     selected=-1
     var impact:Vector2=board.position+Vector2((target.x+.5)*cell,(target.y+.5)*cell_y)
@@ -1080,6 +1123,7 @@ func _release_puzzle(pos:Vector2,layout:Dictionary) -> void:
   if not shape.is_empty():
    var origin:Vector2i = _origin_from_position(drop,dragging,board,shape)
    if puzzle.place(selected,origin):
+    active_hint.clear()
     _challenge_turn()
     var count:int = puzzle.last_cleared
     audio.effect_for("puzzle","big_shatter" if count>10 else "shatter" if count>0 else "place")
@@ -1270,7 +1314,10 @@ func _layout() -> Dictionary:
  var w:float=safe.size.x
  var h:float=safe.size.y
  var margin:float=16.0
- var action_width:float=maxf(36.0,minf(72.0,(w-32.0-24.0)/5.0))
+ # Classic adds a sixth HUD action; Blockfall retains the original five.
+ var action_count:int=6 if mode==0 else 5
+ var action_width:float=maxf(36.0,minf(72.0,
+  (w-32.0-6.0*float(action_count-1))/float(action_count)))
  var header:float=clampf(h*.22,132.0,194.0)
  var side:float=clampf(w*.205,66.0,96.0)
  var board:Rect2
@@ -1295,9 +1342,10 @@ func _layout() -> Dictionary:
   "audio":Rect2(safe.position.x+16,safe.end.y-104,action_width,44),
   "music":Rect2(safe.position.x+16+(action_width+6),safe.end.y-104,action_width,44),
   "privacy":Rect2(safe.position.x+16+2*(action_width+6),safe.end.y-104,action_width,44),
-  "replay":Rect2(safe.position.x+16+3*(action_width+6),safe.end.y-104,action_width,44),
-  "bomb":Rect2(safe.position.x+16+4*(action_width+6),safe.end.y-104,action_width,44),
-  "bomb_visual":Rect2(safe.position.x+16+4*(action_width+6),safe.end.y-104,action_width,44),
+  "hint":Rect2(safe.position.x+16+3*(action_width+6),safe.end.y-104,action_width,44) if mode==0 else Rect2(Vector2(-100,-100),Vector2.ZERO),
+  "replay":Rect2(safe.position.x+16+(4 if mode==0 else 3)*(action_width+6),safe.end.y-104,action_width,44),
+  "bomb":Rect2(safe.position.x+16+(5 if mode==0 else 4)*(action_width+6),safe.end.y-104,action_width,44),
+  "bomb_visual":Rect2(safe.position.x+16+(5 if mode==0 else 4)*(action_width+6),safe.end.y-104,action_width,44),
   "progress":Rect2(safe.position.x+16,safe.end.y-50,w-32,42),
   "finish":Rect2(safe.position.x+46,safe.position.y+h*.5+28,w-92,48)}
 
@@ -1331,6 +1379,7 @@ func _draw_cosmic() -> void:
  _button(layout["audio"],"♪" if audio.sounds_enabled else "×",false,true)
  _button(layout["music"],"♫" if audio.music_enabled else "○",false,true)
  if native_ads!=null:_button(layout["privacy"],"PRIVACY",false,true)
+ if mode==0:_button(layout["hint"],"HINT",not active_hint.is_empty(),true)
  _button(layout["replay"],"REPLAY",false,true)
  var blast_count:int=puzzle.bombs if mode==0 else falling.rescues
  _button(layout["bomb"],"AD +1" if blast_count==0 and _can_watch_ad_for_blast() else "BLAST %d"%blast_count,bomb_armed,true)
