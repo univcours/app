@@ -161,6 +161,7 @@ func _write_name_in_sparks()->void:
  for c in upper:
   if not FONT.has(c):
    unicode_label=true
+   _halo_letters()
    return
  var dot:float=minf(3.9,display_zone.size.x/(float(maxi(1,upper.length()))*6.4))
  var width:float=float(upper.length()*6-1)*dot
@@ -178,11 +179,27 @@ func _write_name_in_sparks()->void:
  if points.size()>capacity:
   # Preserve the actual name in all writing systems and accessibility modes.
   unicode_label=true
+  _halo_letters()
   return
  for i in range(points.size()):
   var target:Vector2=points[i]
   letters.append({"pos":target+Vector2(gen.randf_range(-75,75),gen.randf_range(55,125)),
    "target":target,"velocity":Vector2(gen.randf_range(-28,28),gen.randf_range(-65,-15)),
+   "color":COLORS[i%COLORS.size()]})
+
+func _halo_letters()->void:
+ # Native-font names still receive a real falling firework shower: the exact
+ # Unicode text remains visible above this ring until it dissolves.
+ var count:int=24 if reduced_effects else 68
+ var middle:=Vector2(display_zone.get_center().x,
+  display_zone.position.y+display_zone.size.y*.23)
+ var horizontal:float=minf(155.0,display_zone.size.x*.40)
+ for i in count:
+  var phase:float=TAU*float(i)/float(count)
+  var target:=middle+Vector2(cos(phase)*horizontal,
+   sin(phase)*21.0)
+  letters.append({"pos":target+Vector2(gen.randf_range(-40,40),gen.randf_range(60,105)),
+   "target":target,"velocity":Vector2(gen.randf_range(-27,27),gen.randf_range(-50,-10)),
    "color":COLORS[i%COLORS.size()]})
 
 func _draw()->void:
