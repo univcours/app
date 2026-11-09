@@ -206,9 +206,9 @@ func _run()->void:
  app._press(confirm)
  app._release(confirm)
  app.grant_ad_rescue()
- app.grant_ad_rescue() # duplicate native callback must be rejected by ad controller
- check(app.puzzle.bombs==2,
-  "model caps rewarded inventory even if duplicate callback is simulated")
+ app.grant_ad_rescue() # duplicate native callback must never credit twice
+ check(app.puzzle.bombs==1,
+  "a completed rewarded video gives EXACTLY one blast, even on duplicate callback")
  app.rewarded_ad_finished(true)
  check(not app.reward_ad_in_progress and not app.paused,
   "earned reward finishes ad state and resumes gameplay")
