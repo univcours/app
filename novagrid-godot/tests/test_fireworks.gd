@@ -2,6 +2,7 @@ extends SceneTree
 ## A genuine clear triggers animation and sound, with strict mobile budgets.
 const Fireworks=preload("res://scripts/FireworksShow.gd")
 const Audio=preload("res://scripts/Audio.gd")
+const SaveStore=preload("res://scripts/SaveStore.gd")
 var failures:Array[String]=[]
 
 func verify(value:bool,label:String)->void:
@@ -79,7 +80,7 @@ func _run()->void:
  game._save_player_name()
  verify(game.player_name=="NOVA CHAMP",
   "name input commits player-selected identity")
- var saved:Dictionary=game.SaveStore.read()
+ var saved:Dictionary=SaveStore.read()
  verify(saved.get("player_name","")=="NOVA CHAMP",
   "name survives SaveStore save without changing puzzle schema")
  game.fireworks.launch(4,game._layout()["board"],game.player_name,false)
