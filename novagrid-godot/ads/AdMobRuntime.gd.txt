@@ -6,11 +6,13 @@ extends Node
 ## Interstitial is offered only after completed rounds, with strong throttling.
 const BANNER_TEST = "ca-app-pub-3940256099942544/9214589741"
 const INTERSTITIAL_TEST = "ca-app-pub-3940256099942544/1033173712"
+const REWARDED_TEST = "ca-app-pub-3940256099942544/5224354917"
 # Registered, VERIFIED user AdMob identifiers. Only selectable in explicitly
 # configured production release for the official original package.
 const LIVE_APP = "ca-app-pub-7945572016731367~1688423435"
 const BANNER_LIVE = "ca-app-pub-7945572016731367/3815893327"
 const INTERSTITIAL_LIVE = "ca-app-pub-7945572016731367/2422920606"
+const REWARDED_LIVE = "ca-app-pub-7945572016731367/1367989694"
 const MIN_SECONDS_BETWEEN_FULL_SCREEN = 180.0
 var game: Node2D
 var banner: AdView
@@ -19,6 +21,13 @@ var banner_listener := AdListener.new()
 var interstitial: InterstitialAd
 var interstitial_loader := InterstitialAdLoadCallback.new()
 var interstitial_content := FullScreenContentCallback.new()
+var rewarded: RewardedAd
+var rewarded_loader := RewardedAdLoadCallback.new()
+var rewarded_content := FullScreenContentCallback.new()
+var earned_reward_listener := OnUserEarnedRewardListener.new()
+var rewarded_loading := false
+var rewarded_showing := false
+var rewarded_earned := false
 var initialization_listener := OnInitializationCompleteListener.new()
 var round_count := 0
 var last_interstitial_msec := 0
@@ -50,6 +59,11 @@ func start(game_node: Node2D) -> void:
  interstitial_loader.on_ad_failed_to_load = _interstitial_failed
  interstitial_content.on_ad_dismissed_full_screen_content = _interstitial_dismissed
  interstitial_content.on_ad_failed_to_show_full_screen_content = _interstitial_show_failed
+ rewarded_loader.on_ad_loaded = _rewarded_loaded
+ rewarded_loader.on_ad_failed_to_load = _rewarded_failed
+ rewarded_content.on_ad_dismissed_full_screen_content = _rewarded_dismissed
+ rewarded_content.on_ad_failed_to_show_full_screen_content = _rewarded_show_failed
+ earned_reward_listener.on_user_earned_reward = _earned_reward
  initialization_listener.on_initialization_complete = _initialized
  # Google UMP consent must be refreshed before ANY ad request, every startup.
  var request := ConsentRequestParameters.new()
@@ -95,6 +109,7 @@ func _init_if_allowed() -> void:
 func _initialized(_status: InitializationStatus) -> void:
  _load_banner()
  _load_interstitial()
+ _load_rewarded()
 
 func _load_banner() -> void:
  if not consent_ready or banner != null or not is_instance_valid(game):
@@ -200,6 +215,76 @@ func _release_interstitial() -> void:
   interstitial = null
  _load_interstitial()
 
+func _load_rewarded() -> void:
+ if not consent_ready or rewarded_loading or rewarded!=null:
+  return
+ rewarded_loading=true
+ RewardedAdLoader.new().load(
+  REWARDED_LIVE if live_build else REWARDED_TEST,
+  AdRequest.new(), rewarded_loader)
+
+func _rewarded_loaded(ad: RewardedAd) -> void:
+ rewarded_loading=false
+ if rewarded!=null:
+  rewarded.destroy()
+ rewarded=ad
+ rewarded.full_screen_content_callback=rewarded_content
+ print("NovaGrid AdMob: optional +1 Blast reward available")
+
+func _rewarded_failed(error: LoadAdError) -> void:
+ rewarded_loading=false
+ print("NovaGrid AdMob: optional rewarded ad unavailable: ",error.message)
+
+func can_offer_rewarded() -> bool:
+ # Never promise an ad or reward when SDK has not supplied an actual ad.
+ return OS.get_name()=="Android" and consent_ready and rewarded!=null and (
+  not rewarded_showing) and is_instance_valid(game)
+
+func show_rewarded_for_rescue() -> bool:
+ # Must be initiated by a visible player opt-in, never automatically.
+ if not can_offer_rewarded():
+  return false
+ rewarded_showing=true
+ rewarded_earned=false
+ rewarded.show(earned_reward_listener)
+ return true
+
+func _earned_reward(item: RewardItem) -> void:
+ # Google confirms the user completed the ad; only this event may grant XP.
+ # The one-shot guard also protects against repeated native callbacks.
+ if not rewarded_showing or rewarded_earned or item.amount<=0:
+  return
+ rewarded_earned=true
+ if is_instance_valid(game) and game.has_method("grant_ad_rescue"):
+  game.call("grant_ad_rescue")
+ print("NovaGrid AdMob: user earned an optional rescue charge")
+
+func _rewarded_dismissed() -> void:
+ _finish_rewarded()
+
+func _rewarded_show_failed(error: AdError) -> void:
+ print("NovaGrid AdMob: optional rewarded ad failed to show: ",error.message)
+ _finish_rewarded()
+
+func _finish_rewarded() -> void:
+ var was_earned:bool=rewarded_earned
+ rewarded_showing=false
+ rewarded_earned=false
+ if rewarded!=null:
+  rewarded.destroy()
+  rewarded=null
+ if is_instance_valid(game) and game.has_method("rewarded_ad_finished"):
+  game.call("rewarded_ad_finished",was_earned)
+ _load_rewarded()
+
+func _destroy_rewarded() -> void:
+ rewarded_showing=false
+ rewarded_earned=false
+ rewarded_loading=false
+ if rewarded!=null:
+  rewarded.destroy()
+  rewarded=null
+
 func show_privacy_options() -> void:
  if OS.get_name() != "Android":
   return
@@ -214,6 +299,7 @@ func _privacy_closed(error: FormError) -> void:
   interstitial.destroy()
   interstitial = null
  loading_interstitial = false
+ _destroy_rewarded()
  consent_ready = false
  initialized = false
  var request := ConsentRequestParameters.new()
@@ -221,6 +307,7 @@ func _privacy_closed(error: FormError) -> void:
 
 func _exit_tree() -> void:
  _destroy_banner()
+ _destroy_rewarded()
  if interstitial != null:
   interstitial.destroy()
   interstitial = null
