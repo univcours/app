@@ -41,8 +41,8 @@ func _run()->void:
   "low settings cap letter fragment counts")
  fx.launch(4,area,"أحمد")
  for frame in 21:fx._process(.06)
- verify(fx.unicode_label and fx.player_name=="أحمد",
-  "Arabic name stays intact with native font fallback")
+ verify(fx.unicode_label and fx.player_name=="أحمد" and fx.letters.size()>0,
+  "Arabic name stays intact and earns a falling spark shower")
  fx.reset_show()
  verify(not fx.active and fx.particles.is_empty() and fx.shells.is_empty(),
   "round restart recycles all particle pools")
