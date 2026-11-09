@@ -1,0 +1,27 @@
+name: NovaGrid AI Agent Profiles Validation
+
+on:
+  pull_request:
+    paths:
+      - '.github/agents/novagrid-*.agent.md'
+      - 'novagrid-godot/AGENTS.md'
+      - 'novagrid-godot/AI-TEAM.md'
+      - 'novagrid-godot/tests/test_agent_profiles.py'
+      - '.github/workflows/novagrid-ai-agents.yml'
+  push:
+    branches: [novagrid-cosmic-edition-20261108]
+    paths:
+      - '.github/agents/novagrid-*.agent.md'
+      - 'novagrid-godot/AGENTS.md'
+      - 'novagrid-godot/AI-TEAM.md'
+      - 'novagrid-godot/tests/test_agent_profiles.py'
+      - '.github/workflows/novagrid-ai-agents.yml'
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate all NovaGrid specialist agents
+        run: python3 novagrid-godot/tests/test_agent_profiles.py
