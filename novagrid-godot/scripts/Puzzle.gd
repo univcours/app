@@ -150,6 +150,14 @@ func can_rescue() -> bool:
 func needs_rescue() -> bool:
  return not any_move() and can_rescue() and not over
 
+func grant_rewarded_blast() -> bool:
+ # Called only by the native rewarded-ad earned callback, not on ad show.
+ # A player can never hold more than two rescue charges.
+ if bombs>=MAX_BOMBS:return false
+ bombs+=1
+ _check_game_over()
+ return true
+
 func _check_game_over() -> void:
  over=not any_move() and not can_rescue()
 

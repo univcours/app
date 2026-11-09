@@ -116,6 +116,15 @@ func _validate_spawn_or_offer_rescue() -> void:
 func can_rescue() -> bool:
  return rescues>0 and not over
 
+func grant_rewarded_blast() -> bool:
+ # Reward is credited only after AdMob confirms completion.
+ # Recheck a blocked spawn without skipping the active piece.
+ if rescues>=MAX_RESCUES:return false
+ rescues+=1
+ if over or rescue_pending:
+  _validate_spawn_or_offer_rescue()
+ return true
+
 func _award_rescues() -> void:
  last_rescue_award=0
  var earned:int=int(lines/RESCUE_EVERY_LINES)
