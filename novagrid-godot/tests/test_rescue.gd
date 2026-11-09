@@ -3,6 +3,16 @@ extends SceneTree
 ## replay confirmation, save/restore and double-spend prevention.
 const Puzzle=preload("res://scripts/Puzzle.gd")
 const Falling=preload("res://scripts/Falling.gd")
+# Desktop mock: never loads advertisements, only exercises opt-in state.
+class FakeRewardAds:
+ extends Node
+ var show_count:int=0
+ func can_offer_rewarded() -> bool:
+  return true
+ func show_rewarded_for_rescue() -> bool:
+  show_count+=1
+  return true
+
 var failures:Array[String]=[]
 
 func check(ok:bool,why:String)->void:
@@ -57,6 +67,10 @@ func _run()->void:
  restored.bombs=0
  restored._check_game_over()
  check(restored.over,"no move and no rescue is genuine Classic game over")
+ check(restored.grant_rewarded_blast() and not restored.over and restored.needs_rescue(),
+  "confirmed rewarded callback revives blocked Classic with exactly one blast")
+ check(restored.bombs==1 and restored.detonate_bomb(Vector2i(4,4))==9,
+  "rewarded Classic blast clears occupied grid, not fake lines")
  var f=Falling.new()
  f.reset()
  f.lines=3
@@ -109,6 +123,10 @@ func _run()->void:
  f.board[0][3]=1
  f._spawn()
  check(f.over and not f.rescue_pending,"no rescue and blocked spawn is real defeat")
+ check(f.grant_rewarded_blast() and not f.over and f.rescue_pending and f.rescues==1,
+  "native reward revives Blockfall's EXACT blocked piece")
+ check(f.detonate_rescue(Vector2i(3,0))==1 and not f.rescue_pending and not f.over,
+  "rewarded Blockfall blast removes obstruction and resumes spawn")
  f.reset()
  check(not f.over and f.score==0 and f.rescues==0 and not f.rescue_pending,
   "Blockfall replay clears earned run charges and pending state")
@@ -156,6 +174,44 @@ func _run()->void:
  app._release(confirm)
  check(app.falling.drops==0 and app.falling.score==0 and app.falling.best>=saved_best,
   "Blockfall Replay resets current run and preserves best")
+ # Rewarded ad: two-step opt-in on live HUD. No reward on first tap,
+ # show(), skip or cancel; grant only when the actual SDK callback fires.
+ var mock=FakeRewardAds.new()
+ app.add_child(mock)
+ app.native_ads=mock
+ app.mode=0
+ app.puzzle.reset()
+ app.paused=false
+ app.settings_open=false
+ var ad_button:Vector2=app._layout()["bomb"].get_center()
+ app._press(ad_button)
+ app._release(ad_button)
+ check(app.reward_offer_open and app.paused and mock.show_count==0 and app.puzzle.bombs==0,
+  "AD +1 offers clear disclosure without auto-playing or granting reward")
+ app._press(cancel)
+ app._release(cancel)
+ check(not app.reward_offer_open and not app.paused and mock.show_count==0,
+  "cancelling voluntary rewarded prompt leaves the run intact")
+ app._press(ad_button)
+ app._release(ad_button)
+ app._press(confirm)
+ app._release(confirm)
+ check(mock.show_count==1 and app.reward_ad_in_progress and app.puzzle.bombs==0,
+  "affirmative consent shows one ad and never grants reward in advance")
+ app.rewarded_ad_finished(false)
+ check(app.puzzle.bombs==0 and not app.paused,
+  "skipped rewarded video does not grant an earned blast")
+ app._press(ad_button)
+ app._release(ad_button)
+ app._press(confirm)
+ app._release(confirm)
+ app.grant_ad_rescue()
+ app.grant_ad_rescue() # duplicate native callback must be rejected by ad controller
+ check(app.puzzle.bombs==2,
+  "model caps rewarded inventory even if duplicate callback is simulated")
+ app.rewarded_ad_finished(true)
+ check(not app.reward_ad_in_progress and not app.paused,
+  "earned reward finishes ad state and resumes gameplay")
  app.queue_free()
  await process_frame
  if failures.is_empty():
