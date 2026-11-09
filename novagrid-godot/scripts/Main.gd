@@ -78,6 +78,7 @@ var bomb_armed := false
 var restart_confirm := false
 var reward_offer_open := false
 var reward_ad_in_progress := false
+var reward_credit_given := false
 var touching := false
 var dragging := false
 var pressed_at := Vector2.ZERO
@@ -716,8 +717,9 @@ func _can_watch_ad_for_blast() -> bool:
 
 func grant_ad_rescue() -> void:
  # Called ONLY from AdMob on_user_earned_reward, never merely on ad show.
- if not reward_ad_in_progress:
+ if not reward_ad_in_progress or reward_credit_given:
   return
+ reward_credit_given=true
  var awarded:bool=puzzle.grant_rewarded_blast() if mode==0 else falling.grant_rewarded_blast()
  if not awarded:
   return
@@ -734,6 +736,7 @@ func grant_ad_rescue() -> void:
 func rewarded_ad_finished(earned:bool) -> void:
  # Skipped/failed ads do not grant anything.
  reward_ad_in_progress=false
+ reward_credit_given=false
  reward_offer_open=false
  paused=false
  if not earned:
@@ -908,9 +911,10 @@ func _release(pos:Vector2) -> void:
    if primary.has_point(pos):
     if _can_watch_ad_for_blast():
      reward_ad_in_progress=true
+     reward_credit_given=false
      if bool(native_ads.call("show_rewarded_for_rescue")):
       reward_offer_open=false
-      paused=true # Blockfall stays frozen while the full-screen ad runs.
+      paused=reward_ad_in_progress # True unless SDK fails synchronously.
      else:
       reward_ad_in_progress=false
       reward_offer_open=false
@@ -926,8 +930,9 @@ func _release(pos:Vector2) -> void:
   elif not paused and restart.has_point(pos) and _can_watch_ad_for_blast():
    # The game-over button itself clearly describes the optional reward.
    reward_ad_in_progress=true
+   reward_credit_given=false
    if bool(native_ads.call("show_rewarded_for_rescue")):
-    paused=true
+    paused=reward_ad_in_progress
     audio.effect("tap")
    else:
     reward_ad_in_progress=false
@@ -1021,6 +1026,7 @@ func _restart_mode() -> void:
  restart_confirm=false
  reward_offer_open=false
  reward_ad_in_progress=false
+ reward_credit_given=false
  selected=-1
  bomb_armed=false
  touching=false
