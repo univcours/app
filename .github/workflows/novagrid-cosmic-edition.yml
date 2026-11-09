@@ -109,7 +109,7 @@ jobs:
         run: |
           set -euo pipefail
           passed=0
-          for suite in game progression touch layout audio back_navigation cosmic integrity open_source menu typography legacy_cleanup visual_feedback rescue branding hint; do
+          for suite in game progression touch layout audio back_navigation cosmic integrity open_source menu typography legacy_cleanup visual_feedback rescue branding hint fireworks; do
             qa_data="$RUNNER_TEMP/novagrid-test-$suite"
             mkdir -p "$qa_data"
             XDG_DATA_HOME="$qa_data" timeout 120s godot --headless --audio-driver Dummy --path "$PROJECT" --script "res://tests/test_$suite.gd" 2>&1 | tee "$PROJECT/build/reports/$suite.log"
