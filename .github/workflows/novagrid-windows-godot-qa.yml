@@ -1,0 +1,77 @@
+name: NovaGrid Independent Windows Godot Gameplay QA
+on:
+  pull_request:
+    branches: [novagrid-cosmic-edition-20261108]
+    paths:
+      - 'novagrid-godot/**'
+      - '.github/workflows/novagrid-windows-godot-qa.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows-godot-qa:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download exactly Godot 4.5.1 official standard Windows build
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $url = 'https://github.com/godotengine/godot-builds/releases/download/4.5.1-stable/Godot_v4.5.1-stable_win64.exe.zip'
+          Invoke-WebRequest -Uri $url -OutFile "$env:RUNNER_TEMP\godot451.zip"
+          Expand-Archive -LiteralPath "$env:RUNNER_TEMP\godot451.zip" -DestinationPath "$env:RUNNER_TEMP\godot451"
+          $engine = Get-ChildItem "$env:RUNNER_TEMP\godot451" -Recurse -File |
+            Where-Object { $_.Name -like '*_console.exe' } |
+            Select-Object -First 1 -ExpandProperty FullName
+          if (-not $engine) { throw 'Godot 4.5.1 console executable not found' }
+          Set-Content -Path "$env:RUNNER_TEMP\godot-path.txt" -Value $engine -NoNewline
+          & $engine --version
+          if ($LASTEXITCODE -ne 0) { throw 'Godot --version failed' }
+      - name: Import and parse all game scripts
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $engine = Get-Content "$env:RUNNER_TEMP\godot-path.txt" -Raw
+          $project = Join-Path $PWD 'novagrid-godot'
+          $env:APPDATA = Join-Path $env:RUNNER_TEMP 'novagrid-import-data'
+          New-Item -ItemType Directory -Path $env:APPDATA -Force | Out-Null
+          $log = & $engine --headless --editor --path $project --quit 2>&1 | Out-String
+          Write-Host $log
+          if ($LASTEXITCODE -ne 0 -or $log -match 'SCRIPT ERROR|Parse Error|Parser Error|ERROR:') {
+            throw 'Godot editor import or script parsing failed'
+          }
+      - name: Test game rules, fireworks, settings, touch and all other isolated suites
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $engine = Get-Content "$env:RUNNER_TEMP\godot-path.txt" -Raw
+          $project = Join-Path $PWD 'novagrid-godot'
+          $suites = @('game','progression','touch','layout','audio','back_navigation',
+            'cosmic','integrity','open_source','menu','typography','legacy_cleanup',
+            'visual_feedback','rescue','branding','hint','fireworks')
+          $reports = Join-Path $project 'build\reports-windows'
+          New-Item -ItemType Directory -Path $reports -Force | Out-Null
+          $passed = 0
+          foreach ($suite in $suites) {
+            $env:APPDATA = Join-Path $env:RUNNER_TEMP "novagrid-qa-$suite"
+            New-Item -ItemType Directory -Path $env:APPDATA -Force | Out-Null
+            $script = "res://tests/test_$suite.gd"
+            $log = & $engine --headless --audio-driver Dummy --path $project --script $script 2>&1 | Out-String
+            Write-Host "==== $suite ===="
+            Write-Host $log
+            $log | Set-Content -Path (Join-Path $reports "$suite.log")
+            if ($LASTEXITCODE -ne 0 -or $log -match 'SCRIPT ERROR|Parse Error|Parser Error|FAIL|ERROR:') {
+              throw "Godot regression failed: $suite"
+            }
+            $passed++
+          }
+          "$passed / $($suites.Count) Godot suites passed on Windows" | Out-File -Append $env:GITHUB_STEP_SUMMARY
+      - name: Publish Windows QA logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: novagrid-windows-godot-qa-reports
+          path: novagrid-godot/build/reports-windows/
+          if-no-files-found: ignore
+          retention-days: 14
