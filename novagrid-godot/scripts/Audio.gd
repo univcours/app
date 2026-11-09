@@ -57,6 +57,10 @@ func _ready()->void:
   "falling_lock":_tone(125.0,.27,.64,.60,.40),
   "drag":_tone(380.0,.065,.14,1.04,.02)
  }
+ sounds["firework_small"]=_firework_sound(460.0,.68,1)
+ sounds["firework_double"]=_firework_sound(545.0,.85,2)
+ sounds["firework_mega"]=_firework_sound(610.0,1.12,3)
+ sounds["firework_legendary"]=_firework_sound(730.0,1.42,4)
  sounds["puzzle_shatter"]=_shards(1000.0,.45,.67,false)
  sounds["puzzle_big_shatter"]=_shards(1350.0,.65,.84,false)
  sounds["falling_shatter"]=_shards(485.0,.48,.85,true)
@@ -125,6 +129,35 @@ func _shards(hz:float,length:float,power:float,heavy:bool)->AudioStreamWAV:
   var value:float=(impact+crackle+sparkle*.057)*power*fade
   value=value/(1.0+absf(value)*.56)
   pcm.encode_s16(i*2,int(clampf(value,-1,1)*32760))
+ return _wav(pcm)
+
+func _firework_sound(hz:float,length:float,bursts:int)->AudioStreamWAV:
+ # Unique original fireworks: rising rocket, broadband crackle, deep pop.
+ # The generated PCM is normalised and clipped safely below 16-bit peak.
+ var frames:int=int(RATE*length)
+ var pcm:=PackedByteArray()
+ pcm.resize(frames*2)
+ var random:=RandomNumberGenerator.new()
+ random.seed=902177+bursts*918
+ var noise:float=0.0
+ for i in frames:
+  var t:float=float(i)/RATE
+  var u:float=t/length
+  noise=noise*.64+random.randf_range(-1.0,1.0)*.36
+  var whine:float=sin(TAU*hz*(t+.23*t*t))*.31*pow(1.0-u,2.1)
+  var snaps:float=0.0
+  var rumble:float=0.0
+  for j in bursts:
+   var launch:float=.12+float(j)*.205
+   var local:float=t-launch
+   if local<0.0:continue
+   snaps+=noise*exp(-local*12.0)*.58
+   rumble+=sin(TAU*(92.0-22.0*local)*local)*exp(-local*17.0)*.32
+   snaps+=sin(TAU*(hz*2.4+float(j)*130)*local)*exp(-local*23.0)*.17
+  var fade:float=pow(maxf(0.0,1.0-u),.65)
+  var value:float=(whine+snaps+rumble)*fade*.77
+  value=value/(1.0+absf(value)*.62)
+  pcm.encode_s16(i*2,int(clampf(value,-.98,.98)*32760))
  return _wav(pcm)
 
 func _score(kind:String)->AudioStreamWAV:

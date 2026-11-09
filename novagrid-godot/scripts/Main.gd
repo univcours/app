@@ -5,6 +5,7 @@ const PuzzleScript = preload("res://scripts/Puzzle.gd")
 const HintSolver = preload("res://scripts/HintSolver.gd")
 const FallingScript = preload("res://scripts/Falling.gd")
 const AudioScript = preload("res://scripts/Audio.gd")
+const FireworksScript = preload("res://scripts/FireworksShow.gd")
 const VisualsScript = preload("res://scripts/Visuals.gd")
 const ProgressionScript = preload("res://scripts/Progression.gd")
 
@@ -67,6 +68,10 @@ var settings_open:bool=false
 var puzzle
 var falling
 var audio
+var fireworks
+var player_name:String="NOVA PLAYER"
+var player_name_entry:LineEdit=null
+var player_name_save:Button=null
 var visuals
 var progress
 var gem_styles: Array = []
@@ -168,6 +173,10 @@ func _ready() -> void:
   style.shadow_offset = Vector2(0,1)
   gem_styles.append(style)
  _load_game()
+ _create_player_name_editor()
+ fireworks=FireworksScript.new()
+ fireworks.z_index=15
+ add_child(fireworks)
  visuals.set_theme(progress.active_theme)
  var gen := RandomNumberGenerator.new()
  gen.seed = 20261106
@@ -793,6 +802,10 @@ func _origin_from_position(pos:Vector2,centered:bool,board:Rect2,shape:Array) ->
  return Vector2i(int(floor(local.x)),int(floor(local.y)))
 
 func _input(event:InputEvent) -> void:
+ if player_name_entry!=null and player_name_entry.visible:
+  if event is InputEventKey and event.pressed and event.keycode==KEY_ESCAPE:
+   _save_player_name()
+  return
  if event is InputEventScreenTouch and event.index==0:
   if event.pressed:
    _press(event.position)
@@ -1078,6 +1091,7 @@ func _restart_mode() -> void:
  shockwaves.clear()
  headlines.clear()
  fragments.clear()
+ if fireworks!=null:fireworks.reset_show()
  # Interstitials only after completed rounds; never on Pause/New Run.
  var completed:bool=(puzzle.over if mode==0 else falling.over)
  if completed and native_ads!=null:
@@ -1126,7 +1140,7 @@ func _release_puzzle(pos:Vector2,layout:Dictionary) -> void:
     active_hint.clear()
     _challenge_turn()
     var count:int = puzzle.last_cleared
-    audio.effect_for("puzzle","big_shatter" if count>10 else "shatter" if count>0 else "place")
+    if count==0:audio.effect("place")
     progress.placed_piece()
     if puzzle.last_groups>0:
      progress.cleared_lines(puzzle.last_groups,puzzle.combo)
@@ -1135,6 +1149,7 @@ func _release_puzzle(pos:Vector2,layout:Dictionary) -> void:
      audio.effect("fever")
     _reward_feedback(board.get_center())
     if count>0:
+     _launch_fireworks(puzzle.last_groups,puzzle.last_gained,board)
      flash=.28 if count<20 else .7
      shake=.25
      for yy in 9:
@@ -1158,6 +1173,16 @@ func _release_puzzle(pos:Vector2,layout:Dictionary) -> void:
    else:
     audio.effect("invalid")
   return
+
+func _launch_fireworks(groups:int,gained:int,board:Rect2)->void:
+ if groups<=0:return
+ if fireworks!=null:
+  fireworks.launch(groups,board,player_name,visuals.reduced_effects)
+ var sound:String="firework_small" if groups==1 else "firework_double" if groups==2 else "firework_mega" if groups==3 else "firework_legendary"
+ audio.effect(sound)
+ if groups>=3:
+  _announce("%s  +%d"%[FireworksScript.level_label(groups),gained],
+   board.get_center()-Vector2(0,60),GLOW_GOLD)
 
 func _reward_feedback(center:Vector2) -> void:
  if progress.last_reward!="":
@@ -1200,7 +1225,7 @@ func _fall_locked() -> void:
   var falling_message:String="BLOCKFALL COMBO x%d  +%d" % [falling.last_lines,falling.last_gained] if falling.last_lines>1 else "QUANTUM CLEAR  +%d" % falling.last_gained
   falling_message=String(clear_names[mini(4,falling.last_lines)])+"  +%d"%falling.last_gained
   _announce(falling_message,_layout()["board"].get_center(),Color("#b2f9ff"))
-  audio.effect_for("falling","big_shatter" if falling.last_lines>=3 else "shatter")
+  _launch_fireworks(falling.last_lines,falling.last_gained,_layout()["board"])
  else:
   audio.effect_for("falling","lock")
  _reward_feedback(_layout()["board"].get_center())
@@ -1281,6 +1306,8 @@ func _burst(center:Vector2,count:int,color:Color) -> void:
 
 func _load_game() -> void:
  var data:Dictionary=SaveStore.read()
+ player_name=String(data.get("player_name","NOVA PLAYER")).strip_edges().substr(0,16)
+ if player_name.is_empty():player_name="NOVA PLAYER"
  var backup:Dictionary=SaveStore._read_path(SaveStore.PATH+".bak")
  for key in ["puzzle","falling","progression","campaign"]:
   if not data.has(key):continue
@@ -1304,6 +1331,7 @@ func _save_game() -> void:
  data["falling"]=falling.snapshot()
  data["progression"]=progress.snapshot()
  data["campaign"]=campaign.snapshot()
+ data["player_name"]=player_name
  var result:Error=SaveStore.write(data)
  if result!=OK:push_error("NovaGrid save failed: %s"%error_string(result))
 
@@ -1405,19 +1433,67 @@ func _draw_cosmic() -> void:
   _button(layout["finish"],"GALAXY HOME",true)
  elif paused or (puzzle.over if mode==0 else falling.over):_draw_modal(layout)
 
+func _create_player_name_editor()->void:
+ player_name_entry=LineEdit.new()
+ player_name_entry.placeholder_text="PLAYER NAME"
+ player_name_entry.max_length=16
+ player_name_entry.text=player_name
+ player_name_entry.visible=false
+ player_name_entry.z_index=80
+ player_name_entry.text_submitted.connect(func(_text:String):_save_player_name())
+ add_child(player_name_entry)
+ player_name_save=Button.new()
+ player_name_save.text="SAVE NAME"
+ player_name_save.visible=false
+ player_name_save.z_index=80
+ player_name_save.pressed.connect(_save_player_name)
+ add_child(player_name_save)
+ get_viewport().size_changed.connect(_position_name_editor)
+ _position_name_editor()
+
+func _position_name_editor()->void:
+ if player_name_entry==null or player_name_save==null:return
+ var safe:Rect2=_layout()["safe"]
+ var width:float=minf(330.0,safe.size.x-48.0)
+ player_name_entry.position=Vector2(safe.get_center().x-width*.5,
+  safe.position.y+safe.size.y*.40)
+ player_name_entry.size=Vector2(width,49)
+ player_name_save.position=player_name_entry.position+Vector2(0,60)
+ player_name_save.size=Vector2(width,47)
+
+func _open_player_name_editor()->void:
+ if player_name_entry==null:return
+ _position_name_editor()
+ player_name_entry.text=player_name
+ player_name_entry.visible=true
+ player_name_save.visible=true
+ player_name_entry.grab_focus()
+ audio.effect("tap")
+
+func _save_player_name()->void:
+ if player_name_entry==null or not player_name_entry.visible:return
+ var candidate:String=player_name_entry.text.replace("\n"," ").replace("\r"," ").strip_edges().substr(0,16)
+ player_name=candidate if not candidate.is_empty() else "NOVA PLAYER"
+ player_name_entry.visible=false
+ player_name_save.visible=false
+ player_name_entry.release_focus()
+ _save_game()
+ queue_redraw()
+
 func _settings_boxes(layout:Dictionary) -> Array[Rect2]:
  var safe:Rect2=layout["safe"]
- var top:float=safe.position.y+safe.size.y*.28
+ var top:float=safe.position.y+safe.size.y*.22
+ var spacing:float=minf(56.0,safe.size.y*.105)
  var result:Array[Rect2]=[]
- for i in 5:result.append(Rect2(safe.position.x+48,top+i*57,safe.size.x-96,45))
+ for i in 6:result.append(Rect2(safe.position.x+48,top+i*spacing,safe.size.x-96,43))
  return result
 
 func _draw_cosmic_settings(layout:Dictionary) -> void:
  draw_rect(Rect2(Vector2.ZERO,layout["viewport"]),Color("#03051c",.93),true)
  var boxes:Array[Rect2]=_settings_boxes(layout)
  _premium_title("SETTINGS",Vector2(0,boxes[0].position.y-33),28,layout["viewport"].x,GLOW_PURPLE)
- var labels:Array=["SOUND: "+("ON" if audio.sounds_enabled else "OFF"),"MUSIC: "+("ON" if audio.music_enabled else "OFF"),"EFFECTS: "+("LOW" if visuals.reduced_effects else "FULL"),"RESUME","NEW RUN"]
- for i in boxes.size():_button(boxes[i],labels[i],i==3)
+ var labels:Array=["SOUND: "+("ON" if audio.sounds_enabled else "OFF"),"MUSIC: "+("ON" if audio.music_enabled else "OFF"),"EFFECTS: "+("LOW" if visuals.reduced_effects else "FULL"),"PLAYER: "+player_name,"RESUME","NEW RUN"]
+ for i in boxes.size():_button(boxes[i],labels[i],i==4,true)
  _draw_back_button(layout["mode_switch"])
 
 func _settings_action(pos:Vector2,layout:Dictionary) -> void:
@@ -1440,10 +1516,11 @@ func _settings_action(pos:Vector2,layout:Dictionary) -> void:
     visuals.sky_material.set_shader_parameter("reduced_effects",visuals.reduced_effects)
     visuals.sky_material.set_shader_parameter("activity",.45 if visuals.reduced_effects else .75)
     visuals.sky_material.set_shader_parameter("motion_speed",0.0 if visuals.reduced_effects else .08)
-   3:
+   3:_open_player_name_editor()
+   4:
     settings_open=false
     paused=false
-   4:
+   5:
     settings_open=false
     paused=false
     _restart_mode()
