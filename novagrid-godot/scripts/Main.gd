@@ -879,7 +879,7 @@ func _release(pos:Vector2) -> void:
   if error!=OK:
    printerr("NovaGrid: cannot return to main menu: ",error)
   return
- if paused and not restart_confirm and mode==0 and skin_neon_puzzle!=null and not puzzle.over:
+ if paused and not restart_confirm and not reward_offer_open and not reward_ad_in_progress and mode==0 and skin_neon_puzzle!=null and not puzzle.over:
   var w:float=layout["viewport"].x
   var h:float=float(layout["height"])
   var panel:=Rect2(Vector2(w*.1,h*.30),Vector2(w*.8,295))
@@ -904,7 +904,34 @@ func _release(pos:Vector2) -> void:
    _save_game()
    get_tree().change_scene_to_file("res://scenes/Welcome.tscn")
    return
-  if primary.has_point(pos):
+  if reward_offer_open:
+   if primary.has_point(pos):
+    if _can_watch_ad_for_blast():
+     reward_ad_in_progress=true
+     if bool(native_ads.call("show_rewarded_for_rescue")):
+      reward_offer_open=false
+      paused=true # Blockfall stays frozen while the full-screen ad runs.
+     else:
+      reward_ad_in_progress=false
+      reward_offer_open=false
+      paused=false
+      _announce("REWARD AD UNAVAILABLE",layout["board"].get_center(),GLOW_PINK)
+    else:
+     reward_offer_open=false
+     paused=false
+   elif restart.has_point(pos):
+    reward_offer_open=false
+    paused=false
+   audio.effect("tap")
+  elif not paused and restart.has_point(pos) and _can_watch_ad_for_blast():
+   # The game-over button itself clearly describes the optional reward.
+   reward_ad_in_progress=true
+   if bool(native_ads.call("show_rewarded_for_rescue")):
+    paused=true
+    audio.effect("tap")
+   else:
+    reward_ad_in_progress=false
+  elif primary.has_point(pos):
    if restart_confirm or not paused:
     _restart_mode()
    else:
@@ -942,6 +969,14 @@ func _release(pos:Vector2) -> void:
   var charges:int=puzzle.bombs if mode==0 else falling.rescues
   if charges>0:
    bomb_armed=true if ((mode==1 and falling.rescue_pending) or (mode==0 and puzzle.needs_rescue())) else not bomb_armed
+   selected=-1
+   audio.effect("tap")
+  elif _can_watch_ad_for_blast():
+   # Show a separate, explicit opt-in screen before the SDK is allowed
+   # to display a full-screen rewarded ad. Cancel leaves the game intact.
+   reward_offer_open=true
+   settings_open=false
+   paused=true
    selected=-1
    audio.effect("tap")
   else:
@@ -984,6 +1019,8 @@ func _restart_mode() -> void:
  paused=false
  settings_open=false
  restart_confirm=false
+ reward_offer_open=false
+ reward_ad_in_progress=false
  selected=-1
  bomb_armed=false
  touching=false
