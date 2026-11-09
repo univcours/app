@@ -223,7 +223,8 @@ func _main_integration() -> void:
  var preferences:=ConfigFile.new()
  check(preferences.load("user://novagrid-visual.cfg")==OK and bool(preferences.get_value("graphics","reduced_effects",quality_before))!=quality_before,"quality preference persisted")
  _tap(app,boxes[2].get_center())
- _tap(app,boxes[3].get_center())
+ check(boxes.size()==6,"Settings includes a player-name control and keeps existing actions")
+ _tap(app,boxes[4].get_center())
  check(not app.paused and not app.settings_open,"Resume closes settings and returns to playable board")
  app.mode=1
  app.falling.reset()
