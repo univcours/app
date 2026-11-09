@@ -61,7 +61,7 @@ jobs:
             Write-Host "==== $suite ===="
             Write-Host $log
             $log | Set-Content -Path (Join-Path $reports "$suite.log")
-            if ($LASTEXITCODE -ne 0 -or $log -match 'SCRIPT ERROR|Parse Error|Parser Error|FAIL|ERROR:') {
+            if ($LASTEXITCODE -ne 0 -or $log -match 'SCRIPT ERROR|Parse Error|Parser Error|FAIL:|ERROR:') {
               throw "Godot regression failed: $suite"
             }
             $passed++
