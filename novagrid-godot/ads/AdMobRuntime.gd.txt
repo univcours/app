@@ -249,7 +249,7 @@ func show_rewarded_for_rescue() -> bool:
  rewarded.show(earned_reward_listener)
  return true
 
-func _earned_reward(item: RewardItem) -> void:
+func _earned_reward(item: RewardedItem) -> void:
  # Google confirms the user completed the ad; only this event may grant XP.
  # The one-shot guard also protects against repeated native callbacks.
  if not rewarded_showing or rewarded_earned or item.amount<=0:
