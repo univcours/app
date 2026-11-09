@@ -76,6 +76,8 @@ var paused := false
 var selected := -1
 var bomb_armed := false
 var restart_confirm := false
+var reward_offer_open := false
+var reward_ad_in_progress := false
 var touching := false
 var dragging := false
 var pressed_at := Vector2.ZERO
@@ -706,6 +708,38 @@ func _draw_fragments() -> void:
    draw_circle(center,size*.24,color)
 
 
+func _can_watch_ad_for_blast() -> bool:
+ if native_ads==null or not native_ads.has_method("can_offer_rewarded"):
+  return false
+ var charges:int=puzzle.bombs if mode==0 else falling.rescues
+ return charges<2 and bool(native_ads.call("can_offer_rewarded"))
+
+func grant_ad_rescue() -> void:
+ # Called ONLY from AdMob on_user_earned_reward, never merely on ad show.
+ if not reward_ad_in_progress:
+  return
+ var awarded:bool=puzzle.grant_rewarded_blast() if mode==0 else falling.grant_rewarded_blast()
+ if not awarded:
+  return
+ if (mode==0 and puzzle.needs_rescue()) or (mode==1 and falling.rescue_pending):
+  bomb_armed=true
+ reward_offer_open=false
+ selected=-1
+ flash=.35
+ _announce("REWARD EARNED: +1 BLAST!",_layout()["board"].get_center(),GLOW_GOLD)
+ audio.effect("reward")
+ _save_game()
+ queue_redraw()
+
+func rewarded_ad_finished(earned:bool) -> void:
+ # Skipped/failed ads do not grant anything.
+ reward_ad_in_progress=false
+ reward_offer_open=false
+ paused=false
+ if not earned:
+  _announce("NO REWARD - AD NOT COMPLETED",_layout()["board"].get_center(),GLOW_PINK)
+ queue_redraw()
+
 func _draw_modal(layout:Dictionary) -> void:
  var viewport:Vector2 = layout["viewport"]
  var game_height:float=float(layout["height"])
@@ -713,17 +747,21 @@ func _draw_modal(layout:Dictionary) -> void:
  var modal := Rect2(Vector2(viewport.x*.09,game_height*.34),
   Vector2(viewport.x*.82,222))
  _glass_panel(modal,Color("#061335"),GLOW_PINK)
- var title := "RESTART RUN?" if restart_confirm else "PAUSED" if paused else "GAME OVER"
- _label(title,Vector2(modal.position.x,modal.position.y+56),26,
+ var title := "OPTIONAL REWARD AD" if reward_offer_open else "RESTART RUN?" if restart_confirm else "PAUSED" if paused else "GAME OVER"
+ _label(title,Vector2(modal.position.x,modal.position.y+56),24,
   Color("#fff2ff"),HORIZONTAL_ALIGNMENT_CENTER,modal.size.x)
  var score:int = puzzle.score if mode==0 else falling.score
- _label("SCORE  %d" % score,Vector2(modal.position.x,modal.position.y+88),
-  16,Color("#cbe9ff"),HORIZONTAL_ALIGNMENT_CENTER,modal.size.x)
- var action := "REPLAY NOW" if restart_confirm else "▶ RESUME" if paused else "↻ PLAY AGAIN"
+ var detail:String="WATCH AD TO EARN +1 BLAST" if reward_offer_open else "SCORE  %d" % score
+ _label(detail,Vector2(modal.position.x,modal.position.y+88),
+  14 if reward_offer_open else 16,Color("#cbe9ff"),HORIZONTAL_ALIGNMENT_CENTER,modal.size.x)
+ var action := "WATCH AD FOR +1 BLAST" if reward_offer_open else "REPLAY NOW" if restart_confirm else "▶ RESUME" if paused else "↻ PLAY AGAIN"
  _button(Rect2(modal.position+Vector2(27,107),Vector2(modal.size.x-54,36)),action,true)
- if paused:
+ if reward_offer_open or paused:
+  var secondary:String="NOT NOW" if reward_offer_open else "CANCEL" if restart_confirm else "↻ NEW RUN"
+  _button(Rect2(modal.position+Vector2(27,148),Vector2(modal.size.x-54,27)),secondary,false,true)
+ elif _can_watch_ad_for_blast():
   _button(Rect2(modal.position+Vector2(27,148),Vector2(modal.size.x-54,27)),
-   "CANCEL" if restart_confirm else "↻ NEW RUN",false,true)
+   "WATCH AD  ·  +1 BLAST",false,true)
  _button(Rect2(modal.position+Vector2(27,184),Vector2(modal.size.x-54,28)),"⌂  GALAXY HOME",false,true)
 
 func _origin_from_position(pos:Vector2,centered:bool,board:Rect2,shape:Array) -> Vector2i:
@@ -1252,7 +1290,7 @@ func _draw_cosmic() -> void:
  if native_ads!=null:_button(layout["privacy"],"PRIVACY",false,true)
  _button(layout["replay"],"REPLAY",false,true)
  var blast_count:int=puzzle.bombs if mode==0 else falling.rescues
- _button(layout["bomb"],"BLAST %d"%blast_count,bomb_armed,true)
+ _button(layout["bomb"],"AD +1" if blast_count==0 and _can_watch_ad_for_blast() else "BLAST %d"%blast_count,bomb_armed,true)
  if mode==0 and puzzle.needs_rescue():
   _label("NO MOVES - USE YOUR BLAST",layout["board"].position+Vector2(0,29),
    14,GLOW_GOLD,HORIZONTAL_ALIGNMENT_CENTER,layout["board"].size.x)
