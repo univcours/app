@@ -18,7 +18,7 @@ const NeonSkin = preload("res://scripts/NeonSkin.gd")
 
 const GEM_COLORS = [
  Color("#192850"), Color("#ff32a1"), Color("#ffdb27"), Color("#1feaff"),
- Color("#b65cff"), Color("#4cfb72"), Color("#ff8729"), Color("#248cff")
+ Color("#a943ff"), Color("#4cfb72"), Color("#ff8729"), Color("#248cff")
 ]
 const SKY = Color("#070923")
 # User-approved 941x1672 reference art is an optional real Godot texture.
