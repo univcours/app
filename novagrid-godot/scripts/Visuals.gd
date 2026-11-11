@@ -72,6 +72,21 @@ func get_gem_texture(color_id: int) -> Texture2D:
 func uses_real_candy_3d() -> bool:
  return candy_renderer!=null and candy_renderer.candy_count()>=7
 
+func set_skin(index:int) -> void:
+ # Change only seven cached crystal shaders; no per-cell 3D or runtime
+ # purchases. Every unlocked skin remains an offline earned-Stars cosmetic.
+ var kind:int=clampi(index,0,2)
+ var inner:Array=[1.30,1.55,1.86]
+ var polish:Array=[.94,.96,1.0]
+ for viewport in tile_viewports:
+  if viewport.get_child_count()==0:continue
+  var patch:ColorRect=viewport.get_child(0) as ColorRect
+  if patch==null or not (patch.material is ShaderMaterial):continue
+  var crystal:ShaderMaterial=patch.material as ShaderMaterial
+  crystal.set_shader_parameter("inner_illumination",inner[kind])
+  crystal.set_shader_parameter("shine",polish[kind])
+  viewport.render_target_update_mode=SubViewport.UPDATE_ONCE
+
 func set_theme(index:int) -> void:
  if sky_material==null:
   return
