@@ -1,43 +1,54 @@
 shader_type canvas_item;
 render_mode unshaded;
 
-// Faceted, semi-translucent neon crystal. The mockup's V-shaped bevel,
-// milky specular crown, colored glass core, light piping and bright bottom rim
-// are built into one fast single-pass CanvasItem shader.
-uniform vec4 gem_color : source_color = vec4(1.0, 0.7, 0.08, 1.0);
-uniform float shine : hint_range(0.0,1.0) = 0.93;
+// NovaGrid multicolour neon crystal: smooth glass face with illumination
+// inside each block, rounded bevel, glossy softbox spots and luminous rims.
+// No crossed facets, creases, centre markings or internal symbols.
+// Only one prebaked 80x80 tile per palette colour is required on mobile.
+uniform vec4 gem_color : source_color = vec4(0.12, 0.9, 1.0, 1.0);
+uniform float shine : hint_range(0.0,1.0) = 0.94;
+uniform float inner_illumination : hint_range(0.0,2.0) = 1.30;
 
-float rounded_box(vec2 p, vec2 b, float radius) {
- vec2 q=abs(p)-b+radius;
- return length(max(q,0.0))+min(max(q.x,q.y),0.0)-radius;
+float rounded_box(vec2 p, vec2 half_size, float radius) {
+ vec2 q = abs(p) - half_size + vec2(radius);
+ return length(max(q, vec2(0.0))) + min(max(q.x,q.y),0.0) - radius;
 }
 void fragment() {
- vec2 uv=UV;
- vec2 p=uv*2.0-1.0;
- float outer=rounded_box(p,vec2(.97),.065);
- float mask=1.0-smoothstep(-.008,.018,outer);
- float inset=.155;
- vec2 inner=clamp((uv-inset)/(1.0-2.0*inset),0.0,1.0);
- float bevel=min(min(uv.x,1.0-uv.x),min(uv.y,1.0-uv.y));
- float top_facet=step(uv.y,uv.x)*step(uv.y,1.0-uv.x)*(1.0-step(inset,bevel));
- float left_facet=step(uv.x,uv.y)*step(uv.x,1.0-uv.y)*(1.0-step(inset,bevel));
- float bottom_facet=step(1.0-uv.y,uv.x)*step(1.0-uv.y,1.0-uv.x)*(1.0-step(inset,bevel));
- vec3 base=gem_color.rgb;
- float diamond=abs(inner.x-.5)+abs(inner.y-.5);
- float crease=1.0-smoothstep(.006,.032,abs(diamond-.48));
- float triangle=step(abs(inner.x-.5),abs(inner.y-.5));
- vec3 core=base*(.55+uv.y*.24+triangle*.11);
- core+=base*top_facet*.48+base*left_facet*.16;
- core-=base*bottom_facet*.22;
- // Softbox reflection restricted to the crown, with a diagonal glass streak.
- float crown=exp(-pow((uv.y-.16)/.075,2.0))*(1.0-smoothstep(.25,.50,abs(uv.x-.5)));
- float diagonal=exp(-pow((uv.x+uv.y*.72-.43)/.06,2.0));
- core=mix(core,vec3(.94,.97,1.0),crown*.52*shine);
- core+=vec3(.7,.85,1.0)*crease*.18;
- core+=base*diagonal*.18;
- float rim=1.0-smoothstep(.01,.035,bevel);
- core=mix(core,base*.50+vec3(.48),rim*.78);
- float bottom_rim=exp(-pow((uv.y-.956)/.012,2.0));
- core+=base*bottom_rim*.25;
- COLOR=vec4(clamp(core,vec3(0.0),vec3(1.0)),mask);
+ vec2 uv = UV;
+ vec2 pos = uv * 2.0 - 1.0;
+ float outer_sdf = rounded_box(pos,vec2(0.93),0.13);
+ float opacity = 1.0 - smoothstep(-0.016,0.020,outer_sdf);
+ float inside = -outer_sdf;
+ float glass_edge = 1.0 - smoothstep(0.02,0.20,inside);
+ float face_sdf = rounded_box(pos,vec2(0.76),0.085);
+ float face = 1.0 - smoothstep(-0.025,0.06,face_sdf);
+
+ // Lighting comes from within the cube, not from engraved facets.
+ float glow_core = exp(-dot(pos,pos)*2.2);
+ float underlight = exp(-pow((uv.y-0.76)/0.27,2.0));
+ vec3 base = gem_color.rgb;
+ vec3 glass = base * (0.44 + 0.19 * uv.y);
+ glass += base * (0.55*glow_core + 0.18*underlight)
+     * inner_illumination * face;
+
+ // Continuous, luminous glass border and polished upper/lower reflections.
+ glass += base * glass_edge * 0.42;
+ float top_rim = exp(-pow((uv.y-0.085)/0.028,2.0))
+     * (1.0-smoothstep(0.67,0.92,abs(pos.x)));
+ float bottom_rim = exp(-pow((uv.y-0.926)/0.026,2.0))
+     * (1.0-smoothstep(0.67,0.92,abs(pos.x)));
+ glass += base * bottom_rim * 0.53;
+ glass += vec3(0.70,0.88,1.0) * top_rim * 0.33;
+
+ // Small curved softbox glints: smooth spots, no intersecting lines.
+ float softbox = exp(-pow((uv.y-0.185)/0.058,2.0))
+     * (1.0-smoothstep(0.23,0.57,abs(uv.x-0.50)));
+ float glint = exp(-pow((uv.x-0.23)/0.095,2.0)
+     -pow((uv.y-0.22)/0.065,2.0));
+ glass += vec3(0.88,0.96,1.0)*softbox*shine*0.37;
+ glass += vec3(1.0)*glint*shine*0.39;
+ glass = mix(glass,base*0.40+vec3(0.07,0.08,0.11),
+     (1.0-face)*0.12);
+ COLOR = vec4(clamp(glass,vec3(0.0),vec3(1.0)),
+     opacity*gem_color.a);
 }

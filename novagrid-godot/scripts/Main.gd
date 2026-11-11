@@ -17,8 +17,8 @@ const Typography = preload("res://scripts/Typography.gd")
 const NeonSkin = preload("res://scripts/NeonSkin.gd")
 
 const GEM_COLORS = [
- Color("#192850"), Color("#ff287f"), Color("#ffbe17"), Color("#13c7fa"),
- Color("#963aff"), Color("#11db60"), Color("#ff751c"), Color("#127bff")
+ Color("#192850"), Color("#ff32a1"), Color("#ffdb27"), Color("#1feaff"),
+ Color("#b65cff"), Color("#4cfb72"), Color("#ff8729"), Color("#248cff")
 ]
 const SKY = Color("#070923")
 # User-approved 941x1672 reference art is an optional real Godot texture.
@@ -435,39 +435,46 @@ func _draw_back_button(rect:Rect2) -> void:
 
 
 func _gem(rect:Rect2,color_id:int,ghost:bool=false,moving:bool=false) -> void:
- # Animated Candy Glass in both game modes. Seven vivid base hues receive
- # a moving two-tone rim, gentle breath glow and specular highlights.
+ # Smooth internally lit neon glass (no X): every board + tray cube uses
+ # the same Godot shader texture, with soft GPU-cheap halos in full FX mode.
  if color_id<=0:return
  var tint:Color=GEM_COLORS[clampi(color_id,1,7)]
  var second:Color=GEM_COLORS[1+posmod(color_id+2,7)]
  var tile:Rect2=rect.grow(-maxf(.7,rect.size.x*.025))
  var phase:float=clock*3.6+tile.position.x*.037+tile.position.y*.043
- var pulse:float=.65+.25*sin(phase)
- var mixed:Color=tint.lerp(second,.12+.14*(.5+.5*sin(phase*.7)))
+ var pulse:float=.66+.26*sin(phase)
+ var mixed:Color=tint.lerp(second,.10+.10*(.5+.5*sin(phase*.7)))
  if ghost:
   draw_rect(tile,Color(mixed.r,mixed.g,mixed.b,.14+.08*pulse),true)
   draw_rect(tile,mixed.lightened(.34),false,1.6)
   return
+ # Layered optical spill looks like bloom without a full-screen postprocess.
+ # Reduced Effects skips these extra calls on low-end Android GPUs.
+ if not visuals.reduced_effects:
+  draw_rect(tile.grow(3.7),Color(mixed.r,mixed.g,mixed.b,.065+.025*pulse),false,3.2,true)
+  draw_rect(tile.grow(1.9),Color(mixed.r,mixed.g,mixed.b,.11+.035*pulse),false,2.2,true)
  var texture:Texture2D=visuals.get_gem_texture(color_id)
  if texture!=null:
   draw_texture_rect(texture,tile,false)
  else:
-  draw_rect(tile,Color(tint.r,tint.g,tint.b,.82),true)
-  draw_rect(tile.grow(-tile.size.x*.1),tint.lightened(.24),false,2)
- draw_rect(tile.grow(.75),Color(mixed.r,mixed.g,mixed.b,.36+.24*pulse),
-  false,1.4 if not moving else 2.2)
+  draw_rect(tile,Color(tint.r,tint.g,tint.b,.86),true)
+  draw_rect(tile.grow(-tile.size.x*.10),tint.lightened(.24),false,2)
+ # Clean luminous rims and horizontal softbox glint, never intersecting
+ # internal strokes. The actual cell touch geometry remains unchanged.
+ draw_rect(tile.grow(.75),Color(mixed.r,mixed.g,mixed.b,.37+.23*pulse),
+  false,1.5 if not moving else 2.2,true)
  var sweep:float=fposmod(clock*.67+tile.position.x*.004+tile.position.y*.006,1.0)
- var x0:float=tile.position.x+3+sweep*tile.size.x*.55
- draw_line(Vector2(x0,tile.position.y+3),
-  Vector2(minf(tile.end.x-3,x0+tile.size.x*.24),tile.position.y+3),
-  Color(1,1,1,.32+.20*pulse),1.4,true)
+ var x0:float=tile.position.x+3.0+sweep*tile.size.x*.55
+ draw_line(Vector2(x0,tile.position.y+3.0),
+  Vector2(minf(tile.end.x-3.0,x0+tile.size.x*.24),tile.position.y+3.0),
+  Color(1,1,1,.33+.18*pulse),1.4,true)
  if moving and not visuals.reduced_effects:
   for radius in 2:
-   draw_rect(tile.grow(2.4+radius*2.1),
-    Color(mixed.r,mixed.g,mixed.b,.18/(radius+1)),false,2.1,true)
-  draw_line(tile.position+Vector2(3,tile.size.y*.24),
-   tile.position+Vector2(3,tile.size.y*.73),
-   Color(second.r,second.g,second.b,.65*pulse),2.2,true)
+   draw_rect(tile.grow(2.5+radius*2.2),
+    Color(mixed.r,mixed.g,mixed.b,.15/(radius+1)),false,2.0,true)
+  draw_line(tile.position+Vector2(3,tile.size.y*.25),
+   tile.position+Vector2(3,tile.size.y*.70),
+   Color(second.r,second.g,second.b,.55*pulse),2.0,true)
 
 func _board_back(board_rect:Rect2,cols:int,rows:int) -> float:
  # Identical luxury neon system in Puzzle and Blockfall, but each has its
