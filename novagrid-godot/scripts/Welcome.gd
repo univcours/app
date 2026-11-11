@@ -48,6 +48,7 @@ func _ready() -> void:
   progress.restore(save_data["progression"])
  if save_data.get("campaign") is Dictionary:
   campaign.restore(save_data["campaign"])
+ visuals.set_skin(progress.active_skin)
  var cfg:=ConfigFile.new()
  if cfg.load("user://novagrid-visual.cfg")==OK:
   language=String(cfg.get_value("interface","language","en"))
@@ -111,7 +112,8 @@ func _targets() -> Dictionary:
   elif screen=="daily":
    result["daily_play"]=_real_rect(Rect2(38,759,356,78))
   elif screen=="settings":
-   for i in 4: result[["sound","music","quality","language"][i]]=_real_rect(Rect2(34,235+i*106,364,78))
+   for i in 5:
+    result[["sound","music","quality","language","skin"][i]]=_real_rect(Rect2(34,220+i*103,364,78))
  return result
 
 func _tr(en:String,fr:String) -> String:
@@ -272,13 +274,13 @@ func _daily() -> void:
  if daily.get("reward_day","")==progress.day_key:
   _center(_tr("TODAY’S REWARD EARNED","RÉCOMPENSE DU JOUR OBTENUE"),542,12,GOLD)
  _text(_tr("DAILY MISSIONS","MISSIONS DU JOUR"),Vector2(34,566),13,Color("#c2c6f1"))
- for i in progress.MISSIONS.size():
-  var mission:Dictionary=progress.MISSIONS[i]
+ var missions:Array=progress.missions_for_today()
+ for i in missions.size():
+  var mission:Dictionary=missions[i]
   var amount:int=int(progress.daily.get(mission["id"],0))
-  var target:int=mission["target"]
+  var target:int=int(mission["target"])
   var y:float=596+i*47
-  var labels:Array=[_tr("Place 12 crystals","Placez 12 cristaux"),_tr("Clear 6 groups","Éliminez 6 groupes"),_tr("Drop 10 blocks","Lâchez 10 blocs")]
-  _text(labels[i],Vector2(36,y),16,Color("#e1e6ff"))
+  _text(_tr(String(mission["label"]),String(mission["label_fr"])),Vector2(36,y),14,Color("#e1e6ff"))
   _text("%d / %d"%[amount,target],Vector2(0,y),14,GOLD,395,HORIZONTAL_ALIGNMENT_RIGHT)
   draw_rect(Rect2(36,y+11,359,4),Color("#27294f"))
   if amount>0: draw_rect(Rect2(36,y+11,359*float(amount)/target,4),CYAN)
@@ -288,16 +290,24 @@ func _daily() -> void:
 
 func _settings() -> void:
  _heading(_tr("Settings","Réglages"),_tr("Make this galaxy yours.","Votre galaxie, vos préférences."))
- var labels:Array=[_tr("Sound effects","Effets sonores"),_tr("Music","Musique"),_tr("Visual effects","Effets visuels"),_tr("Language","Langue")]
- var values:Array=[_tr("ON","OUI") if audio.sounds_enabled else _tr("OFF","NON"),_tr("ON","OUI") if audio.music_enabled else _tr("OFF","NON"),_tr("LOW","RÉDUITS") if reduced_effects else _tr("FULL","COMPLETS"),"FRANÇAIS" if language=="fr" else "ENGLISH"]
- for i in 4:
-  var row:=Rect2(34,235+i*106,364,78)
+ var offer:Dictionary=progress.next_skin_offer()
+ var label_skin:String="CRYSTAL AURA"
+ var skin_action:String="NEXT: %s · %d STARS"%[offer["name"],offer["price"]] if not bool(offer["owned"]) else "TAP TO EQUIP %s"%String(offer["name"])
+ var labels:Array=[_tr("Sound effects","Effets sonores"),_tr("Music","Musique"),_tr("Visual effects","Effets visuels"),_tr("Language","Langue"),_tr(label_skin,"HALO CRISTAL")]
+ var values:Array=[_tr("ON","OUI") if audio.sounds_enabled else _tr("OFF","NON"),_tr("ON","OUI") if audio.music_enabled else _tr("OFF","NON"),_tr("LOW","RÉDUITS") if reduced_effects else _tr("FULL","COMPLETS"),"FRANÇAIS" if language=="fr" else "ENGLISH",progress.current_skin_name()+" · "+skin_action]
+ for i in 5:
+  var row:=Rect2(34,220+i*103,364,78)
   _panel(row,CYAN if i<2 else Color("#ff31ed"))
-  _text(labels[i],row.position+Vector2(20,33),22)
-  _text(values[i],row.position+Vector2(20,59),13,Color("#cbd8ff"))
-  NeonSkin.icon(self,["sound","music","effects","language"][i],
-   row.position+Vector2(326,39),20,CYAN if i%2==0 else NeonSkin.PINK)
- _center(_tr("Every setting is saved on this device.","Vos préférences sont sauvegardées ici."),750,15,Color("#b4c2e6"))
+  _text(labels[i],row.position+Vector2(20,33),21)
+  _text(values[i],row.position+Vector2(20,59),12,Color("#cbd8ff"))
+  if i<4:
+   NeonSkin.icon(self,["sound","music","effects","language"][i],
+    row.position+Vector2(326,39),20,CYAN if i%2==0 else NeonSkin.PINK)
+  else:_text("✦",row.position+Vector2(321,49),27,GOLD)
+ if progress.last_reward.begins_with("NEED ") or progress.last_reward.begins_with("UNLOCKED "):
+  _center(progress.last_reward,756,13,GOLD)
+ else:
+  _center(_tr("Every setting is saved on this device.","Vos préférences sont sauvegardées ici."),756,13,Color("#b4c2e6"))
  _center("NovaGrid · Cosmic Edition",884,17,Color("#8c9dce"))
 
 func _draw() -> void:
@@ -336,7 +346,7 @@ func _activate(key:String) -> void:
   sound_key="popup"
  elif key=="back" or key=="nav_home":
   sound_key="close"
- elif key in ["sound","music","quality","language"]:
+ elif key in ["sound","music","quality","language","skin"]:
   sound_key="toggle"
  audio.effect(sound_key)
  match key:
@@ -362,6 +372,11 @@ func _activate(key:String) -> void:
   "language":
    language="fr" if language=="en" else "en"
    _save_preferences()
+  "skin":
+   if progress.cycle_or_unlock_skin():
+    visuals.set_skin(progress.active_skin)
+    _save_progression()
+   else:audio.effect("invalid")
   _:
    if key.begins_with("stage"):
     var level:int=int(key.trim_prefix("stage"))
@@ -370,6 +385,12 @@ func _activate(key:String) -> void:
     else:
      audio.effect("invalid")
  queue_redraw()
+
+func _save_progression() -> void:
+ var data:Dictionary=SaveStore.read()
+ data["progression"]=progress.snapshot()
+ var err:Error=SaveStore.write(data)
+ if err!=OK:push_error("NovaGrid skin save failed: "+error_string(err))
 
 func _save_preferences() -> void:
  var cfg:=ConfigFile.new()

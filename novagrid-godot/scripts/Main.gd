@@ -178,6 +178,7 @@ func _ready() -> void:
  fireworks.z_index=15
  add_child(fireworks)
  visuals.set_theme(progress.active_theme)
+ visuals.set_skin(progress.active_skin)
  var gen := RandomNumberGenerator.new()
  gen.seed = 20261106
  for i in 110:
@@ -443,7 +444,10 @@ func _gem(rect:Rect2,color_id:int,ghost:bool=false,moving:bool=false) -> void:
  var tile:Rect2=rect.grow(-maxf(.7,rect.size.x*.025))
  var phase:float=clock*3.6+tile.position.x*.037+tile.position.y*.043
  var pulse:float=.66+.26*sin(phase)
- var mixed:Color=tint.lerp(second,.10+.10*(.5+.5*sin(phase*.7)))
+ var blend:float=.10+.10*(.5+.5*sin(phase*.7))
+ if progress.active_skin==1:blend+=.14
+ elif progress.active_skin==2:blend+=.32
+ var mixed:Color=tint.lerp(second,blend)
  if ghost:
   draw_rect(tile,Color(mixed.r,mixed.g,mixed.b,.14+.08*pulse),true)
   draw_rect(tile,mixed.lightened(.34),false,1.6)
@@ -1180,7 +1184,9 @@ func _release_puzzle(pos:Vector2,layout:Dictionary) -> void:
       for xx in 9:
        if int(puzzle.previous.get("cells",puzzle.cells)[yy][xx])>0 and puzzle.cells[yy][xx]==0:
         _burst(board.position+Vector2((xx+.5)*board.size.x/9.0,(yy+.5)*board.size.y/9.0),3,GEM_COLORS[int(puzzle.previous["cells"][yy][xx])])
-     var combo_message:String="COSMIC COMBO x%d  +%d" % [puzzle.last_groups,puzzle.last_gained] if puzzle.last_groups>1 else "CRYSTAL CLEAR  +%d" % puzzle.last_gained
+     var combo_message:String="SUPER COMBO x%d  +%d"%[puzzle.combo,puzzle.last_gained] if puzzle.combo>=3 else "DOUBLE COMBO x%d  +%d"%[puzzle.combo,puzzle.last_gained] if puzzle.combo==2 else "CRYSTAL CLEAR  +%d"%puzzle.last_gained
+     if puzzle.combo>=3:
+      _burst(board.get_center(),mini(60,15+puzzle.combo*7),GLOW_GOLD)
      _announce(combo_message,board.get_center()+Vector2(0,-12),Color("#91f7ff"))
     if puzzle.fever_moves==5:
      audio.effect("fever")
@@ -1247,7 +1253,7 @@ func _fall_locked() -> void:
   _burst(_layout()["board"].get_center(),20+falling.last_lines*9,Color("#86e8ff"))
   var clear_names:Array=["","SINGLE","DOUBLE","TRIPLE","SUPERNOVA"]
   var falling_message:String="BLOCKFALL COMBO x%d  +%d" % [falling.last_lines,falling.last_gained] if falling.last_lines>1 else "QUANTUM CLEAR  +%d" % falling.last_gained
-  falling_message=String(clear_names[mini(4,falling.last_lines)])+"  +%d"%falling.last_gained
+  falling_message="SUPER COMBO x%d  +%d"%[falling.combo,falling.last_gained] if falling.combo>=3 else "DOUBLE COMBO x2  +%d"%falling.last_gained if falling.combo==2 else String(clear_names[mini(4,falling.last_lines)])+"  +%d"%falling.last_gained
   _announce(falling_message,_layout()["board"].get_center(),Color("#b2f9ff"))
   _launch_fireworks(falling.last_lines,falling.last_gained,_layout()["board"])
  else:
