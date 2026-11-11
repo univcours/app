@@ -89,7 +89,7 @@ func launch(groups:int,board:Rect2,nickname:String="NOVA PLAYER",low_fx:bool=fal
  for i in quantity:
   var spread:float=(float(i)-float(quantity-1)*.5)*board.size.x*.18
   var goal:=Vector2(board.get_center().x+spread,
-   maxf(98.0,board.position.y-18.0+float(i%3)*25.0))
+   board.position.y+45.0+float(i%3)*24.0)
   var start:=Vector2(board.get_center().x+spread*.3,board.end.y-10.0)
   shells.append({"start":start,"goal":goal,"delay":float(i)*.23,
    "exploded":false,"color":COLORS[(i+groups)%COLORS.size()]})
@@ -135,7 +135,7 @@ func _process(delta:float)->void:
    if age<1.75:
     p["pos"]=Vector2(p["pos"]).lerp(Vector2(p["target"]),clampf(delta*13.0,0.0,1.0))
    elif age>=2.8:
-    p["velocity"]=Vector2(p["velocity"])+Vector2(0,160.0*delta)
+    p["velocity"]=Vector2(p["velocity"])+Vector2(0,390.0*delta)
     p["pos"]=Vector2(p["pos"])+Vector2(p["velocity"])*delta
    else:
     p["pos"]=Vector2(p["target"])
@@ -144,16 +144,18 @@ func _process(delta:float)->void:
  else:queue_redraw()
 
 func _explode(center:Vector2,color:Color,shell_index:int)->void:
- var quantity:int=20+tier*10
- if reduced_effects:quantity=13
  var capacity:int=MAX_LOW_SPARKS if reduced_effects else MAX_SPARKS
+ # Allocate each rocket a share of the mobile budget. A 5-rocket finale
+ # must not starve the last two rockets of particles.
+ var per_rocket:int=maxi(6,int(capacity/maxi(1,shells.size())))
+ var quantity:int=mini(20+tier*10,per_rocket)
  for i in quantity:
   if particles.size()>=capacity:break
   var angle:float=TAU*(float(i)/float(quantity)+gen.randf_range(-.012,.012))
-  var force:float=gen.randf_range(65.0,110.0)+float(tier)*15.0
+  var force:float=gen.randf_range(85.0,155.0)+float(tier)*21.0
   var tint:Color=color.lerp(COLORS[(i+shell_index)%COLORS.size()],.72)
   particles.append({"pos":center,"velocity":Vector2(cos(angle),sin(angle))*force,
-   "life":gen.randf_range(.90,1.5),"max_life":1.5,
+   "life":gen.randf_range(1.06,1.85),"max_life":1.85,
    "color":tint,"size":gen.randf_range(1.2,2.6)})
 
 func _write_name_in_sparks()->void:
@@ -205,24 +207,38 @@ func _halo_letters()->void:
 func _draw()->void:
  if not active:return
  for shell in shells:
-  if bool(shell["exploded"]):continue
+  var tint:Color=shell["color"]
+  if bool(shell["exploded"]):
+   # A spreading multicolour shockwave reads as a firework in the sky.
+   var since:float=age-float(shell["delay"])-.36
+   if since>=0.0 and since<.68:
+    var energy:float=1.0-since/.68
+    var radius:float=11.0+since*153.0
+    var center:Vector2=shell["goal"]
+    draw_arc(center,radius,0,TAU,48,
+     Color(tint.r,tint.g,tint.b,energy*.26),4.4,true)
+    draw_arc(center,radius*.76,0,TAU,40,
+     Color(1,1,1,energy*.13),1.6,true)
+   continue
   var t:float=(age-float(shell["delay"]))/.36
   if t<=0.0 or t>=1.0:continue
   var pos:Vector2=Vector2(shell["start"]).lerp(Vector2(shell["goal"]),t)
-  var tint:Color=shell["color"]
-  draw_line(pos+Vector2(0,18),pos,Color(tint.r,tint.g,tint.b,.38),5,true)
-  draw_line(pos+Vector2(0,12),pos,Color(1,1,1,.92),1.5,true)
-  draw_circle(pos,3.2,tint)
+  draw_line(pos+Vector2(0,18),pos,Color(tint.r,tint.g,tint.b,.47),6,true)
+  draw_line(pos+Vector2(0,12),pos,Color(1,1,1,.96),1.8,true)
+  draw_circle(pos,3.8,tint)
  for p in particles:
   var fade:float=clampf(float(p["life"])/float(p["max_life"]),0.0,1.0)
   var pos:Vector2=p["pos"]
   var v:Vector2=p["velocity"]
   var color:Color=p["color"]
-  draw_line(pos-v.normalized()*minf(14.0,v.length()*.09),pos,
-   Color(color.r,color.g,color.b,fade*.66),2.9,true)
-  draw_circle(pos,maxf(.4,float(p["size"])*fade*1.6),
-   Color(color.r,color.g,color.b,fade*.22))
-  draw_circle(pos,maxf(.38,float(p["size"])*fade*.65),Color(1,1,1,fade*.95))
+  var streak:Vector2=v.normalized()*minf(23.0,v.length()*.11)
+  draw_line(pos-streak*1.25,pos,
+   Color(color.r,color.g,color.b,fade*.19),7.5,true)
+  draw_line(pos-streak,pos,
+   Color(color.r,color.g,color.b,fade*.90),2.8,true)
+  draw_circle(pos,maxf(.55,float(p["size"])*fade*2.2),
+   Color(color.r,color.g,color.b,fade*.27))
+  draw_circle(pos,maxf(.44,float(p["size"])*fade*.75),Color(1,1,1,fade))
  if tier==4 and age>=1.0 and age<=4.5:
   var alpha:float=clampf((4.5-age)*.9,0.0,1.0)
   if unicode_label and age<2.82:
@@ -233,5 +249,5 @@ func _draw()->void:
   for letter in letters:
    var pos:Vector2=letter["pos"]
    var color:Color=letter["color"]
-   draw_circle(pos,3.3,Color(color.r,color.g,color.b,alpha*.23))
-   draw_circle(pos,1.55,Color(1,1,1,alpha))
+   draw_circle(pos,4.1,Color(color.r,color.g,color.b,alpha*.34))
+   draw_circle(pos,1.8,Color(1,1,1,alpha))

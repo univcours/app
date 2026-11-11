@@ -116,12 +116,15 @@ func _run() -> void:
  if app.puzzle.last_groups!=4 or app.fireworks.tier!=4 or app.puzzle.last_gained<=0:
   failures+=1
   push_error("Legendary capture requires four REAL cleared groups")
- await create_timer(2.10).timeout
+ # Multiple fireworks must explode visibly before the name settles.
+ await create_timer(1.26).timeout
+ await snap("11-legendary-sky-finale")
+ await create_timer(.84).timeout
  if not app.fireworks.name_emitted or app.fireworks.letters.is_empty():
   failures+=1
   push_error("Legendary player-name spark letters failed to appear")
  await snap("09-legendary-player-name")
- await create_timer(1.16).timeout
+ await create_timer(1.55).timeout
  await snap("10-legendary-falling-sparks")
 
  # Test actual crystal output, distinct saturated colors in rendered tiles.
@@ -159,7 +162,7 @@ func _run() -> void:
  var low_ms:float=float(Time.get_ticks_usec()-low_begin)/60000.0
  var report:Dictionary={"engine":Engine.get_version_info()["string"],"viewport":[432,960],
   "renderer":RenderingServer.get_video_adapter_name(),"software_frame_ms":ms,"software_low_effects_frame_ms":low_ms,
-  "screenshots":10,"failed":failures}
+  "screenshots":11,"failed":failures}
  var file:=FileAccess.open("res://build/render-report.json",FileAccess.WRITE)
  file.store_string(JSON.stringify(report,"  "))
  app.queue_free()
