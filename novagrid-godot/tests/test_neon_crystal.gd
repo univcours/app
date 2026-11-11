@@ -35,7 +35,7 @@ func _run()->void:
   check(app.GEM_COLORS[i]==welcome.GEMS[i],
    "same neon hue on Home and actual Puzzle/Blockfall: "+str(i))
   var colour:Color=app.GEM_COLORS[i]
-  check(colour.get_s()>0.68 and colour.get_v()>0.85,
+  check(colour.s>0.68 and colour.v>0.85,
    "each cube remains saturated bright neon "+str(i))
  check(app.visuals.tile_viewports.size()==8 and
   welcome.visuals.tile_viewports.size()==8,
