@@ -29,8 +29,8 @@ func configure(palette: Array) -> void:
  background.material = sky_material
  add_child(background)
 
- # Cosmic Edition uses faceted shader crystals, baked once per palette.
- # The previous original 3D candy renderer remains available in source.
+ # One-shot smooth neon glass textures are baked per colour (no X facets).
+ # No live per-frame viewport cost, matching low-end Android constraints.
  sky_material.set_shader_parameter("reduced_effects",reduced_effects)
  sky_material.set_shader_parameter("activity",.45 if reduced_effects else .75)
  sky_material.set_shader_parameter("motion_speed",0.0 if reduced_effects else .08)

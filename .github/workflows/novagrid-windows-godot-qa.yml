@@ -49,7 +49,7 @@ jobs:
           $project = Join-Path $PWD 'novagrid-godot'
           $suites = @('game','progression','touch','layout','audio','back_navigation',
             'cosmic','integrity','open_source','menu','typography','legacy_cleanup',
-            'visual_feedback','rescue','branding','hint','fireworks')
+            'visual_feedback','rescue','branding','hint','fireworks','neon_crystal')
           $reports = Join-Path $project 'build\reports-windows'
           New-Item -ItemType Directory -Path $reports -Force | Out-Null
           $passed = 0
