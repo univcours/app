@@ -598,8 +598,8 @@ func _draw_puzzle(layout:Dictionary) -> void:
    _gem(Rect2(left+Vector2(p.x*cell,p.y*cell_y),
     Vector2(cell,cell_y)),int(colors[selected]),false,true)
 
-const BLOCKFALL_GHOST_ALPHA:float=0.10
-const BLOCKFALL_GHOST_GLOW_ALPHA:float=0.028
+const BLOCKFALL_GHOST_ALPHA:float=0.14
+const BLOCKFALL_GHOST_GLOW_ALPHA:float=0.032
 
 func _blockfall_ghost(rect:Rect2,color_id:int) -> void:
  # Blockfall landing projection: transparent, softly lit neon, no border.
@@ -608,7 +608,9 @@ func _blockfall_ghost(rect:Rect2,color_id:int) -> void:
  if color_id<=0:return
  var inset:float=maxf(1.2,rect.size.x*.065)
  var tile:Rect2=rect.grow(-inset)
- var tint:Color=GEM_COLORS[clampi(color_id,1,7)].lightened(.23)
+ # Cool luminous tint keeps the translucent preview visibly coloured
+ # on dark-blue cells; pure low-alpha yellow looked nearly grey in captures.
+ var tint:Color=GEM_COLORS[clampi(color_id,1,7)].lerp(Color("#70fcff"),.68)
  if not visuals.reduced_effects:
   # Filled translucent layers, never borders or hard neon rims.
   draw_rect(tile.grow(3.7),Color(tint.r,tint.g,tint.b,BLOCKFALL_GHOST_GLOW_ALPHA*.55),true)
