@@ -5,6 +5,20 @@ const RANKS = ["ROOKIE","BRONZE","SILVER","GOLD","EMERALD","SAPPHIRE","DIAMOND",
 const RANK_LEVELS = [1,3,7,12,20,31,45,62,82]
 const THEMES = ["NEON","OCEAN","VIOLET","EMERALD","GOLD"]
 const THEME_LEVELS = [1,4,9,16,28]
+# Offline-only cosmetic auras purchased exclusively with earned Stars.
+const SKIN_NAMES = ["CLASSIC","AURORA","PRISM"]
+const SKIN_PRICES = [0,35,80]
+# Daily rotations preserve three short goals but vary targets and the
+# clearing challenge by the UTC day. No server, ad or purchase is needed.
+const DAILY_ROTATIONS = [
+ {"place":8,"clear":4,"drop":8,"chains":0},
+ {"place":10,"clear":2,"drop":6,"chains":2},
+ {"place":12,"clear":6,"drop":10,"chains":0},
+ {"place":6,"clear":1,"drop":8,"chains":1},
+ {"place":9,"clear":5,"drop":6,"chains":0},
+ {"place":10,"clear":2,"drop":10,"chains":2},
+ {"place":8,"clear":4,"drop":12,"chains":0}
+]
 const MISSIONS = [
  {"id":"puzzle_plays","label":"PLACE 12 CRYSTALS","target":12,"xp":90,"stars":12},
  {"id":"line_clears","label":"CLEAR 6 LINES","target":6,"xp":120,"stars":18},
@@ -14,6 +28,8 @@ var xp := 0
 var level := 1
 var stars := 0
 var active_theme := 0
+var active_skin:int=0
+var owned_skins:Array=[true,false,false]
 var total_plays := 0
 var total_clears := 0
 var total_drops := 0
@@ -85,7 +101,7 @@ func sync_daily(today:String) -> void:
  day_key=today
  daily.clear()
  daily_claimed.clear()
- for mission in MISSIONS:
+ for mission in missions_for_day(today):
   daily[String(mission["id"])]=0
   daily_claimed[String(mission["id"])]=false
  if last_login=="" or today>last_login:
@@ -97,6 +113,58 @@ func sync_daily(today:String) -> void:
   stars+=5+mini(streak,7)*2
   last_reward="DAILY STREAK %d" % streak
 
+func missions_for_day(day:String) -> Array:
+ var epoch:float=Time.get_unix_time_from_datetime_string(day+"T00:00:00")
+ var row:Dictionary=DAILY_ROTATIONS[posmod(int(floor(epoch/86400.0)),DAILY_ROTATIONS.size())]
+ var place_target:int=int(row["place"])
+ var drop_target:int=int(row["drop"])
+ var middle:Dictionary
+ if int(row["chains"])>0:
+  var chains:int=int(row["chains"])
+  middle={"id":"combo_chains","label":"MAKE %d REAL COMBOS"%chains,
+   "label_fr":"RÉUSSIR %d COMBOS"%chains,"target":chains,"xp":125,"stars":18}
+ else:
+  var clear_target:int=int(row["clear"])
+  middle={"id":"line_clears","label":"CLEAR %d GROUPS"%clear_target,
+   "label_fr":"EFFACER %d GROUPES"%clear_target,
+   "target":clear_target,"xp":120,"stars":18}
+ return [
+  {"id":"puzzle_plays","label":"PLACE %d CRYSTALS"%place_target,
+   "label_fr":"PLACER %d CRISTAUX"%place_target,
+   "target":place_target,"xp":90,"stars":12},
+  middle,
+  {"id":"falling_drops","label":"DROP %d BLOCKS"%drop_target,
+   "label_fr":"POSER %d BLOCS"%drop_target,
+   "target":drop_target,"xp":95,"stars":12}]
+
+func missions_for_today() -> Array:
+ sync_daily(_today())
+ return missions_for_day(day_key)
+
+func current_skin_name() -> String:
+ return String(SKIN_NAMES[clampi(active_skin,0,SKIN_NAMES.size()-1)])
+
+func next_skin_offer() -> Dictionary:
+ var next:int=(active_skin+1)%SKIN_NAMES.size()
+ return {"name":String(SKIN_NAMES[next]),"price":int(SKIN_PRICES[next]),
+  "owned":bool(owned_skins[next])}
+
+func cycle_or_unlock_skin() -> bool:
+ # A purchase is explicit and never spends paid currency or ad rewards.
+ var offer:Dictionary=next_skin_offer()
+ var next:int=(active_skin+1)%SKIN_NAMES.size()
+ if not bool(offer["owned"]):
+  if stars<int(offer["price"]):
+   last_reward="NEED %d STARS FOR %s"%[int(offer["price"]),offer["name"]]
+   return false
+  stars-=int(offer["price"])
+  owned_skins[next]=true
+  last_reward="UNLOCKED %s AURA"%String(offer["name"])
+ else:
+  last_reward="%s AURA EQUIPPED"%String(offer["name"])
+ active_skin=next
+ return true
+
 func _days_apart(earlier:String,later:String) -> int:
  var a:float=Time.get_unix_time_from_datetime_string(earlier+"T00:00:00")
  var b:float=Time.get_unix_time_from_datetime_string(later+"T00:00:00")
@@ -107,13 +175,14 @@ func _advance_daily(kind:String,amount:int) -> void:
  if not daily.has(kind):
   return
  var idx:int=-1
- for i in MISSIONS.size():
-  if MISSIONS[i]["id"]==kind:
+ var missions:Array=missions_for_day(day_key)
+ for i in missions.size():
+  if missions[i]["id"]==kind:
    idx=i
    break
  if idx<0 or bool(daily_claimed.get(kind,false)):
   return
- var mission:Dictionary=MISSIONS[idx]
+ var mission:Dictionary=missions[idx]
  daily[kind]=mini(int(mission["target"]),int(daily.get(kind,0))+amount)
  if int(daily[kind])>=int(mission["target"]):
   daily_claimed[kind]=true
@@ -143,6 +212,8 @@ func cleared_lines(count:int,combo:int=0) -> void:
  highest_combo=maxi(highest_combo,combo)
  _grant_xp(12*count+mini(8,combo)*5)
  _advance_daily("line_clears",count)
+ if combo>=2:_advance_daily("combo_chains",1)
+ _achievement("combo_3",highest_combo>=3,20)
  _achievement("first_clear",total_clears>=1,10)
  _achievement("nebula_clearer",total_clears>=30,30)
  _achievement("galactic_master",total_clears>=150,100)
@@ -157,7 +228,7 @@ func locked_falling_piece() -> void:
 
 func next_mission() -> Dictionary:
  sync_daily(_today())
- for mission in MISSIONS:
+ for mission in missions_for_day(day_key):
   if not bool(daily_claimed.get(mission["id"],false)):
    return {"label":String(mission["label"]),"progress":int(daily.get(mission["id"],0)),
     "target":int(mission["target"])}
@@ -165,6 +236,7 @@ func next_mission() -> Dictionary:
 
 func snapshot() -> Dictionary:
  return {"version":1,"xp":xp,"level":level,"stars":stars,"active_theme":active_theme,
+  "active_skin":active_skin,"owned_skins":owned_skins.duplicate(),
   "total_plays":total_plays,"total_clears":total_clears,
   "total_drops":total_drops,"highest_combo":highest_combo,
   "achievements":achievements.duplicate(true),
@@ -184,6 +256,13 @@ func restore(raw:Dictionary) -> bool:
   level+=1
  stars=clampi(int(raw.get("stars",0)),0,100000000)
  active_theme=clampi(int(raw.get("active_theme",0)),0,unlocked_themes()-1)
+ owned_skins=[true,false,false]
+ var saved_skins:Variant=raw.get("owned_skins",[])
+ if saved_skins is Array and saved_skins.size()==SKIN_NAMES.size():
+  for i in range(1,SKIN_NAMES.size()):
+   owned_skins[i]=bool(saved_skins[i])
+ active_skin=clampi(int(raw.get("active_skin",0)),0,SKIN_NAMES.size()-1)
+ if not bool(owned_skins[active_skin]):active_skin=0
  total_plays=maxi(0,int(raw.get("total_plays",0)))
  total_clears=maxi(0,int(raw.get("total_clears",0)))
  total_drops=maxi(0,int(raw.get("total_drops",0)))
