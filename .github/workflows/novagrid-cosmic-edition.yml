@@ -118,7 +118,7 @@ jobs:
           done
           echo "Godot test suites: $passed passed, 0 failed" | tee "$PROJECT/build/reports/suites.txt"
           cat "$PROJECT/build/reports/suites.txt" >> "$GITHUB_STEP_SUMMARY"
-      - name: Capture seven actual runtime screens at portrait resolution
+      - name: Capture ten real runtime screens including sky fireworks and Legendary spark letters
         run: |
           set -euo pipefail
           sudo apt-get update -qq
@@ -130,7 +130,9 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           images = list(Path('novagrid-godot/build').glob('*.png'))
-          assert len(images) >= 7, f'Expected seven real runtime screenshots, found {len(images)}'
+          assert len(images) >= 10, f'Expected ten real runtime screenshots, found {len(images)}'
+          for file in ['08-single-clear-sky-fireworks.png','09-legendary-player-name.png','10-legendary-falling-sparks.png']:
+            assert (Path('novagrid-godot/build')/file).is_file(), f'Missing fireworks visual evidence: {file}'
           print(f'Runtime screenshots: {len(images)}')
           PY
       - name: Configure Android SDK and isolated debug signing
