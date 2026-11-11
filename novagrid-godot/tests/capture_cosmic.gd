@@ -82,6 +82,20 @@ func _run() -> void:
  app.paused=false
  await create_timer(.2).timeout
  await snap("05-blockfall-active")
+ # A reproducible empty-board Blockfall landing guide: real 2x2 O piece
+ # remains high, while the 12%-opaque, borderless ghost lies at the bottom.
+ app.falling.reset()
+ app.falling.kind=1
+ app.falling.piece=app.falling._shape(1)
+ app.falling.active=Vector2i(3,0)
+ app.fall_display=Vector2(app.falling.active)
+ app.falling.over=false
+ app.falling.rescue_pending=false
+ if app.falling.ghost_row()!=16:
+  failures+=1
+  push_error("Expected a deterministic Blockfall ghost on bottom row")
+ await create_timer(.12).timeout
+ await snap("12-blockfall-faint-borderless-ghost")
 
  # A legitimate 4-group clear: two almost-full rows meet two almost-full
  # columns. The live touch handler places a real 2x2 puzzle piece.
@@ -162,7 +176,7 @@ func _run() -> void:
  var low_ms:float=float(Time.get_ticks_usec()-low_begin)/60000.0
  var report:Dictionary={"engine":Engine.get_version_info()["string"],"viewport":[432,960],
   "renderer":RenderingServer.get_video_adapter_name(),"software_frame_ms":ms,"software_low_effects_frame_ms":low_ms,
-  "screenshots":11,"failed":failures}
+  "screenshots":12,"failed":failures}
  var file:=FileAccess.open("res://build/render-report.json",FileAccess.WRITE)
  file.store_string(JSON.stringify(report,"  "))
  app.queue_free()
