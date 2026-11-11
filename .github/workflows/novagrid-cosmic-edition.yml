@@ -109,7 +109,7 @@ jobs:
         run: |
           set -euo pipefail
           passed=0
-          for suite in game progression touch layout audio back_navigation cosmic integrity open_source menu typography legacy_cleanup visual_feedback rescue branding hint fireworks neon_crystal; do
+          for suite in game progression touch layout audio back_navigation cosmic integrity open_source menu typography legacy_cleanup visual_feedback rescue branding hint fireworks neon_crystal blockfall_ghost; do
             qa_data="$RUNNER_TEMP/novagrid-test-$suite"
             mkdir -p "$qa_data"
             XDG_DATA_HOME="$qa_data" timeout 120s godot --headless --audio-driver Dummy --path "$PROJECT" --script "res://tests/test_$suite.gd" 2>&1 | tee "$PROJECT/build/reports/$suite.log"
@@ -118,7 +118,7 @@ jobs:
           done
           echo "Godot test suites: $passed passed, 0 failed" | tee "$PROJECT/build/reports/suites.txt"
           cat "$PROJECT/build/reports/suites.txt" >> "$GITHUB_STEP_SUMMARY"
-      - name: Capture eleven real runtime screens including visible Legendary sky finale
+      - name: Capture twelve real runtime screens including borderless Blockfall landing ghost
         run: |
           set -euo pipefail
           sudo apt-get update -qq
@@ -130,8 +130,8 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           images = list(Path('novagrid-godot/build').glob('*.png'))
-          assert len(images) >= 11, f'Expected eleven real runtime screenshots, found {len(images)}'
-          for file in ['08-single-clear-sky-fireworks.png','09-legendary-player-name.png','10-legendary-falling-sparks.png','11-legendary-sky-finale.png']:
+          assert len(images) >= 12, f'Expected twelve real runtime screenshots, found {len(images)}'
+          for file in ['08-single-clear-sky-fireworks.png','09-legendary-player-name.png','10-legendary-falling-sparks.png','11-legendary-sky-finale.png','12-blockfall-faint-borderless-ghost.png']:
             assert (Path('novagrid-godot/build')/file).is_file(), f'Missing fireworks visual evidence: {file}'
           print(f'Runtime screenshots: {len(images)}')
           PY

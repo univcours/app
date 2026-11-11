@@ -594,6 +594,17 @@ func _draw_puzzle(layout:Dictionary) -> void:
    _gem(Rect2(left+Vector2(p.x*cell,p.y*cell_y),
     Vector2(cell,cell_y)),int(colors[selected]),false,true)
 
+const BLOCKFALL_GHOST_ALPHA:float=0.12
+
+func _blockfall_ghost(rect:Rect2,color_id:int) -> void:
+ # Landing projection only: faint translucent colour, NO border or outline.
+ # Live neon glass cubes and Classic ghost hints keep their own visuals.
+ if color_id<=0:return
+ var inset:float=maxf(1.2,rect.size.x*.055)
+ var tile:Rect2=rect.grow(-inset)
+ var tint:Color=GEM_COLORS[clampi(color_id,1,7)]
+ draw_rect(tile,Color(tint.r,tint.g,tint.b,BLOCKFALL_GHOST_ALPHA),true)
+
 func _draw_falling(layout:Dictionary) -> void:
  var board:Rect2=layout["board"]
  var reference:bool=skin_fall!=null and float(layout["height"])>=760.0
@@ -614,8 +625,8 @@ func _draw_falling(layout:Dictionary) -> void:
   for p in falling.piece:
    var pos:Vector2i=ghost+p
    if pos.y>=0 and pos.y<18 and falling.board[pos.y][pos.x]==0:
-    _gem(Rect2(board.position+Vector2(pos.x*cell,pos.y*cell_h),
-     Vector2(cell,cell_h)),falling.kind+1,true)
+    _blockfall_ghost(Rect2(board.position+Vector2(pos.x*cell,pos.y*cell_h),
+     Vector2(cell,cell_h)),falling.kind+1)
   for p in falling.piece:
    var pos:Vector2=fall_display+Vector2(p)
    if pos.y>=0 and pos.y<18:
