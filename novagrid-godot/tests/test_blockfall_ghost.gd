@@ -21,12 +21,20 @@ func _run()->void:
   var painter:String=file.substr(start,end-start)
   check(painter.contains("BLOCKFALL_GHOST_ALPHA") and
    painter.contains("draw_rect(tile,Color("),
-   "projection uses a single translucent colour fill")
+   "projection uses a transparent neon colour fill")
+  check(painter.contains("BLOCKFALL_GHOST_GLOW_ALPHA") and
+   painter.contains("tile.grow(3.7)") and painter.contains("tile.grow(1.8)"),
+   "faint Blockfall landing guide includes two diffuse glow layers")
+  check(painter.contains("if not visuals.reduced_effects:"),
+   "mobile reduced-effects mode skips costly secondary halo layers")
   check(not painter.contains(",false") and not painter.contains("false,") and
-   not painter.contains("_gem(") and not painter.contains("draw_line("),
-   "Blockfall ghost has no strokes, borders, texture or bright edge")
- check(file.contains("const BLOCKFALL_GHOST_ALPHA:float=0.12"),
-  "Blockfall landing tile opacity remains faint at 12 percent")
+   not painter.contains("_gem(") and not painter.contains("draw_line(") and
+   not painter.contains("draw_arc(") and not painter.contains("draw_texture"),
+   "Blockfall ghost is always filled colour with no stroke, border or texture")
+ check(file.contains("const BLOCKFALL_GHOST_ALPHA:float=0.10"),
+  "Blockfall landing tile opacity remains faint at 10 percent")
+ check(file.contains("const BLOCKFALL_GHOST_GLOW_ALPHA:float=0.028"),
+  "soft neon halo remains subtle at under three percent per layer")
  check(file.contains("_blockfall_ghost(Rect2(board.position+Vector2(pos.x*cell,pos.y*cell_h)"),
   "actual Blockfall projection routes through faint borderless renderer")
  var game=load("res://scenes/Main.tscn").instantiate()

@@ -1,9 +1,10 @@
-# Blockfall borderless faint ghost — visual QA
+# Blockfall transparent soft-neon landing guide
 
-**Player request:** the projected square/piece indicating where the falling tetromino will land must be noticeably faded and have **no visible border**.
+The falling piece's projected landing squares in Blockfall now use **transparent softly glowing coloured tiles without any border**. The ghost is translucent and deliberately much fainter than the actual luminous glass cubes.
 
-**Scope:** only Blockfall's projected landing positions. Real falling and locked neon cubes keep their internally illuminated multicolour glass visuals. Classic placement hints are intentionally unchanged.
+- Central colour fill: **10% alpha**, in the current piece's neon hue, slightly lightened for gentle illumination.
+- Full Effects mode: two filled diffuse halo layers (**1.54%** and **2.8%** alpha) extending outside the projected square. They are not outlines and contain no line drawing. Reduced Effects mode omits these two extra layers for low-end Android phones.
+- No X engravings, no glowing frames, no visible borders, no opaque fill.
+- Only affects the Blockfall landing ghost. Classic's HINT, actual falling/locked cubes, piece physics, save state, XP, stars, scoring, ads and controls are unchanged.
 
-The dedicated Godot renderer `_blockfall_ghost` draws a single flat translucent fill with **12% alpha**, small inset, no stroke, no outline, no glint and no texture shader. Existing collision, ghost-row calculation, scoring, touch controls, saves and ads are not modified.
-
-**QA:** the automated `test_blockfall_ghost.gd` validates no-border source and real landing projection above occupied cells, while native capture `12-blockfall-faint-borderless-ghost.png` visually records the ghost at the bottom of an empty 10×18 board with the actual piece near the top. CI includes 19 isolated Godot suites and two Android debug APK variants, and captures 12 real frames. Check contrast on a physical Android phone before store release.
+Quality gate: existing `test_blockfall_ghost.gd` now checks the translucent glow and borderless implementation; the existing 12-screen runtime capture includes a real portrait Blockfall screenshot of the landing ghost. Run all Godot regression suites on both Linux and Windows and export the two Android debug APK variants before merging. Physical-device brightness remains a manual visual QA item.

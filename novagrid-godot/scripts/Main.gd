@@ -594,15 +594,21 @@ func _draw_puzzle(layout:Dictionary) -> void:
    _gem(Rect2(left+Vector2(p.x*cell,p.y*cell_y),
     Vector2(cell,cell_y)),int(colors[selected]),false,true)
 
-const BLOCKFALL_GHOST_ALPHA:float=0.12
+const BLOCKFALL_GHOST_ALPHA:float=0.10
+const BLOCKFALL_GHOST_GLOW_ALPHA:float=0.028
 
 func _blockfall_ghost(rect:Rect2,color_id:int) -> void:
- # Landing projection only: faint translucent colour, NO border or outline.
- # Live neon glass cubes and Classic ghost hints keep their own visuals.
+ # Blockfall landing projection: transparent, softly lit neon, no border.
+ # A low-alpha diffused glow is not an outline; there are no drawn strokes.
+ # Real glass cubes, Classic HINT and the collision model stay unchanged.
  if color_id<=0:return
- var inset:float=maxf(1.2,rect.size.x*.055)
+ var inset:float=maxf(1.2,rect.size.x*.065)
  var tile:Rect2=rect.grow(-inset)
- var tint:Color=GEM_COLORS[clampi(color_id,1,7)]
+ var tint:Color=GEM_COLORS[clampi(color_id,1,7)].lightened(.23)
+ if not visuals.reduced_effects:
+  # Filled translucent layers, never borders or hard neon rims.
+  draw_rect(tile.grow(3.7),Color(tint.r,tint.g,tint.b,BLOCKFALL_GHOST_GLOW_ALPHA*.55),true)
+  draw_rect(tile.grow(1.8),Color(tint.r,tint.g,tint.b,BLOCKFALL_GHOST_GLOW_ALPHA),true)
  draw_rect(tile,Color(tint.r,tint.g,tint.b,BLOCKFALL_GHOST_ALPHA),true)
 
 func _draw_falling(layout:Dictionary) -> void:
