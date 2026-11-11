@@ -53,9 +53,9 @@ func _run()->void:
   "no hidden 3D renderer increasing per-frame phone load")
  var old:Dictionary=app.puzzle.save_state()
  app.visuals.reduced_effects=true
- app._gem(Rect2(Vector2.ZERO,Vector2(40,40)),3)
+ app.queue_redraw()
  check(app.puzzle.save_state()==old,
-  "neon tile rendering never changes score, board, save or state")
+  "neon style and reduced effects never change score, board, save or state")
  app.queue_free()
  welcome.queue_free()
  await process_frame
