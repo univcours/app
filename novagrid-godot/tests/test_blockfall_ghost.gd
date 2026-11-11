@@ -31,10 +31,12 @@ func _run()->void:
    not painter.contains("_gem(") and not painter.contains("draw_line(") and
    not painter.contains("draw_arc(") and not painter.contains("draw_texture"),
    "Blockfall ghost is always filled colour with no stroke, border or texture")
- check(file.contains("const BLOCKFALL_GHOST_ALPHA:float=0.10"),
-  "Blockfall landing tile opacity remains faint at 10 percent")
- check(file.contains("const BLOCKFALL_GHOST_GLOW_ALPHA:float=0.028"),
-  "soft neon halo remains subtle at under three percent per layer")
+ check(file.contains("const BLOCKFALL_GHOST_ALPHA:float=0.14"),
+  "Blockfall landing tile opacity remains transparent at 14 percent")
+ check(file.contains("const BLOCKFALL_GHOST_GLOW_ALPHA:float=0.032"),
+  "soft neon halo remains subtle at 3.2 percent per layer")
+ check(file.contains('.lerp(Color("#70fcff"),.68)'),
+  "landing guide blends with cool neon light so it never looks grey on navy cells")
  check(file.contains("_blockfall_ghost(Rect2(board.position+Vector2(pos.x*cell,pos.y*cell_h)"),
   "actual Blockfall projection routes through faint borderless renderer")
  var game=load("res://scenes/Main.tscn").instantiate()
