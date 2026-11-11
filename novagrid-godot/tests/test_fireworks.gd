@@ -29,6 +29,10 @@ func _run()->void:
  for groups in [1,2,3,4]:
   fx.launch(groups,area,"NOVA PLAYER")
   counts.append(fx.shells.size())
+  for shell in fx.shells:
+   var target:Vector2=shell["goal"]
+   verify(target.y>area.position.y and target.y<area.position.y+area.size.y*.33,
+    "all fireworks explode in visible sky above the active grid")
  verify(counts==[1,2,3,5],"sky rockets grow with genuine clear count")
  fx.launch(4,area,"NOVA PLAYER",true)
  verify(fx.shells.size()==2,"reduced graphics cap simultaneous rockets")

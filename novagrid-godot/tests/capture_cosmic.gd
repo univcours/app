@@ -70,6 +70,9 @@ func _run() -> void:
   push_error("Real line-clear capture did not clear a line")
  await create_timer(.08).timeout
  await snap("03-classic-line-clear")
+ # After an actual row clearance, wait for the sky rocket to explode.
+ await create_timer(.64).timeout
+ await snap("08-single-clear-sky-fireworks")
  app.mode=1
  app.falling.rng.seed=78
  app.falling.reset()
@@ -79,6 +82,51 @@ func _run() -> void:
  app.paused=false
  await create_timer(.2).timeout
  await snap("05-blockfall-active")
+
+ # A legitimate 4-group clear: two almost-full rows meet two almost-full
+ # columns. The live touch handler places a real 2x2 puzzle piece.
+ app.mode=0
+ app.entry="classic"
+ app.paused=false
+ app.settings_open=false
+ app.puzzle.reset()
+ app.fireworks.reset_show()
+ app.fragments.clear()
+ app.shockwaves.clear()
+ app.headlines.clear()
+ app.flash=0.0
+ for y in 9:
+  for x in 9:
+   if (y==4 or y==5) and x!=4 and x!=5:
+    app.puzzle.cells[y][x]=3
+   elif (x==4 or x==5) and y!=4 and y!=5:
+    app.puzzle.cells[y][x]=4
+ app.puzzle.tray[0]=[
+  Vector2i(0,0),Vector2i(1,0),
+  Vector2i(0,1),Vector2i(1,1)]
+ app.puzzle.tray[1]=[]
+ app.puzzle.tray[2]=[]
+ app.puzzle.tray_colors[0]=2
+ app.player_name="NOVA CHAMP"
+ app.selected=0
+ var legendary_board:Rect2=app._layout()["board"]
+ var legendary_touch:Vector2=legendary_board.position+Vector2(4.5,4.5)*legendary_board.size.x/9.0
+ app._press(legendary_touch)
+ app._release(legendary_touch)
+ if app.puzzle.last_groups!=4 or app.fireworks.tier!=4 or app.puzzle.last_gained<=0:
+  failures+=1
+  push_error("Legendary capture requires four REAL cleared groups")
+ # Multiple fireworks must explode visibly before the name settles.
+ await create_timer(1.26).timeout
+ await snap("11-legendary-sky-finale")
+ await create_timer(.84).timeout
+ if not app.fireworks.name_emitted or app.fireworks.letters.is_empty():
+  failures+=1
+  push_error("Legendary player-name spark letters failed to appear")
+ await snap("09-legendary-player-name")
+ await create_timer(1.55).timeout
+ await snap("10-legendary-falling-sparks")
+
  # Test actual crystal output, distinct saturated colors in rendered tiles.
  var samples:Array=[]
  var layout:Dictionary=app._layout()
@@ -87,6 +135,7 @@ func _run() -> void:
  app.fragments.clear()
  app.shockwaves.clear()
  app.headlines.clear()
+ app.fireworks.reset_show()
  app.flash=0
  for i in range(1,8):app.puzzle.cells[3][i]=i
  app.paused=false
@@ -113,7 +162,7 @@ func _run() -> void:
  var low_ms:float=float(Time.get_ticks_usec()-low_begin)/60000.0
  var report:Dictionary={"engine":Engine.get_version_info()["string"],"viewport":[432,960],
   "renderer":RenderingServer.get_video_adapter_name(),"software_frame_ms":ms,"software_low_effects_frame_ms":low_ms,
-  "screenshots":7,"failed":failures}
+  "screenshots":11,"failed":failures}
  var file:=FileAccess.open("res://build/render-report.json",FileAccess.WRITE)
  file.store_string(JSON.stringify(report,"  "))
  app.queue_free()
