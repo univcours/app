@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-debug:
@@ -40,3 +40,15 @@ jobs:
           name: FINGERVERSE-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+
+      - name: Publish direct-download preview APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          APK="app/build/outputs/apk/debug/app-debug.apk#FINGERVERSE-v0.2.0-debug.apk"
+          TAG="fingerverse-v0.2.0"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK" --clobber
+          else
+            gh release create "$TAG" "$APK" --target fingerverse-prototype --title "FINGERVERSE v0.2.0 — playable Android prototype" --notes "Early playable preview. 3D procedural planet, fingerprint authentication, tilt controls, swipe rotation and six collectible crystals. Not a finished game. This APK is debug-signed." --prerelease
+          fi
