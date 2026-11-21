@@ -13,6 +13,7 @@ import android.opengl.GLSurfaceView;
 import android.os.Bundle;
 import android.os.CancellationSignal;
 import android.view.Gravity;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
@@ -28,8 +29,8 @@ public class MainActivity extends Activity implements SensorEventListener {
     private TextView status;
     private TextView hint;
     private TextView worldId;
+    private TextView energyLabel;
     private int evolutions = 0;
-    private boolean awakened = false;
 
     @Override public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -47,6 +48,43 @@ public class MainActivity extends Activity implements SensorEventListener {
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(Color.rgb(3, 7, 24));
         root.addView(surface, new FrameLayout.LayoutParams(-1, -1));
+        surface.setOnTouchListener(new View.OnTouchListener() {
+            float previousX, previousY, downX, downY;
+            boolean dragged;
+            @Override public boolean onTouch(View v, MotionEvent event) {
+                float x = event.getX(), y = event.getY();
+                switch (event.getActionMasked()) {
+                    case MotionEvent.ACTION_DOWN:
+                        previousX = downX = x;
+                        previousY = downY = y;
+                        dragged = false;
+                        return true;
+                    case MotionEvent.ACTION_MOVE:
+                        float dx = x - previousX, dy = y - previousY;
+                        if (Math.abs(x - downX) + Math.abs(y - downY) > dp(12)) dragged = true;
+                        world.swipe(dx,dy);
+                        previousX = x; previousY = y;
+                        return true;
+                    case MotionEvent.ACTION_UP:
+                        if (!dragged) {
+                            int count = world.collect(x, y, dp(65));
+                            if (count > 0) {
+                                energyLabel.setText(String.format(Locale.US, "✦   ENERGY SHARDS   %d / 6", count));
+                                status.setText(count == 6 ? "ALL SHARDS COLLECTED!" : "ENERGY SHARD CAPTURED!");
+                                hint.setText(count == 6
+                                        ? "Sector complete! Use your fingerprint to evolve the universe."
+                                        : "Tilt to move shards. Tap them to gather more energy.");
+                            } else if (evolutions > 0) {
+                                hint.setText("Tap the six glowing energy shards to collect them.\nSwipe to spin the planet. Tilt to bend gravity.");
+                            }
+                        }
+                        return true;
+                    case MotionEvent.ACTION_CANCEL:
+                        return true;
+                    default: return true;
+                }
+            }
+        });
 
         LinearLayout top = new LinearLayout(this);
         top.setOrientation(LinearLayout.VERTICAL);
@@ -65,6 +103,10 @@ public class MainActivity extends Activity implements SensorEventListener {
         LinearLayout.LayoutParams worldIdParams = new LinearLayout.LayoutParams(-1, -2);
         worldIdParams.topMargin = dp(23);
         top.addView(worldId, worldIdParams);
+        energyLabel = label("✦   ENERGY SHARDS   0 / 6", 13, 0xFFFFC9F7, true);
+        LinearLayout.LayoutParams energyParams = new LinearLayout.LayoutParams(-1,-2);
+        energyParams.topMargin = dp(9);
+        top.addView(energyLabel, energyParams);
         FrameLayout.LayoutParams tp = new FrameLayout.LayoutParams(-1, -2, Gravity.TOP);
         root.addView(top, tp);
 
@@ -158,11 +200,11 @@ public class MainActivity extends Activity implements SensorEventListener {
     }
 
     private void evolve(boolean verified) {
-        awakened = true;
         evolutions++;
         world.awaken(evolutions);
+        energyLabel.setText("✦   ENERGY SHARDS   0 / 6");
         status.setText(verified ? "✦   WORLD AWAKENED   ✦" : "✦   DEMO WORLD ACTIVE   ✦");
-        hint.setText("Tilt the phone to bend orbital gravity.\nAuthenticate again to create another universe.");
+        hint.setText("Tilt to bend gravity.\nSwipe to rotate the planet. Tap the glowing shards to collect them.");
         worldId.setText(String.format(Locale.US, "SECTOR %02d   /   %s",
                 evolutions, verified ? "BIOMETRIC GATE VERIFIED" : "PREVIEW MODE"));
     }
