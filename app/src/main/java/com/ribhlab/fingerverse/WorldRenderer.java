@@ -56,7 +56,7 @@ public final class WorldRenderer implements GLSurfaceView.Renderer {
     private static final String STAR_FS =
             "precision mediump float; varying float vIntensity;\n" +
             "void main(){float d=length(gl_PointCoord-vec2(0.5));" +
-            "float alpha=smoothstep(0.5,0.0,d)*vIntensity;" +
+            "float alpha=(1.0-smoothstep(0.0,0.5,d))*vIntensity;" +
             "gl_FragColor=vec4(0.38+0.6*vIntensity,0.66+0.3*vIntensity,1.0,alpha); }";
 
     private volatile float gravX = 0f;
