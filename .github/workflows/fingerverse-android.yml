@@ -24,8 +24,10 @@ jobs:
       # Avoid setup-android@v3 (it currently tries to install the removed 'tools' package).
       - name: Install Android platform 35
         run: |
-          yes | sdkmanager --licenses >/dev/null 2>&1 || true
-          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          SDKMANAGER="$(find "${ANDROID_HOME:-/usr/local/lib/android/sdk}/cmdline-tools" -type f -name sdkmanager | head -n 1)"
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0"
       - name: Install Gradle 8.13
         uses: gradle/actions/setup-gradle@v4
         with:
