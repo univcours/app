@@ -20,10 +20,12 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Android SDK
-        uses: android-actions/setup-android@v3
+      # GitHub ubuntu-latest images ship with Android SDK cmdline tools.
+      # Avoid setup-android@v3 (it currently tries to install the removed 'tools' package).
       - name: Install Android platform 35
-        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+        run: |
+          yes | sdkmanager --licenses >/dev/null 2>&1 || true
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
       - name: Install Gradle 8.13
         uses: gradle/actions/setup-gradle@v4
         with:
