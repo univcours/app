@@ -30,7 +30,12 @@ public final class WorldRenderer implements GLSurfaceView.Renderer {
             "mix(mix(hash3(i+vec3(0,0,1)),hash3(i+vec3(1,0,1)),f.x)," +
             "mix(hash3(i+vec3(0,1,1)),hash3(i+vec3(1,1,1)),f.x),f.y),f.z);}\n" +
             "void main(){\n" +
-            "vec3 n=normalize(vP); float m=noise3(n*4.3+uSeed);" +
+            "vec3 n=normalize(vP); if(uType>1.5){" +
+            "float g=0.55+0.45*sin(uTime*3.5+uSeed);" +
+            "vec3 shine=mix(vec3(0.88,0.17,0.91),vec3(0.05,0.85,1.0),g);" +
+            "float rim=pow(1.0-max(dot(normalize(vN),vec3(0.0,0.0,1.0)),0.0),2.0);" +
+            "gl_FragColor=vec4(shine*(0.75+rim*1.3),1.0); return; }" +
+            "float m=noise3(n*4.3+uSeed);" +
             "m=m*0.67+noise3(n*11.1+uSeed*0.2)*0.33;" +
             "float land=smoothstep(0.46,0.55,m);" +
             "float temp=0.5+0.5*sin(uSeed*1.8);" +
@@ -61,6 +66,14 @@ public final class WorldRenderer implements GLSurfaceView.Renderer {
 
     private volatile float gravX = 0f;
     private volatile float gravY = 0f;
+    private volatile float orbitYaw = 0f;
+    private volatile float orbitPitch = 0f;
+    private volatile int collectedMask = 0;
+    private volatile int energyCount = 0;
+    private final float[] shardX = new float[6];
+    private final float[] shardY = new float[6];
+    private volatile int screenWidth = 1;
+    private volatile int screenHeight = 1;
     private volatile int worldIndex = 0;
     private int drawnIndex = 0;
     private float live = 0f;
@@ -79,7 +92,34 @@ public final class WorldRenderer implements GLSurfaceView.Renderer {
         gravX = gravX*0.85f + Math.max(-9.8f,Math.min(9.8f,x))*0.15f;
         gravY = gravY*0.85f + Math.max(-9.8f,Math.min(9.8f,y))*0.15f;
     }
-    public void awaken(int version) { worldIndex = version; }
+    public void awaken(int version) {
+        collectedMask = 0;
+        energyCount = 0;
+        worldIndex = version;
+    }
+
+    public void swipe(float dx, float dy) {
+        orbitYaw += dx * 0.23f;
+        orbitPitch = Math.max(-48f, Math.min(48f, orbitPitch + dy * 0.14f));
+    }
+
+    /** Returns the number of collected shards, or -1 if the tap missed. */
+    public int collect(float touchX, float touchY, float radiusPx) {
+        if (worldIndex == 0 || live < 0.75f) return -1;
+        int best = -1;
+        float bestDistance = radiusPx * radiusPx;
+        for (int i = 0; i < shardX.length; i++) {
+            if ((collectedMask & (1 << i)) != 0) continue;
+            float dx = touchX - shardX[i];
+            float dy = touchY - shardY[i];
+            float distance = dx * dx + dy * dy;
+            if (distance < bestDistance) { best = i; bestDistance = distance; }
+        }
+        if (best < 0) return -1;
+        collectedMask |= (1 << best);
+        energyCount++;
+        return energyCount;
+    }
 
     @Override public void onSurfaceCreated(GL10 gl, EGLConfig config) {
         GLES20.glClearColor(0.012f,0.017f,0.066f,1f);
@@ -93,6 +133,8 @@ public final class WorldRenderer implements GLSurfaceView.Renderer {
 
     @Override public void onSurfaceChanged(GL10 gl, int width, int height) {
         GLES20.glViewport(0,0,width,height);
+        screenWidth = width;
+        screenHeight = height;
         Matrix.perspectiveM(proj,0,43.0f,(float)width/Math.max(1,height),0.1f,100f);
         Matrix.setLookAtM(view,0,0f,0.08f,8.4f,0f,0f,0f,0f,1f,0f);
         Matrix.multiplyMM(vp,0,proj,0,view,0);
@@ -100,7 +142,7 @@ public final class WorldRenderer implements GLSurfaceView.Renderer {
 
     @Override public void onDrawFrame(GL10 gl) {
         float t = (System.nanoTime()-startTime)*0.000000001f;
-        if (drawnIndex != worldIndex) drawnIndex = worldIndex;
+        if (drawnIndex != worldIndex) { drawnIndex = worldIndex; live = 0.0f; }
         float target=drawnIndex>0?1f:0f;
         live += (target-live)*0.013f;
 
@@ -115,8 +157,8 @@ public final class WorldRenderer implements GLSurfaceView.Renderer {
 
         Matrix.setIdentityM(model,0);
         Matrix.translateM(model,0,0f,0.05f,0f);
-        Matrix.rotateM(model,0,tilt+12f,1f,0f,0f);
-        Matrix.rotateM(model,0,angle,0f,1f,0f);
+        Matrix.rotateM(model,0,tilt+orbitPitch+12f,1f,0f,0f);
+        Matrix.rotateM(model,0,angle+orbitYaw,0f,1f,0f);
         Matrix.scaleM(model,0,size,size,size);
         drawSphere(t, model, 0f, live);
 
@@ -134,6 +176,28 @@ public final class WorldRenderer implements GLSurfaceView.Renderer {
                 Matrix.rotateM(model,0,t*24f + i*67f,0.5f,0.9f,0.2f);
                 Matrix.scaleM(model,0,rockSize,rockSize*(0.8f+i%2),rockSize);
                 drawSphere(t,model,1f,live);
+            }
+            // Six orbiting energy shards make the prototype an actual collectible game.
+            // Their projection is shared with the touch hit-test (no fake visual targets).
+            float[] position = new float[4];
+            float[] clip = new float[4];
+            for (int i = 0; i < 6; i++) {
+                if ((collectedMask & (1 << i)) != 0) continue;
+                float a = (float)(i * Math.PI / 3.0 + t * 0.14f);
+                float x = (float)Math.cos(a) * 1.16f + gravX * 0.032f;
+                float y = (float)Math.sin(a) * 1.30f + gravY * 0.038f;
+                float z = 1.82f + (float)Math.sin(a*2.3f)*0.09f;
+                position[0] = x; position[1] = y; position[2] = z; position[3] = 1f;
+                Matrix.multiplyMV(clip,0,vp,0,position,0);
+                float invW = clip[3] == 0f ? 0f : 1f / clip[3];
+                shardX[i] = (clip[0] * invW * 0.5f + 0.5f) * screenWidth;
+                shardY[i] = (0.5f - clip[1] * invW * 0.5f) * screenHeight;
+                Matrix.setIdentityM(model,0);
+                Matrix.translateM(model,0,x,y,z);
+                Matrix.rotateM(model,0,t * 45f + i * 38f,1f,0.6f,0.4f);
+                float crystalSize = (0.15f + 0.035f*(float)Math.sin(t*3f+i)) * live;
+                Matrix.scaleM(model,0,crystalSize,crystalSize*1.30f,crystalSize);
+                drawSphere(t,model,2f,live);
             }
         }
     }
